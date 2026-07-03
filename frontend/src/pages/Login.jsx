@@ -71,7 +71,7 @@ export default function Login() {
       localStorage.setItem('token', res.data.access_token);
       const me = await getMe();
       setUser(me.data);
-      navigate('/projects');
+      navigate('/');
     } catch (err) {
       setError(err.response?.data?.detail || 'Identifiants incorrects');
     } finally {
