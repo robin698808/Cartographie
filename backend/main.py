@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from database import engine, Base
+from database import engine, Base, settings
 from routes import users, projects, snapshots, ws
 
 # Crée les tables au démarrage (dev — en prod, utiliser Alembic)
@@ -12,10 +12,16 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# CORS — ajuster les origines en production
+# CORS — origines pilotées par la config (CORS_ORIGINS, séparées par des virgules).
+# Derrière le reverse proxy (même origine), le CORS n'est pas sollicité ;
+# utile surtout en accès direct à l'API depuis un autre domaine.
+_origins = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()] or ["*"]
+# allow_credentials n'est pas compatible avec "*" côté navigateur ; l'auth
+# passant par un header Bearer, on ne l'active que pour des origines explicites.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_origins,
+    allow_credentials="*" not in _origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )

@@ -10,6 +10,9 @@ backend/.env
 frontend/node_modules/
 frontend/dist/
 
+# Env (Docker Compose racine)
+.env
+
 # Divers
 .DS_Store
 *.log

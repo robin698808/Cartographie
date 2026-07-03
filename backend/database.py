@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 jours
 
+    # Origines CORS autorisées (séparées par des virgules).
+    # "*" en dev ; en prod, mettre l'URL publique du frontend.
+    CORS_ORIGINS: str = "*"
+
     # Email / SMTP (optionnel — si vide, le lien est loggé en console)
     SMTP_HOST: str = ""
     SMTP_PORT: int = 587

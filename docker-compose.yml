@@ -1,32 +1,52 @@
-version: "3.9"
-
 services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-cartographe}
+      POSTGRES_USER: ${POSTGRES_USER:-cartographe}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD requis (voir .env)}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cartographe}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./backend:/app
-      - cartographe_data:/app/data
     environment:
-      - DATABASE_URL=sqlite:////app/data/cartographe.db
-      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-cartographe}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-cartographe}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY requis (openssl rand -hex 32)}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-10080}
+      # URL publique du front — utilisée dans les liens de reset mot de passe
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      # SMTP (optionnel) — si vide, le lien de reset est loggé côté serveur
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
 
-  # Décommenter pour passer à PostgreSQL :
-  # db:
-  #   image: postgres:16-alpine
-  #   environment:
-  #     POSTGRES_DB: cartographe
-  #     POSTGRES_USER: cartographe
-  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secret}
-  #   volumes:
-  #     - pg_data:/var/lib/postgresql/data
-  #   ports:
-  #     - "5432:5432"
+  # Frontend (build Vite servi par nginx) + reverse proxy /api et /ws.
+  # Seul service exposé publiquement : point d'entrée unique.
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "${HTTP_PORT:-80}:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
 
 volumes:
-  cartographe_data:
-  # pg_data:
+  pg_data:

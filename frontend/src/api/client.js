@@ -1,7 +1,9 @@
 import axios from 'axios';
 
+// URL de l'API : relative ('/api') par défaut — le reverse proxy relaie vers le backend.
+// Surchargeable via VITE_API_URL (ex: http://localhost:8001/api en dev sans proxy).
 const API = axios.create({
-  baseURL: 'http://localhost:8001/api',
+  baseURL: import.meta.env.VITE_API_URL || '/api',
 });
 
 // Injecte le token JWT automatiquement

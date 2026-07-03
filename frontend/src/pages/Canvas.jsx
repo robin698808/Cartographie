@@ -54,7 +54,11 @@ export default function Canvas() {
   /* WebSocket */
   useEffect(() => {
     const token = localStorage.getItem('token');
-    const ws    = new WebSocket(`ws://localhost:8001/ws/${projectId}?token=${token}`);
+    // Base WS : VITE_WS_URL si défini, sinon dérivée de l'origine courante
+    // (wss:// automatique en HTTPS). Le reverse proxy relaie /ws vers le backend.
+    const wsBase = import.meta.env.VITE_WS_URL
+      || `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}`;
+    const ws    = new WebSocket(`${wsBase}/ws/${projectId}?token=${token}`);
     wsRef.current = ws;
     ws.onmessage = (e) => {
       const msg = JSON.parse(e.data);
