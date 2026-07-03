@@ -3724,15 +3724,10 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
 
     {/* ── Titre ── */}
     <div style={{textAlign:"center",marginBottom:8,position:"relative",zIndex:1}}>
-      <h1 style={{fontSize:32,fontWeight:900,letterSpacing:"-0.04em",marginBottom:6,background:"linear-gradient(135deg,"+T.fg+" 0%,#818CF8 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",backgroundClip:"text"}}>Cartographe</h1>
+      <h1 style={{fontSize:32,fontWeight:900,letterSpacing:"-0.04em",marginBottom:6,color:"#FFFFFF"}}>Cartographe</h1>
       <p style={{color:T.fgMuted,fontSize:13,lineHeight:1.7,maxWidth:440,margin:"0 auto"}}>Cartographie applicative pour due diligence IT &amp; audit.<br/>Choisissez comment démarrer votre projet.</p>
     </div>
 
-    {/* ── Badge ── */}
-    <div style={{display:"inline-flex",alignItems:"center",gap:6,background:"rgba(99,102,241,0.12)",border:"1px solid rgba(99,102,241,0.30)",borderRadius:999,padding:"4px 12px",marginBottom:32,position:"relative",zIndex:1}}>
-      <span style={{width:6,height:6,borderRadius:"50%",background:"#6366F1",display:"inline-block"}}/>
-      <span style={{fontSize:11,fontWeight:700,color:"#818CF8",letterSpacing:"0.06em"}}>CARTOGRAPHIE APPLICATIVE · SI &amp; AUDIT</span>
-    </div>
 
     {/* ── Cartes d'action ── */}
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:14,width:"100%",maxWidth:780,position:"relative",zIndex:1,marginBottom:20}}>
@@ -3740,7 +3735,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       {/* Carte 1 — Import fichier */}
       <label style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:10,padding:"22px 20px",background:isDark?"rgba(41,121,255,0.10)":"rgba(41,121,255,0.07)",border:"1.5px solid "+(isDark?"rgba(41,121,255,0.35)":"rgba(41,121,255,0.3)"),borderRadius:14,cursor:"pointer",transition:"all 0.2s",position:"relative",overflow:"hidden"}}>
         <div style={{position:"absolute",inset:0,background:"linear-gradient(135deg,rgba(41,121,255,0.08),transparent)",pointerEvents:"none"}}/>
-        <div style={{width:42,height:42,borderRadius:12,background:"linear-gradient(135deg,#2979FF,#1565C0)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,boxShadow:"0 4px 16px rgba(41,121,255,0.4)",flexShrink:0}}>⬆</div>
+        <div style={{width:42,height:42,borderRadius:12,background:"linear-gradient(135deg,#2979FF,#1565C0)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,boxShadow:"0 4px 16px rgba(41,121,255,0.4)",flexShrink:0,color:"#fff"}}>⬆</div>
         <div>
           <div style={{fontSize:14,fontWeight:700,color:T.fg,marginBottom:4}}>Importer un fichier</div>
           <div style={{fontSize:11,color:T.fgMuted,lineHeight:1.5}}>Excel, CSV, TSV, ODS — mappage automatique des colonnes</div>
@@ -3754,7 +3749,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       {/* Carte 2 — From scratch */}
       <button onClick={function(){setApps([]);setFlows([]);setView("mapping");}} style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:10,padding:"22px 20px",background:isDark?"rgba(99,102,241,0.10)":"rgba(99,102,241,0.07)",border:"1.5px solid rgba(99,102,241,0.35)",borderRadius:14,cursor:"pointer",transition:"all 0.2s",position:"relative",overflow:"hidden",textAlign:"left",fontFamily:"inherit"}}>
         <div style={{position:"absolute",inset:0,background:"linear-gradient(135deg,rgba(99,102,241,0.08),transparent)",pointerEvents:"none"}}/>
-        <div style={{width:42,height:42,borderRadius:12,background:"linear-gradient(135deg,#6366F1,#4F46E5)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,boxShadow:"0 4px 16px rgba(99,102,241,0.4)",flexShrink:0}}>✦</div>
+        <div style={{width:42,height:42,borderRadius:12,background:"linear-gradient(135deg,#6366F1,#4F46E5)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,boxShadow:"0 4px 16px rgba(99,102,241,0.4)",flexShrink:0,color:"#fff"}}>✦</div>
         <div>
           <div style={{fontSize:14,fontWeight:700,color:T.fg,marginBottom:4}}>Créer from scratch</div>
           <div style={{fontSize:11,color:T.fgMuted,lineHeight:1.5}}>Canvas vierge — ajoutez vos applications manuellement</div>
@@ -3775,23 +3770,13 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       </label>
     </div>
 
-    {/* ── Template + Structure ── */}
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,width:"100%",maxWidth:780,position:"relative",zIndex:1}}>
-
-      {/* Template d'import */}
-      <div style={{padding:"16px 18px",background:T.bgCard,borderRadius:12,border:"1px solid "+T.border,display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
-        <div>
-          <div style={{fontSize:12,fontWeight:700,color:"#52B788",marginBottom:3,display:"flex",alignItems:"center",gap:5}}>📋 Template Excel</div>
-          <div style={{fontSize:11,color:T.fgMuted}}>Pré-formaté avec exemples &amp; instructions</div>
-        </div>
-        <button onClick={downloadTemplate} style={{...B,background:"#52B788",padding:"8px 14px",whiteSpace:"nowrap",fontSize:11,flexShrink:0}}>⬇ .xlsx</button>
+    {/* ── Template d'import ── */}
+    <div style={{width:"100%",maxWidth:780,position:"relative",zIndex:1,padding:"16px 18px",background:T.bgCard,borderRadius:12,border:"1px solid "+T.border,display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
+      <div>
+        <div style={{fontSize:12,fontWeight:700,color:"#52B788",marginBottom:3}}>📋 Template Excel</div>
+        <div style={{fontSize:11,color:T.fgMuted}}>Pré-formaté avec exemples &amp; instructions</div>
       </div>
-
-      {/* Structure attendue */}
-      <div style={{padding:"16px 18px",background:T.bgCard,borderRadius:12,border:"1px solid "+T.border}}>
-        <div style={{fontSize:11,fontWeight:700,color:"#548CA8",marginBottom:6,letterSpacing:"0.06em"}}>STRUCTURE MINIMALE</div>
-        <code style={{fontSize:10,color:T.fgMuted,lineHeight:1.7,display:"block",whiteSpace:"pre-wrap"}}>{"Nom Application ; Domaine\nSAP ; Finance\nSalesforce ; Commercial"}</code>
-      </div>
+      <button onClick={downloadTemplate} style={{...B,background:"#52B788",padding:"8px 14px",whiteSpace:"nowrap",fontSize:11,flexShrink:0}}>⬇ .xlsx</button>
     </div>
 
     {/* ── Keyframes ── */}
