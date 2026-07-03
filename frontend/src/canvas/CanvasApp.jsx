@@ -1500,7 +1500,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         var ah4=appH4;
         var totalNeeded=nRows4*ah4+(nRows4-1)*0.02;
         if(totalNeeded>availH4){ah4=Math.max(0.10,(availH4-nRows4*0.02)/(nRows4+nRows4*0.15));}
-        var gap4=nRows4>1?Math.min(0.35,Math.max(0.02,(availH4-nRows4*ah4)/(nRows4-1))):0;
+        var gap4=nRows4>1?Math.max(0.02,(availH4-nRows4*ah4)/(nRows4-1)):0;
         // Domain header drawn AFTER BBox scaling (see below)
         var colXs=[];
         for(var ci=0;ci<nCols4;ci++){colXs.push(colX+0.06+ci*(appW4+colGap));}
@@ -1539,7 +1539,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         var maxRow0=0,maxRow1=0;
         dApps.forEach(function(a){var ca=colAssign[a.id];if(!ca)return;if(ca.col===0&&ca.row>maxRow0)maxRow0=ca.row;if(ca.col>=1&&ca.row>maxRow1)maxRow1=ca.row;});
         var nRowsActual=Math.max(maxRow0,maxRow1)+1;
-        var gap4r=nRowsActual>1?Math.min(0.35,Math.max(0.02,(availH4-nRowsActual*ah4)/(nRowsActual-1))):0;
+        var gap4r=nRowsActual>1?Math.max(0.02,(availH4-nRowsActual*ah4)/(nRowsActual-1)):0;
         dApps.forEach(function(app){
           var ca=colAssign[app.id];if(!ca)return;
           var ax=colXs[ca.col]||colXs[0];
@@ -1829,45 +1829,62 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         var lineW=Math.min(2.5,0.5+bun.synFlows.length*0.12);// épaisseur ∝ nb flux agrégés
         var ep=clipP(A.cx,A.cy,A.w,A.h,B.cx,B.cy);
         var en=clipP(B.cx,B.cy,B.w,B.h,A.cx,A.cy);
-        var lx5=Math.min(ep.x,en.x),ly5=Math.min(ep.y,en.y);
-        var lw5=Math.abs(en.x-ep.x)||0.001,lh5=Math.abs(en.y-ep.y)||0.001;
-        // Halo
-        synSl.addShape(pres.shapes.LINE,{x:lx5,y:ly5,w:lw5,h:lh5,line:{color:"FFFFFF",width:lineW+1.5},flipH:en.x<ep.x,flipV:en.y<ep.y});
-        // Main line (dashed if mixed protocols)
-        var lineOpts={color:pc,width:lineW,endArrowType:"triangle",endArrowSize:Math.min(3,2)};
-        if(isMixed)lineOpts.dashType="lgDash";
-        synSl.addShape(pres.shapes.LINE,{x:lx5,y:ly5,w:lw5,h:lh5,line:lineOpts,flipH:en.x<ep.x,flipV:en.y<ep.y});
-        // Source dot
+        var rdx=en.x-ep.x,rdy=en.y-ep.y;
+        // ── Routage en L avec coude ──
+        var routeSegs,lblCx,lblCy,lblHoriz;
+        if(Math.abs(rdx)<0.08||Math.abs(rdy)<0.08){
+          // Quasi-droit : segment unique
+          routeSegs=[[ep.x,ep.y,en.x,en.y]];
+          lblCx=(ep.x+en.x)/2;lblCy=(ep.y+en.y)/2;lblHoriz=Math.abs(rdx)>Math.abs(rdy);
+        } else if(!synSl._radialHeadersDone){
+          // Layout colonnes : 3 segments via corridor vertical au milieu
+          var midX=ep.x+rdx*0.5;
+          routeSegs=[[ep.x,ep.y,midX,ep.y],[midX,ep.y,midX,en.y],[midX,en.y,en.x,en.y]];
+          lblCx=midX;lblCy=(ep.y+en.y)/2;lblHoriz=false;
+        } else if(Math.abs(rdx)>=Math.abs(rdy)){
+          // Radial, dominant horizontal : sortie horiz puis arrivée verticale
+          routeSegs=[[ep.x,ep.y,en.x,ep.y],[en.x,ep.y,en.x,en.y]];
+          lblCx=(ep.x+en.x)/2;lblCy=ep.y;lblHoriz=true;
+        } else {
+          // Radial, dominant vertical : sortie verticale puis arrivée horiz
+          routeSegs=[[ep.x,ep.y,ep.x,en.y],[ep.x,en.y,en.x,en.y]];
+          lblCx=ep.x;lblCy=(ep.y+en.y)/2;lblHoriz=false;
+        }
+        // Dessin : halo blanc + trait coloré pour chaque segment
+        routeSegs.forEach(function(seg,si){
+          var sw=Math.abs(seg[2]-seg[0]),sh=Math.abs(seg[3]-seg[1]);
+          if(sw<0.003&&sh<0.003)return;
+          var bx=Math.min(seg[0],seg[2]),by=Math.min(seg[1],seg[3]);
+          var bw=sw||0.001,bh=sh||0.001;
+          var fH=seg[2]<seg[0],fV=seg[3]<seg[1];
+          var halo={x:bx,y:by,w:bw,h:bh,line:{color:"FFFFFF",width:lineW+2}};
+          if(fH)halo.flipH=true;if(fV)halo.flipV=true;
+          synSl.addShape(pres.shapes.LINE,halo);
+          var mLine={color:pc,width:lineW};if(isMixed)mLine.dashType="lgDash";
+          if(si===routeSegs.length-1){mLine.endArrowType="triangle";mLine.endArrowSize=2;}
+          var mOpts={x:bx,y:by,w:bw,h:bh,line:mLine};
+          if(fH)mOpts.flipH=true;if(fV)mOpts.flipV=true;
+          synSl.addShape(pres.shapes.LINE,mOpts);
+        });
+        // Point source
         synSl.addShape(pres.shapes.OVAL,{x:ep.x-0.015,y:ep.y-0.015,w:0.03,h:0.03,fill:{color:pc},line:{type:"none"}});
-        // Bundled label: list flow names
-        var txt5="";
-        txt5=n===1?(bun.synFlows[0].label||n+" flux"):n+" flux";
+        // Label centré sur le segment principal, décalages perpendiculaires
+        var txt5=n===1?(bun.synFlows[0].label||n+" flux"):n+" flux";
         if(txt5){
           var lblW5=Math.min(1.5*fS,(txt5.length*0.042+0.12)*fS);
           var lblH5=0.17*fS;
-          // Place label at 40% along the ray (closer to satellite) to avoid hub congestion
-          var t_lbl=bun.agg?0.38:0.5;
-          var lblX5=(ep.x+(en.x-ep.x)*t_lbl)-lblW5/2;
-          var lblY5=(ep.y+(en.y-ep.y)*t_lbl)-lblH5/2;
-          // Perpendicular nudge to avoid line overlap
-          var dx_lbl=en.x-ep.x,dy_lbl=en.y-ep.y,len_lbl=Math.sqrt(dx_lbl*dx_lbl+dy_lbl*dy_lbl)||1;
-          var px_lbl=-dy_lbl/len_lbl*0.08,py_lbl=dx_lbl/len_lbl*0.08;
-          // Try positions along ray with perpendicular offsets
           var bestLbl=null;
-          var tPositionsL=bun.agg?[0.22,0.32,0.42,0.52,0.62,0.14,0.70]:[0.35,0.50,0.65,0.20,0.80,0.10,0.90];
-          var offsL=[0,0.20,-0.20,0.40,-0.40,0.60,-0.60,0.85,-0.85,1.10,-1.10];
-          outerLbl: for(var tli=0;tli<tPositionsL.length;tli++){
-            for(var oli=0;oli<offsL.length;oli++){
-              var clx=ep.x+dx_lbl*tPositionsL[tli]+px_lbl*offsL[oli]-lblW5/2;
-              var cly=ep.y+dy_lbl*tPositionsL[tli]+py_lbl*offsL[oli]-lblH5/2;
-              clx=Math.max(0.02,Math.min(W-lblW5-0.02,clx));
-              cly=Math.max(0.02,Math.min(H-lblH5-0.02,cly));
-              var clear=true;
-              synLR.forEach(function(r){if(!(clx+lblW5<r.x||r.x+r.w<clx||cly+lblH5<r.y||r.y+r.h<cly))clear=false;});
-              if(clear){bestLbl={x:clx,y:cly};break outerLbl;}
-            }
+          var perpOff=lblHoriz?[[0,0.20],[0,-0.20],[0,0.40],[0,-0.40],[0,0.60],[0,-0.60],[0,0]]:[[0.20,0],[-0.20,0],[0.40,0],[-0.40,0],[0.60,0],[-0.60,0],[0,0]];
+          for(var oi2=0;oi2<perpOff.length;oi2++){
+            var clx=lblCx+perpOff[oi2][0]-lblW5/2;
+            var cly=lblCy+perpOff[oi2][1]-lblH5/2;
+            clx=Math.max(0.04,Math.min(W-lblW5-0.04,clx));
+            cly=Math.max(0.04,Math.min(H-lblH5-0.04,cly));
+            var clear=true;
+            synLR.forEach(function(r){if(!(clx+lblW5<r.x||r.x+r.w<clx||cly+lblH5<r.y||r.y+r.h<cly))clear=false;});
+            if(clear){bestLbl={x:clx,y:cly};break;}
           }
-          if(!bestLbl)bestLbl={x:Math.max(0.02,Math.min(W-lblW5-0.02,lblX5)),y:Math.max(0.02,Math.min(H-lblH5-0.02,lblY5))};
+          if(!bestLbl)bestLbl={x:Math.max(0.04,Math.min(W-lblW5-0.04,lblCx-lblW5/2)),y:Math.max(0.04,Math.min(H-lblH5-0.04,lblCy-lblH5/2))};
           synLR.push({x:bestLbl.x,y:bestLbl.y,w:lblW5,h:lblH5});
           synSl.addShape(pres.shapes.RECTANGLE,{x:bestLbl.x-0.02,y:bestLbl.y-0.02,w:lblW5+0.04,h:lblH5+0.04,fill:{color:"FFFFFF"},line:{color:pc,width:0.55}});
           synSl.addText(txt5,{x:bestLbl.x,y:bestLbl.y,w:lblW5,h:lblH5,fontSize:Math.round(7*(bun.agg?1:fS)*10)/10,color:"222222",fontFace:"Calibri",margin:0,valign:"middle",shrinkText:true});
