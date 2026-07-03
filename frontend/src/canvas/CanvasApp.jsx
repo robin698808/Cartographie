@@ -2615,12 +2615,12 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     const toggleSection=(id)=>setHiddenSections(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
     const ALL_WIDGETS=["chart_status","chart_apps","chart_flux","chart_owner","carveout","flowreg"];
     const DEFAULT_SIZES={chart_status:"m",chart_apps:"m",chart_flux:"m",chart_owner:"m",carveout:"l",flowreg:"l"};
-    const [widgetSizes,setWidgetSizes]=useState(function(){try{var s=localStorage.getItem("dash_sizes");if(s)return Object.assign({},DEFAULT_SIZES,JSON.parse(s));}catch(e){}return Object.assign({},DEFAULT_SIZES);});
-    const saveWidgetSizes=(sz)=>{setWidgetSizes(sz);try{localStorage.setItem("dash_sizes",JSON.stringify(sz));}catch(e){}};
+    const [widgetSizes,setWidgetSizes]=useState(function(){try{var s=localStorage.getItem("dash_sizes_"+(projectId||"default"));if(s)return Object.assign({},DEFAULT_SIZES,JSON.parse(s));}catch(e){}return Object.assign({},DEFAULT_SIZES);});
+    const saveWidgetSizes=(sz)=>{setWidgetSizes(sz);try{localStorage.setItem("dash_sizes_"+(projectId||"default"),JSON.stringify(sz));}catch(e){}};
     const [hovWid,setHovWid]=useState(null);
     const [hiddenWidgets,setHiddenWidgets]=useState([]);
-    const [widgetPos,setWidgetPos]=useState(function(){try{var s=localStorage.getItem("dash_pos");if(s)return JSON.parse(s);}catch(e){}return{};});
-    const saveWidgetPos=function(p){setWidgetPos(p);try{localStorage.setItem("dash_pos",JSON.stringify(p));}catch(e){}};
+    const [widgetPos,setWidgetPos]=useState(function(){try{var s=localStorage.getItem("dash_pos_"+(projectId||"default"));if(s)return JSON.parse(s);}catch(e){}return{};});
+    const saveWidgetPos=function(p){setWidgetPos(p);try{localStorage.setItem("dash_pos_"+(projectId||"default"),JSON.stringify(p));}catch(e){}};
     const [dragInfo,setDragInfo]=useState(null);
     const [wZIndex,setWZIndex]=useState({});
     const [zCounter,setZCounter]=useState(100);
