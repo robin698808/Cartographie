@@ -98,6 +98,7 @@ function Sidebar(){
     {id:"mapping",icon:"Map",label:"Cartographie",color:"#6366F1"},
     {id:"urbanisme",icon:"Grid",label:"Urbanisme",color:"#F59E0B"},
     {id:"cards",icon:"Layers",label:"Cartes",color:"#10B981"},
+    {id:"paysage",icon:"Boxes",label:"Paysage",color:"#0EA5E9"},
     {id:"dashboard",icon:"BarChart",label:"Dashboard",color:"#8B5CF6"},
     {id:"decisions",icon:"Target",label:"Decisions D1/D2",color:"#EF4444"},
   ];
@@ -136,7 +137,7 @@ function Sidebar(){
       {NAV.map(function(n){
         var active=view===n.id;
         return <div key={n.id} className={"sidebar-item"+(active?" active":"")} onClick={function(){setView(n.id);}} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 10px",marginBottom:2,cursor:"pointer",color:active?n.color:T.fgMuted,background:active?n.color+"15":"transparent",border:active?"1px solid "+n.color+"30":"1px solid transparent"}}>
-          <span style={{flexShrink:0,width:24,height:24,display:"flex",alignItems:"center",justifyContent:"center"}} dangerouslySetInnerHTML={{__html:'<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+{Map:'<polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" x2="9" y1="3" y2="18"/><line x1="15" x2="15" y1="6" y2="21"/>',Grid:'<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',Layers:'<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',BarChart:'<line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/>',Target:'<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>'}[n.icon]+'</svg>'}}></span>
+          <span style={{flexShrink:0,width:24,height:24,display:"flex",alignItems:"center",justifyContent:"center"}} dangerouslySetInnerHTML={{__html:'<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+{Map:'<polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" x2="9" y1="3" y2="18"/><line x1="15" x2="15" y1="6" y2="21"/>',Grid:'<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',Layers:'<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',Boxes:'<rect x="3" y="3" width="10" height="10" rx="1"/><rect x="15" y="3" width="6" height="6" rx="1"/><rect x="15" y="11" width="6" height="10" rx="1"/><rect x="3" y="15" width="10" height="6" rx="1"/>',BarChart:'<line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/>',Target:'<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>'}[n.icon]+'</svg>'}}></span>
           {sidebarOpen&&<span style={{fontSize:12,fontWeight:active?600:400,whiteSpace:"nowrap",letterSpacing:"-0.01em"}}>{n.label}</span>}
           {sidebarOpen&&active&&<div style={{width:4,height:4,borderRadius:2,background:n.color,marginLeft:"auto"}}/>}
         </div>;
@@ -152,6 +153,91 @@ function Sidebar(){
       </div>
     </div>
   </div>;
+}
+
+// ═══ VUE PAYSAGE — treemap urbanistique (domaine ⊃ catégorie) ═══
+// Fonctions pures (aucune dépendance React) : la surface de chaque rectangle
+// est proportionnelle au nombre d'applications. Algorithme "squarified treemap".
+function pvFitText(text,maxWidth,avgCharWidth){
+  if(!text)return"";
+  if(maxWidth<=avgCharWidth)return"";
+  var maxChars=Math.max(1,Math.floor(maxWidth/avgCharWidth));
+  if(text.length<=maxChars)return text;
+  return text.slice(0,Math.max(1,maxChars-1))+"…";
+}
+function pvSquarify(values,rect){
+  if(values.length===0)return[];
+  var total=values.reduce(function(a,b){return a+b;},0);
+  if(total===0)return values.map(function(){return Object.assign({},rect);});
+  var area=rect.w*rect.h;
+  var scaled=values.map(function(v){return v/total*area;});
+  var results=new Array(values.length);
+  var cursor=Object.assign({},rect);
+  var remaining=scaled.map(function(v,i){return{v:v,i:i};});
+  while(remaining.length>0){
+    var short=Math.min(cursor.w,cursor.h);
+    var row=[];
+    var bestWorst=Infinity;
+    for(var k=0;k<remaining.length;k++){
+      var candidate=row.concat([remaining[k]]);
+      var csum=candidate.reduce(function(a,b){return a+b.v;},0);
+      var worst=Math.max.apply(null,candidate.map(function(c){
+        return Math.max(short*short*c.v/(csum*csum),csum*csum/(short*short*c.v));
+      }));
+      if(worst>bestWorst&&row.length>0)break;
+      row.push(remaining[k]);
+      bestWorst=worst;
+    }
+    var sum=row.reduce(function(a,b){return a+b.v;},0);
+    var horizontal=cursor.w>=cursor.h;
+    var rowThickness=horizontal?sum/cursor.h:sum/cursor.w;
+    if(horizontal){
+      var cy=cursor.y;
+      row.forEach(function(item){
+        var hh=item.v/sum*cursor.h;
+        results[item.i]={x:cursor.x,y:cy,w:rowThickness,h:hh};
+        cy+=hh;
+      });
+      cursor={x:cursor.x+rowThickness,y:cursor.y,w:cursor.w-rowThickness,h:cursor.h};
+    }else{
+      var cx=cursor.x;
+      row.forEach(function(item){
+        var ww=item.v/sum*cursor.w;
+        results[item.i]={x:cx,y:cursor.y,w:ww,h:rowThickness};
+        cx+=ww;
+      });
+      cursor={x:cursor.x,y:cursor.y+rowThickness,w:cursor.w,h:cursor.h-rowThickness};
+    }
+    remaining.splice(0,row.length);
+  }
+  return results;
+}
+// Construit le layout à 2 niveaux à partir du tableau `apps` (clés domain/category
+// inchangées) : domaines découpant l'écran, catégories découpant chaque domaine.
+function pvBuildLayout(apps,w,h){
+  var D_HEADER_H=26;
+  var domMap={};
+  apps.forEach(function(a){var d=a.domain||"Autre";(domMap[d]=domMap[d]||[]).push(a);});
+  var domsInfo=Object.keys(domMap)
+    .map(function(d){return{domaine:d,apps:domMap[d],nbApps:domMap[d].length};})
+    .filter(function(d){return d.nbApps>0;})
+    .sort(function(a,b){return b.nbApps-a.nbApps;});
+  var domRects=pvSquarify(domsInfo.map(function(d){return d.nbApps;}),{x:0,y:0,w:w,h:h});
+  return domsInfo.map(function(d,i){
+    var r=domRects[i];
+    var catMap={};
+    d.apps.forEach(function(a){var c=a.category||"—";(catMap[c]=catMap[c]||[]).push(a);});
+    var cats=Object.keys(catMap)
+      .map(function(c){return{quartier:c,nbApps:catMap[c].length};})
+      .filter(function(x){return x.nbApps>0;})
+      .sort(function(a,b){return b.nbApps-a.nbApps;});
+    var inner={x:r.x+4,y:r.y+D_HEADER_H+4,w:Math.max(0,r.w-8),h:Math.max(0,r.h-D_HEADER_H-8)};
+    var qRects=pvSquarify(cats.map(function(x){return x.nbApps;}),inner);
+    return{
+      domaine:d.domaine,nbApps:d.nbApps,rect:r,
+      quartiers:cats.map(function(x,j){return{quartier:x.quartier,nbApps:x.nbApps,rect:qRects[j]};}),
+    };
+  });
 }
 
 // ═══ APP CONTEXT ═══
@@ -315,6 +401,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   const [sidebarOpen,setSidebarOpen]=useState(true);
   const [decisionStates,setDecisionStates]=useState({});
   const [cardZoom,setCardZoom]=useState(1);
+  const [pvHover,setPvHover]=useState(""); // survol treemap vue Paysage
   const [domW,setDomW]=useState(240);
   const [domH,setDomH]=useState(0);
   const [domPos,setDomPos]=useState({});
@@ -3756,6 +3843,61 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       <button onClick={function(){setShowSettings(false);}} style={{...B,background:T.border,marginTop:8}}>Fermer</button>
     </div>
   </div>;
+
+  // ═══ PAYSAGE VIEW (treemap urbanistique) ═══
+  if(view==="paysage"){
+    var PV_W=1600,PV_H=900;
+    var pvLayout=pvBuildLayout(apps,PV_W,PV_H);
+    var pvDoms=[...new Set(apps.map(function(a){return a.domain;}))];
+    // Drill-down : réutilise la vue Cartes filtrée sur le domaine cliqué.
+    var pvDrill=function(dom){setActiveDomFilter(dom);setView("cards");};
+    return <div className="view-container" style={{display:"flex",flexDirection:"column",height:"100vh",background:T.bg}}>
+      {/* ── Topbar ── */}
+      <div style={{background:T.bgAlt,borderBottom:"1px solid "+T.border,padding:"10px 20px",display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
+        <div>
+          <div style={{fontSize:16,fontWeight:800,color:T.fg,letterSpacing:"-0.025em",lineHeight:1}}>Vue Paysage</div>
+          <div style={{color:T.fgMuted,fontSize:11,marginTop:2}}>{pvDoms.length} domaine{pvDoms.length>1?"s":""} · {apps.length} applications — surface ∝ nombre d'apps</div>
+        </div>
+        <div style={{flex:1}}/>
+        <button onClick={function(){setView("mapping");setTimeout(fitCanvas,50);}} style={{...B,background:"#0EA5E9",padding:"6px 14px",fontSize:11,fontWeight:600,borderRadius:8,display:"flex",alignItems:"center",gap:5}}><span>&#8592;</span> Cartographie</button>
+      </div>
+      {/* ── Treemap SVG ── */}
+      <div style={{flex:1,overflow:"hidden",padding:16,boxSizing:"border-box"}}>
+        {apps.length===0?
+          <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100%",gap:12}}>
+            <div style={{fontSize:36,opacity:0.3}}>▦</div>
+            <div style={{fontSize:14,fontWeight:600,color:T.fgMuted}}>Aucune application à cartographier</div>
+          </div>
+        :
+          <svg viewBox={"0 0 "+PV_W+" "+PV_H} preserveAspectRatio="xMidYMid meet" style={{display:"block",width:"100%",height:"100%",background:T.bgCard,border:"1px solid "+T.border,borderRadius:8,userSelect:"none"}}>
+            {pvLayout.map(function(dom){
+              var color=(DC[dom.domaine]||DC.Autre).ac;
+              var isDomHover=pvHover==="d::"+dom.domaine;
+              return <g key={"d-"+dom.domaine}>
+                {/* Fond domaine */}
+                <rect x={dom.rect.x+2} y={dom.rect.y+2} width={Math.max(0,dom.rect.w-4)} height={Math.max(0,dom.rect.h-4)} fill={color} fillOpacity={0.06} stroke={color} strokeOpacity={isDomHover?0.85:0.55} strokeWidth={1.5} rx={3}/>
+                {/* Header domaine cliquable */}
+                <g onMouseEnter={function(){setPvHover("d::"+dom.domaine);}} onMouseLeave={function(){setPvHover("");}} onClick={function(){pvDrill(dom.domaine);}} style={{cursor:"pointer"}}>
+                  <rect x={dom.rect.x+2} y={dom.rect.y+2} width={Math.max(0,dom.rect.w-4)} height={26} fill={color} fillOpacity={isDomHover?0.3:0.18} rx={3}/>
+                  {dom.rect.w>60&&<text x={dom.rect.x+10} y={dom.rect.y+18} style={{fontSize:14,fontWeight:700,fill:color,pointerEvents:"none"}}>{pvFitText(dom.domaine,dom.rect.w-46,9)}</text>}
+                  {dom.rect.w>60&&<text x={dom.rect.x+dom.rect.w-10} y={dom.rect.y+18} textAnchor="end" style={{fontSize:12,fontWeight:600,fill:T.fg,pointerEvents:"none"}}>{dom.nbApps}</text>}
+                </g>
+                {/* Catégories (quartiers) */}
+                {dom.quartiers.map(function(q){
+                  var isQHover=pvHover==="q::"+dom.domaine+"::"+q.quartier;
+                  return <g key={"q-"+q.quartier} onMouseEnter={function(){setPvHover("q::"+dom.domaine+"::"+q.quartier);}} onMouseLeave={function(){setPvHover("");}} onClick={function(e){e.stopPropagation();pvDrill(dom.domaine);}} style={{cursor:"pointer"}}>
+                    <rect x={q.rect.x+1} y={q.rect.y+1} width={Math.max(0,q.rect.w-2)} height={Math.max(0,q.rect.h-2)} fill={isQHover?color:T.bg} fillOpacity={isQHover?0.18:1} stroke={color} strokeOpacity={isQHover?0.9:0.4} strokeWidth={isQHover?1.2:0.8} rx={2}/>
+                    {q.rect.w>50&&q.rect.h>24&&<text x={q.rect.x+8} y={q.rect.y+16} style={{fontSize:11,fontWeight:600,fill:T.fg,pointerEvents:"none"}}>{pvFitText(q.quartier,q.rect.w-16,6.3)}</text>}
+                    {q.rect.w>50&&q.rect.h>36&&<text x={q.rect.x+8} y={q.rect.y+30} style={{fontSize:9,fontWeight:500,fill:T.fgDim,pointerEvents:"none",letterSpacing:"0.06em"}}>{q.nbApps} app{q.nbApps>1?"s":""}</text>}
+                  </g>;
+                })}
+              </g>;
+            })}
+          </svg>
+        }
+      </div>
+    </div>;
+  }
 
   // ═══ CARDS VIEW ═══
   if(view==="cards"){
