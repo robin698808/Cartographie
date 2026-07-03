@@ -1799,20 +1799,22 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       bundleList.forEach(function(bun){
         var A,B;
         if(bun.agg&&bun.toHub){
-          // Aggregated: from domain centroid TO hub
+          // Ancrage sur la bounding-box réelle du bloc domaine source
           var dApps7=synApps.filter(function(a){return a.domain===bun.fromDom;});
-          var sumX=0,sumY=0,cnt7=0;
-          dApps7.forEach(function(a){var p=synPos[a.id];if(p){sumX+=p.cx;sumY+=p.cy;cnt7++;}});
-          if(cnt7===0||!hubP)return;
-          A={cx:sumX/cnt7,cy:sumY/cnt7,x:sumX/cnt7-0.3,y:sumY/cnt7-0.05,w:0.6,h:0.1,dom:bun.fromDom};
+          var bx7=Infinity,bX7=-Infinity,by7=Infinity,bY7=-Infinity;
+          dApps7.forEach(function(a){var p=synPos[a.id];if(!p)return;bx7=Math.min(bx7,p.x);bX7=Math.max(bX7,p.x+p.w);by7=Math.min(by7,p.y);bY7=Math.max(bY7,p.y+p.h);});
+          if(bx7===Infinity||!hubP)return;
+          var bw7=bX7-bx7,bh7=bY7-by7;
+          A={cx:bx7+bw7/2,cy:by7+bh7/2,x:bx7,y:by7,w:bw7,h:bh7,dom:bun.fromDom};
           B=hubP;
         } else if(bun.agg&&bun.fromHub){
           var dApps8=synApps.filter(function(a){return a.domain===bun.toDom;});
-          var sumX2=0,sumY2=0,cnt8=0;
-          dApps8.forEach(function(a){var p=synPos[a.id];if(p){sumX2+=p.cx;sumY2+=p.cy;cnt8++;}});
-          if(cnt8===0||!hubP)return;
+          var bx8=Infinity,bX8=-Infinity,by8=Infinity,bY8=-Infinity;
+          dApps8.forEach(function(a){var p=synPos[a.id];if(!p)return;bx8=Math.min(bx8,p.x);bX8=Math.max(bX8,p.x+p.w);by8=Math.min(by8,p.y);bY8=Math.max(bY8,p.y+p.h);});
+          if(bx8===Infinity||!hubP)return;
+          var bw8=bX8-bx8,bh8=bY8-by8;
           A=hubP;
-          B={cx:sumX2/cnt8,cy:sumY2/cnt8,x:sumX2/cnt8-0.3,y:sumY2/cnt8-0.05,w:0.6,h:0.1,dom:bun.toDom};
+          B={cx:bx8+bw8/2,cy:by8+bh8/2,x:bx8,y:by8,w:bw8,h:bh8,dom:bun.toDom};
         } else {
           A=synPos[bun.from];B=synPos[bun.to];
         }
@@ -1822,7 +1824,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         var mainProto=protos6[0];
         var pc=protoColor(mainProto);
         var isMixed=protos6.length>1;
-        var lineW=bun.agg?0.5:Math.min(1.2,0.3+n*0.15);// agg=thin, non-agg=proportional
+        var lineW=Math.min(2.5,0.5+bun.synFlows.length*0.12);// épaisseur ∝ nb flux agrégés
         var ep=clipP(A.cx,A.cy,A.w,A.h,B.cx,B.cy);
         var en=clipP(B.cx,B.cy,B.w,B.h,A.cx,A.cy);
         var lx5=Math.min(ep.x,en.x),ly5=Math.min(ep.y,en.y);
@@ -1893,7 +1895,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       synSl.addText("\u00E9paisseur = volume",{x:lgX+1.50,y:lgY+0.18,w:1.0,h:0.12,fontSize:5,color:"555555",fontFace:"Calibri",margin:0,valign:"middle"});
       synSl.addText("couleur = protocole",{x:lgX+2.45,y:lgY+0.03,w:1.05,h:0.12,fontSize:5,color:"555555",fontFace:"Calibri",margin:0,valign:"middle"});
       synSl.addText("\u201Cn flux\u201D = agr\u00E9g\u00E9",{x:lgX+2.45,y:lgY+0.18,w:1.05,h:0.12,fontSize:5,color:"555555",fontFace:"Calibri",margin:0,valign:"middle"});
-      return _synSatS.v;
+      return {sat:_synSatS.v,pos:synPos};
     };
     if(flows.length>0){
       // Dry-run check: estimate saturation by app count per slide width
@@ -1910,11 +1912,12 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         allD.sort(function(a,b){return apps.filter(function(x){return x.domain===b;}).length-apps.filter(function(x){return x.domain===a;}).length;});
         var g1=[],g2=[];
         allD.forEach(function(d,i){(i%2===0?g1:g2).push(d);});
+        var grpData=[];
         var mk=function(grp,sfx){
           var gApps=apps.filter(function(a){return grp.indexOf(a.domain)>=0;});
           var gIds=new Set(gApps.map(function(a){return a.id;}));
           var gFlows=flows.filter(function(f){return gIds.has(f.from)&&gIds.has(f.to);});
-          if(gApps.length>0)drawSynthSlide(gApps,gFlows,sfx);
+          if(gApps.length>0){var r=drawSynthSlide(gApps,gFlows,sfx);grpData.push({gApps:gApps,gFlows:gFlows,sfx:sfx,pos:r.pos});}
         };
         mk(g1," (1/2)");
         mk(g2," (2/2)");
@@ -1922,7 +1925,8 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         drawSynthSlide(apps,flows,"");
       }
       // ── Slide SYNTHÈSE DÉTAILLÉE: same layout, all individual flows (paginated if needed) ──
-      var drawDetailedSynth=function(synApps2,synFlows2,sfx2,_hub,_appDeg,_hubDom,_detMode){
+      var drawDetailedSynth=function(synApps2,synFlows2,sfx2,_hub,_appDeg,_hubDom,_detMode,_posOverride){
+        var _synPos=_posOverride||_sharedSynPos;
         var mode=_detMode||"radial";
         // ── Mode byDomain: one slide per satellite domain → hub ──
         if(mode==="byDomain"){
@@ -1979,7 +1983,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
               dSlide.addShape(pres.shapes.OVAL,{x:ep.x-0.04,y:ep.y-0.04,w:0.08,h:0.08,fill:{color:pc},line:{type:"none"}});
               if(f.label){
                 var lw2=Math.min(1.6,f.label.length*0.055+0.1);var lh2=0.18;
-                var lx2=3.9+Math.random()*0.2;var ly2=(ep.y+en.y)/2-lh2/2;
+                var lx2=3.9;var ly2=(ep.y+en.y)/2-lh2/2;
                 var ok=true;lblRects.forEach(function(r){if(!(lx2+lw2<r.x||r.x+r.w<lx2||ly2+lh2<r.y||r.y+r.h<ly2))ok=false;});
                 if(!ok)ly2+=lh2+0.04;
                 ly2=Math.max(0.5,Math.min(4.8,ly2));
@@ -2010,7 +2014,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         detDoms.forEach(function(dom){
           var cc7=_pDC[dom]||_pDC.Autre;
           var dminX=Infinity,dmaxX=-Infinity,dminY=Infinity;
-          synApps2.forEach(function(a){if(a.domain!==dom)return;var p=_sharedSynPos[a.id];if(!p)return;dminX=Math.min(dminX,p.x);dmaxX=Math.max(dmaxX,p.x+p.w);dminY=Math.min(dminY,p.y);});
+          synApps2.forEach(function(a){if(a.domain!==dom)return;var p=_synPos[a.id];if(!p)return;dminX=Math.min(dminX,p.x);dmaxX=Math.max(dmaxX,p.x+p.w);dminY=Math.min(dminY,p.y);});
           if(dminX===Infinity)return;
           var hx=Math.max(0.02,dminX-0.03);
           var hw=Math.min(W-hx-0.02,dmaxX-dminX+0.06);
@@ -2022,7 +2026,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         // ② FLOW LINES — collect data for label pass later
         var flowData=[];
         synFlows2.forEach(function(f){
-          var A=_sharedSynPos[f.from],B=_sharedSynPos[f.to];
+          var A=_synPos[f.from],B=_synPos[f.to];
           if(!A||!B||A.dom===B.dom)return;
           var pc=protoColor(f.protocol||"Autre");
           var ep=clipP2(A.cx,A.cy,A.w,A.h,B.cx,B.cy);
@@ -2036,7 +2040,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         });
         // ③ APPS — drawn before labels so labels appear on top
         synApps2.forEach(function(app){
-          var p=_sharedSynPos[app.id];if(!p)return;
+          var p=_synPos[app.id];if(!p)return;
           var ac5=(_pDC[app.domain]||_pDC.Autre).ac.replace("#","");
           var dg9=(_appDeg&&_appDeg[app.id])||0;
           var bw9=dg9>=8?1.1:dg9>=3?0.7:0.5;
@@ -2046,7 +2050,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         // ④ LABELS — drawn LAST, always on top
         // Register app bboxes as obstacles
         var obstacles=[];
-        synApps2.forEach(function(app){var p=_sharedSynPos[app.id];if(p)obstacles.push({x:p.x,y:p.y,w:p.w,h:p.h});});
+        synApps2.forEach(function(app){var p=_synPos[app.id];if(p)obstacles.push({x:p.x,y:p.y,w:p.w,h:p.h});});
         var synLR2=obstacles.slice();
         var overlaps2=function(x,y,w,h){return synLR2.some(function(r){return !(x+w<r.x||r.x+r.w<x||y+h<r.y||r.y+r.h<y);});};
         flowData.forEach(function(fd){
@@ -2092,7 +2096,15 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         var _outerHub=apps.reduce(function(best,a){return(_outerAppDeg[a.id]||0)>(_outerAppDeg[best.id]||0)?a:best;},apps[0]);
         var _outerHubFlows=flows.filter(function(f){return f.from===_outerHub.id||f.to===_outerHub.id;}).length;
         var _outerHubDominant=_outerHubFlows>flows.length*0.4;
-        drawDetailedSynth(apps,flows,"",_outerHub,_outerAppDeg,_outerHub,_opts.synthDetail);
+        if(estSat&&grpData.length>0){
+          grpData.forEach(function(gd){
+            var gdeg={};gd.gApps.forEach(function(a){gdeg[a.id]=0;});gd.gFlows.forEach(function(f){gdeg[f.from]=(gdeg[f.from]||0)+1;gdeg[f.to]=(gdeg[f.to]||0)+1;});
+            var ghub=gd.gApps.reduce(function(best,a){return(gdeg[a.id]||0)>(gdeg[best.id]||0)?a:best;},gd.gApps[0]);
+            drawDetailedSynth(gd.gApps,gd.gFlows,gd.sfx,ghub,gdeg,ghub,_opts.synthDetail,gd.pos);
+          });
+        } else {
+          drawDetailedSynth(apps,flows,"",_outerHub,_outerAppDeg,_outerHub,_opts.synthDetail);
+        }
       }
     }
 
