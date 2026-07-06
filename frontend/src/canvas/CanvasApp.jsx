@@ -2700,12 +2700,16 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     });
     if(curSlide.length>0) slideZones.push(curSlide);
 
+    const sl3cp=_opts.clientPrimary||"2979FF";
     slideZones.forEach((szList,pageIdx)=>{
       const sl3=SS(pres.addSlide());
-      sl3.background={color:"F5F6FA"};
-      sl3.addText(pageIdx===0?"Synthèse — Cartographie Applicative":"Synthèse (suite "+(pageIdx+1)+"/"+slideZones.length+")",{x:sM,y:0.08,w:7,h:0.3,fontSize:16,bold:true,color:"1a1a1a",fontFace:"Trebuchet MS",margin:0});
-      sl3.addText(apps.length+" applications · "+doms.length+" domaines · "+flows.length+" flux",{x:sM,y:0.35,w:5,h:0.18,fontSize:10,color:"888888",fontFace:"Calibri",margin:0});
-      let cy=0.6;
+      sl3.background={color:"F8F9FC"};
+      // Header bar avec couleur client
+      sl3.addShape(pres.shapes.RECTANGLE,{x:0,y:0,w:10,h:0.50,fill:{color:sl3cp},line:{type:"none"}});
+      if(_opts.clientLogo){sl3.addImage({data:_opts.clientLogo,x:8.80,y:0.04,w:0.90,h:0.42,sizing:{type:"contain",w:0.90,h:0.42}});}
+      sl3.addText(pageIdx===0?"SYNTHÈSE — CARTOGRAPHIE APPLICATIVE":"SYNTHÈSE (SUITE "+(pageIdx+1)+"/"+slideZones.length+")",{x:sM,y:0.08,w:7.5,h:0.35,fontSize:13,bold:true,color:"FFFFFF",fontFace:"Trebuchet MS",margin:0,charSpacing:0.5});
+      sl3.addText(apps.length+" applications · "+doms.length+" domaines · "+flows.length+" flux",{x:sM,y:0.54,w:5,h:0.16,fontSize:9,color:"64748B",fontFace:"Calibri",margin:0});
+      let cy=0.76;
 
       szList.forEach(({zone,height},zi)=>{
         const zApps=zone.domains.reduce((s,d)=>s+d.apps.length,0);
