@@ -5386,6 +5386,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
         </div>}
       </div>
     </div>
+    <div style={{flex:1,display:"flex",overflow:"hidden",position:"relative"}}>
     <div ref={cvRef} style={{flex:1,overflow:"hidden",position:"relative",cursor:pan?"grabbing":cMode?"crosshair":selMode?"default":"grab"}} onMouseDown={function(e){if(openMenu)setOpenMenu(null);onCD(e);}} onMouseMove={onCM} onMouseUp={onCU} onMouseLeave={onCU} onWheel={onWh} onContextMenu={e=>e.preventDefault()}>
       <div className="cbg" style={{position:"absolute",inset:0,backgroundImage:"radial-gradient(circle,"+T.grid+" 1px,transparent 1px)",backgroundSize:"30px 30px"}}/>
       <div style={{transform:`translate(${off.x}px,${off.y}px) scale(${zm})`,transformOrigin:"0 0",position:"absolute",top:0,left:0,width:5000,height:4000}}>
@@ -5393,6 +5394,44 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
       </div>
       <div style={{position:"absolute",bottom:12,right:12,background:T.bgCard,borderRadius:4,padding:"4px 10px",fontSize:10,color:T.fgMuted}}>{Math.round(zm*100)}% · {activeFilters?filtered.length+"/":""}{apps.length} apps · {flows.length} flux{activeFilters?" (filtré)":""}</div>
       {!focusApp&&!flowDomFilter&&flows.length>0&&<div style={{position:"absolute",bottom:12,left:12,background:T.bgCard,border:"1px solid "+T.border,borderRadius:8,padding:"6px 12px",fontSize:10,color:T.fgMuted,opacity:0.8}}>Survolez une application pour voir ses flux</div>}
+    </div>
+    {selApp&&!showAM&&<div data-panel="1" style={{width:300,flexShrink:0,background:T.bgAlt,borderLeft:"1px solid "+T.borderLight,overflowY:"auto",display:"flex",flexDirection:"column",zIndex:10}}>
+      {/* Header with domain color accent */}
+      <div style={{background:isDark?(DC[selApp.domain]||DC.Autre).bg:((DC[selApp.domain]||DC.Autre).ac+"18"),padding:"16px 18px 12px",borderBottom:"2px solid "+(DC[selApp.domain]||DC.Autre).ac,flexShrink:0}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+          <div><div style={{fontSize:11,color:(DC[selApp.domain]||DC.Autre).ac,fontWeight:700,letterSpacing:1,textTransform:"uppercase",marginBottom:4}}>{selApp.domain}</div>
+          <div style={{fontSize:16,fontWeight:700,color:isDark?T.fg:(DC[selApp.domain]||DC.Autre).ac,lineHeight:1.3}}>{selApp.name}</div></div>
+          <button onClick={()=>setSelApp(null)} style={{background:"none",border:"none",color:T.fgMuted,cursor:"pointer",fontSize:20,lineHeight:1,padding:"0 2px",marginTop:-2,flexShrink:0}}>×</button>
+        </div>
+        <div style={{display:"flex",gap:8,marginTop:8}}>
+          <span style={{fontSize:11,padding:"2px 8px",borderRadius:4,background:(SC[selApp.status]||"#888")+"25",color:SC[selApp.status]||"#888",border:"1px solid "+(SC[selApp.status]||"#888")+"40"}}>{selApp.status}</span>
+          <span style={{fontSize:11,padding:"2px 8px",borderRadius:4,background:(CC[selApp.criticality]||"#888")+"25",color:CC[selApp.criticality]||"#888",border:"1px solid "+(CC[selApp.criticality]||"#888")+"40"}}>{selApp.criticality}</span>
+        </div>
+      </div>
+      {/* Info fields */}
+      <div style={{padding:"20px 18px 12px",flex:1,overflowY:"auto"}}>
+        {[["Application",selApp.name],["Éditeur",selApp.vendor],["Version",selApp.version],["Nb utilisateurs",selApp.users],["Responsable",selApp.owner]].map(([k,v])=>
+          <div key={k} style={{marginBottom:14}}>
+            <div style={{fontSize:10,color:T.fgDim,marginBottom:4,textTransform:"uppercase",letterSpacing:0.5}}>{k}</div>
+            <div style={{fontSize:13,color:v?T.fg:T.fgFaint,fontWeight:v?500:400,paddingLeft:2,fontStyle:v?"normal":"italic"}}>{v||"Non renseigné"}</div>
+          </div>)}
+        {(selApp.statusD1||selApp.statusD2)&&<div style={{marginBottom:14,padding:"10px 12px",borderRadius:8,background:T.bgCard,border:"1px solid "+T.borderLight}}>
+          <div style={{fontSize:10,color:T.fgDim,marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>Trajectoire Carve-Out</div>
+          <div style={{display:"flex",gap:8}}>
+            {selApp.statusD1&&<span style={{fontSize:11,padding:"2px 8px",borderRadius:4,background:(SD1[selApp.statusD1]||"#888")+"25",color:SD1[selApp.statusD1]||"#888",border:"1px solid "+(SD1[selApp.statusD1]||"#888")+"40"}}>D1 · {selApp.statusD1}</span>}
+            {selApp.statusD2&&<span style={{fontSize:11,padding:"2px 8px",borderRadius:4,background:(SD2[selApp.statusD2]||"#888")+"25",color:SD2[selApp.statusD2]||"#888",border:"1px solid "+(SD2[selApp.statusD2]||"#888")+"40"}}>D2 · {selApp.statusD2}</span>}
+          </div>
+        </div>}
+        <div style={{paddingTop:14,borderTop:"1px solid "+T.borderLight}}>
+          <div style={{fontSize:10,color:T.fgDim,marginBottom:6,textTransform:"uppercase",letterSpacing:0.5}}>Description</div>
+          <div style={{fontSize:12,color:selApp.description?T.fg:T.fgFaint,lineHeight:1.6,paddingLeft:2,fontStyle:selApp.description?"normal":"italic"}}>{selApp.description||"Non renseignée"}</div>
+        </div>
+        <div style={{display:"flex",gap:8,marginTop:20}}>
+          <button onClick={()=>{setEApp({...selApp});setShowAM(true);}} style={{...B,background:"#548CA8",flex:1,padding:8}}>Éditer</button>
+          <button onClick={()=>{if(confirm("Supprimer "+selApp.name+" ?")){setApps(p=>p.filter(a=>a.id!==selApp.id));setFlows(p=>p.filter(f=>f.from!==selApp.id&&f.to!==selApp.id));setSelApp(null);}}} style={{...B,background:"#E06C75",flex:1,padding:8}}>Supprimer</button>
+        </div>
+      </div>
+    </div>}
     </div>
     {/* Presentation mode overlay */}
     {presMode&&<div style={{position:"fixed",inset:0,zIndex:500,background:T.pres,display:"flex",flexDirection:"column"}}>
@@ -5432,36 +5471,6 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
       {/* Keyboard hint */}
       <div style={{position:"absolute",bottom:12,left:"50%",transform:"translateX(-50%)",background:T.bgCard,borderRadius:8,padding:"4px 16px",fontSize:11,color:T.fgFaint}}>
         Molette = déplacer · Ctrl+Molette = zoom · Échap = quitter
-      </div>
-    </div>}
-    {selApp&&!showAM&&<div data-panel="1" style={{position:"absolute",right:0,top:toolbarH,width:300,background:T.bgAlt,borderLeft:"1px solid "+T.borderLight,height:"calc(100% - "+toolbarH+"px)",overflowY:"auto",zIndex:80}}>
-      {/* Header with domain color accent */}
-      <div style={{background:isDark?(DC[selApp.domain]||DC.Autre).bg:((DC[selApp.domain]||DC.Autre).ac+"18"),padding:"16px 18px 12px",borderBottom:"2px solid "+(DC[selApp.domain]||DC.Autre).ac}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-          <div><div style={{fontSize:11,color:(DC[selApp.domain]||DC.Autre).ac,fontWeight:700,letterSpacing:1,textTransform:"uppercase",marginBottom:4}}>{selApp.domain}</div>
-          <div style={{fontSize:16,fontWeight:700,color:isDark?T.fg:(DC[selApp.domain]||DC.Autre).ac,lineHeight:1.3}}>{selApp.name}</div></div>
-          <button onClick={()=>setSelApp(null)} style={{background:"none",border:"none",color:T.fgMuted,cursor:"pointer",fontSize:16,marginTop:-2}}>×</button>
-        </div>
-        <div style={{display:"flex",gap:8,marginTop:8}}>
-          <span style={{fontSize:11,padding:"2px 8px",borderRadius:4,background:(SC[selApp.status]||"#888")+"25",color:SC[selApp.status]||"#888",border:"1px solid "+(SC[selApp.status]||"#888")+"40"}}>{selApp.status}</span>
-          <span style={{fontSize:11,padding:"2px 8px",borderRadius:4,background:(CC[selApp.criticality]||"#888")+"25",color:CC[selApp.criticality]||"#888",border:"1px solid "+(CC[selApp.criticality]||"#888")+"40"}}>{selApp.criticality}</span>
-        </div>
-      </div>
-      {/* Info fields — all fields including empty */}
-      <div style={{padding:"20px 18px 12px"}}>
-        {[["Application",selApp.name],["Éditeur",selApp.vendor],["Version",selApp.version],["Nb utilisateurs",selApp.users],["Responsable",selApp.owner]].map(([k,v])=>
-          <div key={k} style={{marginBottom:14}}>
-            <div style={{fontSize:10,color:T.fgDim,marginBottom:4,textTransform:"uppercase",letterSpacing:0.5}}>{k}</div>
-            <div style={{fontSize:13,color:v?T.fg:T.fgFaint,fontWeight:v?500:400,paddingLeft:2,fontStyle:v?"normal":"italic"}}>{v||"Non renseigné"}</div>
-          </div>)}
-        <div style={{marginTop:4,paddingTop:14,borderTop:"1px solid "+T.borderLight}}>
-          <div style={{fontSize:10,color:T.fgDim,marginBottom:6,textTransform:"uppercase",letterSpacing:0.5}}>Description</div>
-          <div style={{fontSize:12,color:selApp.description?T.fg:T.fgFaint,lineHeight:1.6,paddingLeft:2,fontStyle:selApp.description?"normal":"italic"}}>{selApp.description||"Non renseignée"}</div>
-        </div>
-        <div style={{display:"flex",gap:8,marginTop:20}}>
-          <button onClick={()=>{setEApp({...selApp});setShowAM(true);}} style={{...B,background:"#548CA8",flex:1,padding:8}}>Éditer</button>
-          <button onClick={()=>{if(confirm("Supprimer "+selApp.name+" ?")){setApps(p=>p.filter(a=>a.id!==selApp.id));setFlows(p=>p.filter(f=>f.from!==selApp.id&&f.to!==selApp.id));setSelApp(null);}}} style={{...B,background:"#E06C75",flex:1,padding:8}}>Supprimer</button>
-        </div>
       </div>
     </div>}
     {showAM&&eApp&&<div className="moverlay" style={{position:"fixed",inset:0,background:T.overlay,display:"flex",alignItems:"center",justifyContent:"center",zIndex:200}} onClick={()=>setShowAM(false)}><div style={{background:T.bgCard,borderRadius:8,padding:24,width:420,maxHeight:"80vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
