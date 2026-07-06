@@ -5681,7 +5681,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
 
         <div style={{display:"flex",gap:10,marginTop:20,justifyContent:"flex-end"}}>
           <button onClick={function(){setShowExportModal(false);}} style={{...B,background:T.border,padding:"8px 18px"}}>Annuler</button>
-          <button onClick={function(){setShowExportModal(false);exportPPTX(exportOpts);}} style={{...B,background:"#EF6C00",padding:"8px 24px",fontWeight:700,fontSize:13}}>&#11015; G&#233;n&#233;rer le PPTX</button>
+          <button onClick={function(){setShowExportModal(false);exportPPTX(exportOpts).catch(function(err){alert("Erreur export PPTX:\n"+(err&&err.message?err.message:String(err))+"\n\n"+(err&&err.stack?err.stack.slice(0,400):""));});}} style={{...B,background:"#EF6C00",padding:"8px 24px",fontWeight:700,fontSize:13}}>&#11015; G&#233;n&#233;rer le PPTX</button>
         </div>
       </div>
     </div>}
