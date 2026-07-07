@@ -1925,9 +1925,9 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
           drawSeg(from.x,from.y,to.x,to.y,false,"FFFFFF",lw+1.6);
           drawSeg(from.x,from.y,to.x,to.y,true,flowCol,lw);
         }
-        var mx=(p1.x+p2.x)/2,my=(p1.y+p2.y)/2;var bw=total>=10?0.28:0.22,bh=0.15;sC.addShape(pres.shapes.RECTANGLE,{x:mx-bw/2,y:my-bh/2,w:bw,h:bh,fill:{color:flowCol},line:{type:"none"}});sC.addText(String(total),{x:mx-bw/2,y:my-bh/2,w:bw,h:bh,fontSize:6.5,bold:true,color:"FFFFFF",fontFace:"Calibri",align:"center",valign:"middle",margin:0});,line:{type:"none"}});
-          sC.addText("×"+total,{x:mx-0.16,y:my-0.09,w:0.32,h:0.18,fontSize:7,bold:true,color:"FFFFFF",fontFace:"Calibri",align:"center",valign:"middle",margin:0});
-        }
+        var mx=(p1.x+p2.x)/2,my=(p1.y+p2.y)/2;var bw=total>=10?0.28:0.22,bh=0.15;
+        sC.addShape(pres.shapes.RECTANGLE,{x:mx-bw/2,y:my-bh/2,w:bw,h:bh,fill:{color:flowCol},line:{type:"none"}});
+        sC.addText(String(total),{x:mx-bw/2,y:my-bh/2,w:bw,h:bh,fontSize:6.5,bold:true,color:"FFFFFF",fontFace:"Calibri",align:"center",valign:"middle",margin:0});
       });
       // 7. Draw ring2 app boxes (bottom layer)
       ring2.forEach(function(a){
