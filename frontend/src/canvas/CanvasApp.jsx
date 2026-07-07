@@ -30,9 +30,9 @@ var THEMES={dark:{bg:"#08080F",bgAlt:"#0D0D1A",bgCard:"#13132A",bgInput:"#0D0D1A
 const ALLDOM_DEFAULT = Object.keys(DC_DEFAULT);
 const SI = {Maintien:"●",Arrêt:"◌","Standalone temporaire":"◐","Migrée":"◇","Remplacée":"◈"};
 const CC = {Haute:"#FF5252",Moyenne:"#EF6C00",Basse:"#00C853"};
-const SD1={"Transfert TSA":"#F59E0B","Abandon":"#EF4444"};
+const SD1={"Transfert TSA":"#F59E0B","Abandon":"#EF4444","Maintien":"#10B981","Rebuild":"#F97316"};
 const SD2={"Clone & Clean":"#3B82F6","Transfert":"#10B981","Abandon":"#EF4444","Rebuild":"#F97316"};
-const D1_OPTS=["","Transfert TSA","Abandon"];
+const D1_OPTS=["","Transfert TSA","Maintien","Rebuild","Abandon"];
 const D2_OPTS=["","Clone & Clean","Transfert","Abandon","Rebuild"];
 const SC = {Maintien:"#00C853",Arrêt:"#FF5252","Standalone temporaire":"#EF6C00","Migrée":"#2979FF","Remplacée":"#7C4DFF"};
 const PROTOS = ["API","REST","SOAP","SFTP","ETL","JDBC","ODBC","Webhook","MQ","Batch","Manuel","Fichier","Autre"];
@@ -66,9 +66,9 @@ const downloadTemplate = async () => {
     ["Salesforce","Commercial","CRM","Maintien","Haute","Salesforce Inc.","Enterprise","M. Martin",120,"Transfert TSA","Transfert","SAP S/4HANA|Mailchimp","API|REST","Commandes|Contacts marketing",""],
     ["Power BI","IT","Business Intelligence","Maintien","Moyenne","Microsoft","Pro","A. Bernard",80,"Transfert TSA","Clone & Clean","","","",""],
     ["ADP","RH","Paie et gestion RH","Maintien","Haute","ADP","v12","L. Petit",15,"Abandon","Rebuild","SAP S/4HANA","SFTP","Écritures de paie",""],
-    ["Mailchimp","Marketing","Emailing marketing","Maintien","Basse","Intuit","Premium","S. Moreau",10,"","","","","",""],
+    ["Mailchimp","Marketing","Emailing marketing","Maintien","Basse","Intuit","Premium","S. Moreau",10,"Maintien","","","","",""],
     ["Jira","IT","Gestion de projet IT","Maintien","Moyenne","Atlassian","Cloud","P. Durand",45,"Transfert TSA","Clone & Clean","Confluence","REST","Documentation technique",""],
-    ["WMS Reflex","Logistique","Gestion d'entrepôt","Maintien","Haute","Hardis Group","v6.2","C. Roux",35,"Abandon","Rebuild","SAP S/4HANA","API","Mouvements de stock",""],
+    ["WMS Reflex","Logistique","Gestion d'entrepôt","Maintien","Haute","Hardis Group","v6.2","C. Roux",35,"Rebuild","Rebuild","SAP S/4HANA","API","Mouvements de stock",""],
     ["DocuSign","Juridique","Signature électronique","Maintien","Moyenne","DocuSign","Enterprise","N. Blanc",30,"Transfert TSA","Transfert","Salesforce","API","Contrats signés",""],
     ["MES Wonderware","Production","Pilotage atelier","Maintien","Haute","AVEVA","2023","F. Garcia",40,"Abandon","Clone & Clean","SAP S/4HANA|WMS Reflex","API|MQ","Ordres de fabrication|Bons de sortie",""],
     ["Workday","RH","Gestion des talents","Migrée","Moyenne","Workday","2024R1","L. Petit",0,"Transfert TSA","Transfert","ADP","API","Données collaborateurs","Déploiement S2 2025"],
@@ -82,7 +82,7 @@ const downloadTemplate = async () => {
   XLSX.utils.book_append_sheet(wb,wsFlux,"Flux Métier");
   const ref=[["Domaine","Description","Couleur"],["Finance","Comptabilité, controlling","#52B788"],["RH","Paie, talents, formation","#9D4EDD"],["IT","Infra, dev, BI","#548CA8"],["Commercial","CRM, ventes","#E06C75"],["Production","MES, qualité","#D4A017"],["Logistique","WMS, supply chain","#40A578"],["Marketing","Emailing, CMS","#D63384"],["Juridique","Contrats, conformité","#57A0A0"],["Direction","Reporting, stratégie","#7B78FF"],["Autre","Non classifié","#9E9E9E"]];
   const ws2=XLSX.utils.aoa_to_sheet(ref); ws2["!cols"]=[{wch:16},{wch:40},{wch:12}]; XLSX.utils.book_append_sheet(wb,ws2,"Référentiel Domaines");
-  const ins=[["TEMPLATE CARTOGRAPHIE APPLICATIVE",""],["",""],["COLONNES OBLIGATOIRES",""],["Nom Application","Nom unique de l'application"],["Domaine","Finance, RH, IT, Commercial, Production, Logistique, Marketing, Juridique, Direction, Autre"],["",""],["COLONNES OPTIONNELLES",""],["Statut","Maintien / Arrêt / Standalone temporaire / Migrée / Remplacée"],["Criticité","Haute / Moyenne / Basse"],["Statut Day 1","Stratégie de closing : Transfert TSA / Abandon"],["Statut Day 2","Stratégie cible : Clone & Clean / Transfert / Rebuild / Abandon"],["Flux vers","Noms des applications cibles séparés par |"],["Protocole","API, REST, SFTP, ETL… séparés par |"],["Objet du flux","Libellé de la donnée échangée. Séparés par | si multiples"],["",""],["CONSEILS",""],["1.","Les noms dans 'Flux vers' = noms exacts de la colonne A"],["2.","Day 1 = statut de closing (J1) · Day 2 = vision cible à terme"],["3.","Voir onglet 'Référentiel Domaines' pour les couleurs"]];
+  const ins=[["TEMPLATE CARTOGRAPHIE APPLICATIVE",""],["",""],["COLONNES OBLIGATOIRES",""],["Nom Application","Nom unique de l'application"],["Domaine","Finance, RH, IT, Commercial, Production, Logistique, Marketing, Juridique, Direction, Autre"],["",""],["COLONNES OPTIONNELLES",""],["Statut","Maintien / Arrêt / Standalone temporaire / Migrée / Remplacée"],["Criticité","Haute / Moyenne / Basse"],["Statut Day 1","Stratégie de closing : Transfert TSA / Maintien / Rebuild / Abandon"],["Statut Day 2","Stratégie cible : Clone & Clean / Transfert / Rebuild / Abandon"],["Flux vers","Noms des applications cibles séparés par |"],["Protocole","API, REST, SFTP, ETL… séparés par |"],["Objet du flux","Libellé de la donnée échangée. Séparés par | si multiples"],["",""],["CONSEILS",""],["1.","Les noms dans 'Flux vers' = noms exacts de la colonne A"],["2.","Day 1 = statut de closing (J1) · Day 2 = vision cible à terme"],["3.","Voir onglet 'Référentiel Domaines' pour les couleurs"]];
   const ws3=XLSX.utils.aoa_to_sheet(ins); ws3["!cols"]=[{wch:30},{wch:70}]; XLSX.utils.book_append_sheet(wb,ws3,"Instructions");
   XLSX.writeFile(wb,"template_cartographie.xlsx");
 };
@@ -411,17 +411,14 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   const [showSettings,setShowSettings]=useState(false); // presentation mode
   const [showExportModal,setShowExportModal]=useState(false);
   const [exportOpts,setExportOpts]=useState({
-    synthDetail:"radial",// "none" | "radial" | "byDomain"
     inclExecSlides:true,
-    inclFocusDomain:true,
-    inclKPI:true,
-    inclLegend:true,
-    inclAggregated:true,
-    inclHubSlides:true,
-    inclDomainStatus:true,
-    cartoMode:"global", // "global" | "byDomain" | "byHub"
+    inclMatrices:true,        // tableau récap + vue agrégée domaines
     inclConsolidatedCarto:true,
-    inclRecapTable:true,
+    inclDomainStatus:false,   // vision Day 1 & Day 2
+    cartoMode:"byHub",
+    hubLimit:8,               // nombre max de hubs (mode byHub)
+    hubDomainFilter:null,     // null = tous les domaines, sinon tableau de noms de domaines
+    flowLineStyle:"solid",    // "solid" | "dash" | "dot"
     clientPrimary:"2979FF",
     clientLogo:null,
   });
@@ -790,7 +787,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       dd.push(["Sans trajectoire",apps.filter(function(a){return !a.statusD1&&!a.statusD2;}).length]);
       dd.push([""]);
       dd.push(["DAY 1","Nb","%"]);
-      ["Transfert TSA","Abandon"].forEach(function(s){var n=apps.filter(function(a){return a.statusD1===s;}).length;dd.push([s,n,Math.round(n/tot*100)+"%"]);});
+      ["Transfert TSA","Maintien","Rebuild","Abandon"].forEach(function(s){var n=apps.filter(function(a){return a.statusD1===s;}).length;dd.push([s,n,Math.round(n/tot*100)+"%"]);});
       dd.push(["Non defini",apps.filter(function(a){return !a.statusD1;}).length,Math.round(apps.filter(function(a){return !a.statusD1;}).length/tot*100)+"%"]);
       dd.push([""]);
       dd.push(["DAY 2","Nb","%"]);
@@ -844,7 +841,22 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
 
   const exportPPTX=async(opts)=>{
     await ensurePptx();
-    var _opts=opts||exportOpts;
+    var _rawOpts=opts||exportOpts;
+    var _opts=Object.assign({},_rawOpts,{
+      // mapper les nouveaux opts simplifiés vers les anciens flags internes
+      inclRecapTable:!!_rawOpts.inclMatrices,
+      inclAggregated:!!_rawOpts.inclMatrices,
+      inclDomainStatus:!!_rawOpts.inclDomainStatus,
+      // options retirées du formulaire — valeurs fixes
+      synthDetail:"none",
+      inclFocusDomain:false,
+      inclKPI:false,
+      inclHubSlides:false,
+      inclLegend:true,
+      flowLineStyle:_rawOpts.flowLineStyle||"solid",
+      hubLimit:Math.max(1,parseInt(_rawOpts.hubLimit)||8),
+      hubDomainFilter:(_rawOpts.hubDomainFilter&&_rawOpts.hubDomainFilter.length>0)?_rawOpts.hubDomainFilter:null,
+    });
     var _pDC=DC_DARK;
     const pres=new PptxGenJS();
     pres.layout="LAYOUT_WIDE";
@@ -1077,6 +1089,8 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     // Bloc Day 1
     const d1Stats2=[
       {l:"Transfert TSA",v:apps.filter(function(a){return a.statusD1==="Transfert TSA";}).length,c:"F59E0B"},
+      {l:"Maintien",v:apps.filter(function(a){return a.statusD1==="Maintien";}).length,c:"10B981"},
+      {l:"Rebuild",v:apps.filter(function(a){return a.statusD1==="Rebuild";}).length,c:"F97316"},
       {l:"Abandon",v:apps.filter(function(a){return a.statusD1==="Abandon";}).length,c:"EF4444"},
       {l:"Non défini",v:apps.filter(function(a){return !a.statusD1;}).length,c:"4A5568"},
     ];
@@ -1125,10 +1139,10 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
 
     // ─── Slides: Vue par domaine - Statut Day 1 & Day 2 ───
     if(_opts.inclDomainStatus){
-      const d1Colors={"Transfert TSA":"F59E0B","Abandon":"EF4444","Non défini":"94A3B8"};
+      const d1Colors={"Transfert TSA":"F59E0B","Maintien":"10B981","Rebuild":"F97316","Abandon":"EF4444","Non défini":"94A3B8"};
       const d2Colors={"Clone & Clean":"3B82F6","Transfert":"10B981","Rebuild":"8B5CF6","Abandon":"EF4444","Non défini":"94A3B8"};
       [
-        {label:"CARTOGRAPHIE PAR DOMAINE — STATUT DAY 1 (CLOSING)",field:"statusD1",colorMap:d1Colors,legend:[["Transfert TSA","F59E0B"],["Abandon","EF4444"],["Non défini","94A3B8"]]},
+        {label:"CARTOGRAPHIE PAR DOMAINE — STATUT DAY 1 (CLOSING)",field:"statusD1",colorMap:d1Colors,legend:[["Transfert TSA","F59E0B"],["Maintien","10B981"],["Rebuild","F97316"],["Abandon","EF4444"],["Non défini","94A3B8"]]},
         {label:"CARTOGRAPHIE PAR DOMAINE — STATUT DAY 2 (CIBLE)",field:"statusD2",colorMap:d2Colors,legend:[["Clone & Clean","3B82F6"],["Transfert","10B981"],["Rebuild","8B5CF6"],["Abandon","EF4444"],["Non défini","94A3B8"]]},
       ].forEach(function(cfg){
         const dsSlide=SS(pres.addSlide());
@@ -1360,8 +1374,8 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
           segs.push({x1,y1,x2,y2});
         }
         if(segs.length===0)return;
-        // Halo blanc élargi pour contraste sur croisements
-        segs.forEach(s=>addLineSeg(s.x1,s.y1,s.x2,s.y2,false,"FFFFFF",width+2.3,false));
+        // Halo blanc pour contraste sur croisements
+        segs.forEach(s=>addLineSeg(s.x1,s.y1,s.x2,s.y2,false,"FFFFFF",width+1.8,false));
         // Trait coloré principal
         segs.forEach((s,idx)=>addLineSeg(s.x1,s.y1,s.x2,s.y2,idx===segs.length-1,color,width,dash));
       };
@@ -1378,7 +1392,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
 
       // Grid arrangement — hub-centric
       const gr=arrangeGrid(subset,subFlows,CW,CH);
-      const HEAD=0.20,dPad=0.06,aGap=0.03;
+      const HEAD=0.26,dPad=0.06,aGap=0.04;
 
       // Build domBoxes (absolute coords) and app positions
       // Within each domain, sort apps by connectivity desc → hub app first (top)
@@ -1403,9 +1417,9 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         const innerW=cell.w-dPad*2;
         const innerH=cell.h-HEAD-dPad*1.4;
         // Cap app size so cells keep routing slack between domain panels
-        const aWmax=0.95,aHmax=0.26;
+        const aWmax=0.95,aHmax=0.34;
         const aW=Math.min(aWmax,(innerW-aGap*(aCols-1))/aCols);
-        const aH=Math.min(aHmax,Math.max(0.20,(innerH-aGap*(aRows-1))/aRows));
+        const aH=Math.min(aHmax,Math.max(0.24,(innerH-aGap*(aRows-1))/aRows));
         const actualGap=aRows>1?Math.max(aGap,(innerH-aRows*aH)/(aRows-1)):0;
         const usedH=HEAD+aRows*aH+(aRows-1)*actualGap+dPad*1.4;
         const usedW=aCols*aW+(aCols-1)*aGap+dPad*2;
@@ -1426,7 +1440,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
 
       // ── Pass 1 : Domain panels ──
       Object.entries(domBoxes).forEach(([d,box])=>{
-        sC.addShape(pres.shapes.RECTANGLE,{x:box.x,y:box.y,w:box.w,h:box.h,fill:{color:"F5F6FA"},line:{color:"D8DCE0",width:0.4}});
+        sC.addShape(pres.shapes.RECTANGLE,{x:box.x,y:box.y,w:box.w,h:box.h,fill:{color:box.bg||"F5F6FA"},line:{color:box.ac,width:1.0},shadow:{type:"outer",blur:4,offset:1.5,color:"000000",opacity:0.09,angle:135}});
         sC.addShape(pres.shapes.RECTANGLE,{x:box.x,y:box.y,w:box.w,h:HEAD,fill:{color:box.ac},line:{type:"none"}});
         sC.addText(d+" ("+gr.byDom[d].length+")",{x:box.x+0.12,y:box.y,w:box.w-0.24,h:HEAD,fontSize:11,bold:true,color:"FFFFFF",fontFace:"Calibri",valign:"middle",margin:0});
       });
@@ -1502,6 +1516,29 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
           sideEntryCount[sB]=(sideEntryCount[sB]||0)+1;
         });
 
+        // ── PRÉ-PASSE : distribution radiale globale des ancres sur les hubs ──
+        // Compte le nb TOTAL de paires d'apps qui sortent/entrent sur chaque (appId, côté)
+        // toutes paires de domaines confondues → évite la convergence en un point unique.
+        const _gExitCnt={},_gEntryCnt={};
+        Object.entries(pairMap).forEach(function([_k,_pr]){
+          var _apm2={};
+          _pr.flows.forEach(function(f){var apk2=f.from+"|"+f.to;(_apm2[apk2]=_apm2[apk2]||[]).push(f);});
+          Object.entries(_apm2).forEach(function([,_gf]){
+            var ek=_gf[0].from+"|"+_pr.sideA,nk=_gf[0].to+"|"+_pr.sideB;
+            _gExitCnt[ek]=(_gExitCnt[ek]||0)+1;
+            _gEntryCnt[nk]=(_gEntryCnt[nk]||0)+1;
+          });
+        });
+        const _gExitIdx={},_gEntryIdx={};
+        const _gSlotT=function(cnt,idx,appId,side){
+          var k=appId+"|"+side;
+          var tot=cnt[k]||1;
+          var i2=idx[k]||0;
+          idx[k]=i2+1;
+          // Étale les points d'ancrage entre 12% et 88% du bord, uniformément
+          return tot===1?0.5:Math.max(0.12,Math.min(0.88,(i2+1)/(tot+1)));
+        };
+
         const sidePt=(box,side,t)=>{
           if(side==="right")return{x:box.x+box.w,y:box.y+0.04+t*(box.h-0.08)};
           if(side==="left") return{x:box.x,       y:box.y+0.04+t*(box.h-0.08)};
@@ -1533,8 +1570,9 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
             const f=groupFlows[0];
             const Aa=positions[f.from],Bb=positions[f.to];
             // Use evenly spaced t for exit/entry on app box edges
-            const tA=nPairs===1?0.5:(i+1)/(nPairs+1);
-            const tB=nPairs===1?0.5:(i+1)/(nPairs+1);
+            // t global par (appId, côté) → ancres étalées même si l'app est hub vers N domaines
+            const tA=_gSlotT(_gExitCnt,_gExitIdx,f.from,pair.sideA);
+            const tB=_gSlotT(_gEntryCnt,_gEntryIdx,f.to,pair.sideB);
             const p1=sidePt(Aa,pair.sideA,tA);
             const p2=sidePt(Bb,pair.sideB,tB);
 
@@ -1564,6 +1602,8 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
               var by2=channelSeg.y+channelSeg.h/2-0.09;
               sC.addShape(pres.shapes.RECTANGLE,{x:bx2,y:by2,w:0.28,h:0.17,fill:{color:lineColor},line:{type:"none"}});
               sC.addText("×"+count,{x:bx2,y:by2,w:0.28,h:0.17,fontSize:7,bold:true,color:"FFFFFF",fontFace:"Calibri",align:"center",valign:"middle",margin:0});
+              // Inclure le badge dans la zone d'exclusion des labels (évite superposition)
+              labelRects.push({x:bx2-0.03,y:by2-0.03,w:0.34,h:0.23});
             }
             flowMeta.push({flow:f,channelSeg,channelAxis:pair.axis,p1:{x:x1,y:y1},p2:{x:x2,y:y2},lineColor,count});
           });
@@ -1592,7 +1632,10 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
           flowMeta.push({flow:f,channelSeg,channelAxis:horiz?"X":"Y",p1:{x:x1,y:y1},p2:{x:x2,y:y2},lineColor});
         });
 
-        // ── Pass 4 : Labels — placement intelligent par scoring (skipped si showLabels=false) ──
+        // ── Pass 4 : Labels — placement intelligent ou légende numérotée (skipped si showLabels=false) ──
+        // Au-delà de LEGEND_THRESH flux labellisés, on bascule en mode numéroté :
+        // chaque flux reçoit un numéro sur sa ligne + une table récap en bas de slide.
+        const LEGEND_THRESH=18;
         if(showLabels){
         const rectsOver=(a,b)=>!(a.x+a.w<=b.x||b.x+b.w<=a.x||a.y+a.h<=b.y||b.y+b.h<=a.y);
         const rectDist=(a,b)=>{
@@ -1603,89 +1646,117 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         // Check if a line segment crosses a rectangle (inflated by margin)
         const segCrossRect=(seg,r,m)=>{
           const rx=r.x-m,ry=r.y-m,rw=r.w+2*m,rh=r.h+2*m;
-          // Clip segment to rect bounding box — if any part inside, it crosses
           const sx1=seg.x1,sy1=seg.y1,sx2=seg.x2,sy2=seg.y2;
           const minX=Math.min(sx1,sx2),maxX=Math.max(sx1,sx2);
           const minY=Math.min(sy1,sy2),maxY=Math.max(sy1,sy2);
-          // AABB overlap test
           if(maxX<rx||minX>rx+rw||maxY<ry||minY>ry+rh)return false;
-          // For axis-aligned segments (most of ours), AABB test is sufficient
           if(Math.abs(sx2-sx1)<0.005||Math.abs(sy2-sy1)<0.005)return true;
-          // For diagonal: check if segment endpoints are on same side of rect edges
-          return true; // conservative — diagonal segments through rect count as crossing
+          return true;
         };
-        // Trier par longueur de couloir desc : les flux longs ont plus de positions possibles, on les place après
-        // les courts pour leur laisser de la place. INVERSE : court d'abord (peu de marge), puis long.
+        // Compte les flux qui ont un label (pour décider du mode)
+        const labeledFlows=flowMeta.filter(function(m){return !!(m.flow.label||protoLabel(m.flow.protocol||"Autre"));});
+        const useLegend=labeledFlows.length>LEGEND_THRESH;
+        const legendEntries=[];
+
+        // Trier : couloirs courts d'abord (peu de marge → placer en premier)
         flowMeta.sort((A,B)=>(A.channelSeg.w+A.channelSeg.h)-(B.channelSeg.w+B.channelSeg.h));
-        flowMeta.forEach(({flow,channelSeg,channelAxis,p1,p2,lineColor})=>{
-          // Pas d'ID dans le label — uniquement le libellé (ou protocole en fallback)
+        var legendNum=0;
+        flowMeta.forEach(function({flow,channelSeg,channelAxis,p1,p2,lineColor}){
           const txt=flow.label||protoLabel(flow.protocol||"Autre");
           if(!txt)return;
-          const lw=Math.min(1.4,Math.max(0.35,txt.length*0.045+0.08));
-          const lh=0.14;
-          // Construire un large set de candidats autour du couloir ET des jambes
           const cx0=channelSeg.x+channelSeg.w/2,cy0=channelSeg.y+channelSeg.h/2;
-          const along=channelAxis==="X"
-            ?[0.2,0.35,0.5,0.65,0.8].map(t=>({x:cx0,y:channelSeg.y+channelSeg.h*t}))
-            :[0.2,0.35,0.5,0.65,0.8].map(t=>({x:channelSeg.x+channelSeg.w*t,y:cy0}));
-          // Sur les jambes courtes (exit/entry legs)
-          // Points along exit and entry legs (not just midpoints)
-          const legPts=[];
-          [0.25,0.5,0.75].forEach(t=>{
-            legPts.push({x:p1.x+(cx0-p1.x)*t,y:p1.y+(cy0-p1.y)*t});
-            legPts.push({x:cx0+(p2.x-cx0)*t,y:cy0+(p2.y-cy0)*t});
-          });
-          const candidates=[];
-          const offsets=[
-            [0,0],
-            [0,-lh-0.04],[0,lh*0.5+0.04],
-            [-lw/2-0.06,0],[lw/2+0.06,0],
-            [-lw/2-0.06,-lh-0.04],[lw/2+0.06,-lh-0.04],
-            [-lw/2-0.06,lh*0.5+0.04],[lw/2+0.06,lh*0.5+0.04]
-          ];
-          along.forEach(p=>{
-            offsets.forEach(([ox,oy])=>{
-              candidates.push({x:p.x-lw/2+ox,y:p.y-lh/2+oy});
-            });
-          });
-          legPts.forEach(p=>{
-            offsets.forEach(([ox,oy])=>{
-              candidates.push({x:p.x-lw/2+ox,y:p.y-lh/2+oy});
-            });
-          });
-          // Évaluer chaque candidat
-          let bestR=null,bestScore=-Infinity;
-          let fallbackR=null;
-          for(const c of candidates){
-            const r={x:c.x,y:c.y,w:lw,h:lh};
-            const inCanvas=r.x>=CX-0.10&&r.x+r.w<=CX+CW+0.10&&r.y>=CY-0.05&&r.y+r.h<=CY+CH+0.05;
-            const inLegend=showFlows&&r.x<CX+legW+0.05&&r.y+r.h>CY+CH-legH;
-            if(!inCanvas||inLegend){if(!fallbackR&&r.x>=CX-0.3&&r.x+r.w<=CX+CW+0.3)fallbackR=r;continue;}
-            // Reject if overlap with app box (HARD)
-            if(labelRects.filter(p=>p._isApp).some(pl=>rectsOver(r,pl)))continue;
-            // Score : distance min aux labels existants (+) et au point d'origine sur la ligne (−)
-            let score=0;
-            const overlaps=labelRects.filter(p=>!p._isApp&&rectsOver(r,p));
-            if(overlaps.length>0)score-=overlaps.length*100; // strong penalty
-            else {
-              const minD=labelRects.filter(p=>!p._isApp).reduce((m,p)=>Math.min(m,rectDist(r,p)),9999);
-              score+=Math.min(minD,0.5)*2;
+
+          if(useLegend){
+            // Mode numéroté : badge compact (numéro) sur le couloir
+            legendNum++;
+            const numStr=String(legendNum);
+            const bw=Math.min(0.22,0.14+numStr.length*0.03),bh=0.16;
+            const bx=cx0-bw/2,by=cy0-bh/2;
+            // Éviter superposition avec app boxes
+            const badgeR={x:bx-0.02,y:by-0.02,w:bw+0.04,h:bh+0.04};
+            const hitApp=labelRects.filter(function(r){return r._isApp;}).some(function(r){return rectsOver(badgeR,r);});
+            // Si collision avec app, essayer légèrement décalé
+            var finalBx=bx,finalBy=by;
+            if(hitApp){
+              // Essayer 3 positions alternatives le long du couloir
+              var tried=[[cx0+0.15,cy0],[cx0-0.15,cy0],[cx0,cy0+0.15],[cx0,cy0-0.15]];
+              for(var ti=0;ti<tried.length;ti++){
+                var tr={x:tried[ti][0]-bw/2-0.02,y:tried[ti][1]-bh/2-0.02,w:bw+0.04,h:bh+0.04};
+                if(!labelRects.filter(function(r){return r._isApp;}).some(function(r){return rectsOver(tr,r);})){
+                  finalBx=tried[ti][0]-bw/2;finalBy=tried[ti][1]-bh/2;break;
+                }
+              }
             }
-            // Penalize labels that cross flow line segments
-            const flowCross=flowSegs.filter(s=>segCrossRect(s,r,0.02)).length;
-            if(flowCross>0)score-=flowCross*30;
-            // Slight preference : être proche du segment couloir (lisibilité)
-            const dToChan=channelAxis==="X"
-              ?Math.abs(r.x+r.w/2-cx0)
-              :Math.abs(r.y+r.h/2-cy0);
-            score-=dToChan*0.5;
-            if(score>bestScore){bestScore=score;bestR=r;}
+            sC.addShape(pres.shapes.OVAL,{x:finalBx,y:finalBy,w:bw,h:bh,fill:{color:lineColor},line:{color:"FFFFFF",width:0.5}});
+            sC.addText(numStr,{x:finalBx,y:finalBy,w:bw,h:bh,fontSize:6,bold:true,color:"FFFFFF",fontFace:"Calibri",align:"center",valign:"middle",margin:0});
+            labelRects.push({x:finalBx-0.02,y:finalBy-0.02,w:bw+0.04,h:bh+0.04});
+            legendEntries.push({num:legendNum,txt,lineColor});
+          } else {
+            // Mode texte inline — placement par scoring
+            const lw=Math.min(1.7,Math.max(0.42,txt.length*0.052+0.10));
+            const lh=0.19;
+            const along=channelAxis==="X"
+              ?[0.2,0.35,0.5,0.65,0.8].map(function(t){return{x:cx0,y:channelSeg.y+channelSeg.h*t};})
+              :[0.2,0.35,0.5,0.65,0.8].map(function(t){return{x:channelSeg.x+channelSeg.w*t,y:cy0};});
+            const legPts=[];
+            [0.25,0.5,0.75].forEach(function(t){
+              legPts.push({x:p1.x+(cx0-p1.x)*t,y:p1.y+(cy0-p1.y)*t});
+              legPts.push({x:cx0+(p2.x-cx0)*t,y:cy0+(p2.y-cy0)*t});
+            });
+            const candidates=[];
+            const offsets=[[0,0],[0,-lh-0.04],[0,lh*0.5+0.04],[-lw/2-0.06,0],[lw/2+0.06,0],[-lw/2-0.06,-lh-0.04],[lw/2+0.06,-lh-0.04],[-lw/2-0.06,lh*0.5+0.04],[lw/2+0.06,lh*0.5+0.04]];
+            along.forEach(function(p){offsets.forEach(function([ox,oy]){candidates.push({x:p.x-lw/2+ox,y:p.y-lh/2+oy});});});
+            legPts.forEach(function(p){offsets.forEach(function([ox,oy]){candidates.push({x:p.x-lw/2+ox,y:p.y-lh/2+oy});});});
+            let bestR=null,bestScore=-Infinity,fallbackR=null;
+            for(const c of candidates){
+              const r={x:c.x,y:c.y,w:lw,h:lh};
+              const inCanvas=r.x>=CX-0.10&&r.x+r.w<=CX+CW+0.10&&r.y>=CY-0.05&&r.y+r.h<=CY+CH+0.05;
+              const inLegend=showFlows&&r.x<CX+legW+0.05&&r.y+r.h>CY+CH-legH;
+              if(!inCanvas||inLegend){if(!fallbackR&&r.x>=CX-0.3&&r.x+r.w<=CX+CW+0.3)fallbackR=r;continue;}
+              if(labelRects.filter(function(p){return p._isApp;}).some(function(pl){return rectsOver(r,pl);}))continue;
+              let score=0;
+              const overlaps=labelRects.filter(function(p){return !p._isApp&&rectsOver(r,p);});
+              if(overlaps.length>0)score-=overlaps.length*100;
+              else{const minD=labelRects.filter(function(p){return !p._isApp;}).reduce(function(m,p){return Math.min(m,rectDist(r,p));},9999);score+=Math.min(minD,0.5)*2;}
+              const flowCross=flowSegs.filter(function(s){return segCrossRect(s,r,0.02);}).length;
+              if(flowCross>0)score-=flowCross*30;
+              const dToChan=channelAxis==="X"?Math.abs(r.x+r.w/2-cx0):Math.abs(r.y+r.h/2-cy0);
+              score-=dToChan*0.5;
+              if(score>bestScore){bestScore=score;bestR=r;}
+            }
+            const chosen=bestR||fallbackR||{x:cx0-lw/2,y:cy0-lh/2,w:lw,h:lh};
+            labelRects.push(chosen);
+            sC.addShape(pres.shapes.RECTANGLE,{x:chosen.x-0.03,y:chosen.y-0.02,w:chosen.w+0.06,h:chosen.h+0.04,fill:{color:"FFFFFF"},line:{color:lineColor,width:0.6},shadow:{type:"outer",blur:2,offset:1,color:"000000",opacity:0.10,angle:135}});
+            sC.addText(txt,{x:chosen.x,y:chosen.y,w:chosen.w,h:chosen.h,fontSize:7.5,color:lineColor,fontFace:"Calibri",align:"center",valign:"middle",margin:0,shrinkText:true});
           }
-          const chosen=bestR||fallbackR||{x:cx0-lw/2,y:cy0-lh/2,w:lw,h:lh};
-          labelRects.push(chosen);
-          sC.addShape(pres.shapes.RECTANGLE,{x:chosen.x-0.02,y:chosen.y-0.01,w:chosen.w+0.04,h:chosen.h+0.02,fill:{color:"FFFFFF"},line:{color:lineColor,width:0.4}});
-          sC.addText(txt,{x:chosen.x,y:chosen.y,w:chosen.w,h:chosen.h,fontSize:6,color:lineColor,fontFace:"Calibri",align:"center",valign:"middle",margin:0,shrinkText:true});
         });
+
+        // ── Légende numérotée (mode dense) ──
+        if(useLegend&&legendEntries.length>0){
+          const COLS=legendEntries.length>24?3:2;
+          const rowH=0.135;
+          const perCol=Math.ceil(legendEntries.length/COLS);
+          const tblH=Math.min(perCol*rowH+0.22,2.2);
+          const tblW=COLS===3?6.8:4.8;
+          const tblX=CX+CW-tblW;
+          const tblY=CY+CH-tblH+0.02;
+          // Fond de la table
+          sC.addShape(pres.shapes.RECTANGLE,{x:tblX-0.08,y:tblY-0.08,w:tblW+0.16,h:tblH+0.08,fill:{color:"F8F9FB"},line:{color:"D1D5DB",width:0.5},shadow:{type:"outer",blur:3,offset:1,color:"000000",opacity:0.07,angle:135}});
+          sC.addText("INDEX DES FLUX",{x:tblX,y:tblY-0.04,w:tblW,h:0.14,fontSize:6,bold:true,color:"0B2545",fontFace:"Calibri",charSpacing:0.6,margin:0});
+          const colW=tblW/COLS;
+          legendEntries.forEach(function(e,ei){
+            var col=Math.floor(ei/perCol);
+            var row=ei%perCol;
+            var ex=tblX+col*colW;
+            var ey=tblY+0.16+row*rowH;
+            if(ey+rowH>tblY+tblH)return; // débordement
+            // Pastille couleur
+            sC.addShape(pres.shapes.OVAL,{x:ex,y:ey+rowH*0.2,w:0.11,h:0.11,fill:{color:e.lineColor},line:{type:"none"}});
+            // Texte : numéro + libellé
+            sC.addText(e.num+".  "+e.txt,{x:ex+0.14,y:ey,w:colW-0.18,h:rowH,fontSize:6,color:"222222",fontFace:"Calibri",valign:"middle",margin:0,shrinkText:true});
+          });
+        }
+
         }// end showLabels
       }
 
@@ -1722,8 +1793,8 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
           var fSizeG=Math.min(7,p.w*6);
           sC.addText(app.name,{x:p.x+0.04,y:p.y,w:p.w-0.08,h:p.h,fontSize:fSizeG,bold:false,color:"9CA3AF",fontFace:"Calibri",margin:0,valign:"middle",align:"center",shrinkText:true,wrap:true});
         }else{
-          sC.addShape(pres.shapes.RECTANGLE,{x:p.x,y:p.y,w:p.w,h:p.h,fill:{color:isArret?"FFEAEA":"FFFFFF"},line:{color:ac,width:0.8},shadow:{type:"outer",blur:1,offset:0.5,color:"000000",opacity:0.06,angle:135}});
-          var fSize=Math.min(7,p.w*6);
+          sC.addShape(pres.shapes.RECTANGLE,{x:p.x,y:p.y,w:p.w,h:p.h,fill:{color:isArret?"FFEAEA":"FFFFFF"},line:{color:ac,width:1.0},shadow:{type:"outer",blur:2,offset:1,color:"000000",opacity:0.10,angle:135}});
+          var fSize=Math.min(9,Math.max(7,p.w*7.5));
           sC.addText(app.name,{x:p.x+0.05,y:p.y,w:p.w-0.1,h:p.h,fontSize:fSize,bold:true,color:isArret?"990000":"1A1A1A",fontFace:"Calibri",margin:0,valign:"middle",align:"center",shrinkText:true,wrap:true});
         }
       });
@@ -1760,11 +1831,15 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         neighFlows[nid].protos[p]=(neighFlows[nid].protos[p]||0)+1;
         if(f.from===hub.id)neighFlows[nid].out++;else neighFlows[nid].in++;
       });
-      // Ring geometry — adapt radii to number of neighbors
-      var rx=Math.min(CW/2-1.0,Math.max(2.2,nN*0.38));
-      var ry=Math.min(CH/2-0.55,Math.max(1.5,nN*0.24));
-      const neighW=Math.min(1.55,Math.max(1.0,2.8-nN*0.04));
+      // Ring geometry — satellites poussés vers le bord du canvas
+      // neighW calculé en premier pour dimensionner la marge des rayons
+      const neighW=Math.min(1.55,Math.max(0.90,2.8-nN*0.04));
       const neighH=0.56;
+      // Rayon horizontal : canvas width / 2 moins la moitié de la boîte satellite + marge
+      // Rayon vertical   : canvas height / 2 moins la moitié de la boîte satellite + marge
+      // Le max() garantit un rayon minimum large même avec peu de voisins
+      var rx=Math.min(CW/2-neighW*0.60-0.10, Math.max(4.4, nN*0.28));
+      var ry=Math.min(CH/2-neighH*0.60-0.14, Math.max(2.7, nN*0.17));
       // Sort neighbors: by domain then name (visual grouping)
       const sorted=[...neighbors].sort(function(a,b){return a.domain.localeCompare(b.domain)||a.name.localeCompare(b.name);});
       const neighPos={};
@@ -1780,16 +1855,18 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         var sx=(bw/2)/Math.abs(dx||0.001),sy=(bh/2)/Math.abs(dy||0.001),s=Math.min(sx,sy)*0.96;
         return{x:bcx+dx*s,y:bcy+dy*s};
       };
-      // Segment helper
+      // Segment helper — épaisseur uniforme, style de trait selon _opts.flowLineStyle
+      var hubDashType=_opts.flowLineStyle==="dash"?"lgDash":_opts.flowLineStyle==="dot"?"sysDot":"solid";
       const seg=function(x1,y1,x2,y2,arrow,color,width){
         var w=Math.abs(x2-x1),h=Math.abs(y2-y1);
         if(w<0.004&&h<0.004)return;
-        var o={x:Math.min(x1,x2),y:Math.min(y1,y2),w:w||0.001,h:h||0.001,line:{color:color,width:width,dashType:"solid"}};
+        var o={x:Math.min(x1,x2),y:Math.min(y1,y2),w:w||0.001,h:h||0.001,line:{color:color,width:width,dashType:color==="FFFFFF"?"solid":hubDashType}};
         if(x2<x1)o.flipH=true;if(y2<y1)o.flipV=true;
         if(arrow){o.line.endArrowType="triangle";o.line.endArrowSize=6;}
         sC.addShape(pres.shapes.LINE,o);
       };
       // Draw edges (under nodes)
+      var hubLineW=_FLOW_LW; // épaisseur uniforme
       sorted.forEach(function(a){
         var nf=neighFlows[a.id]||{out:0,in:0,protos:{}};
         var np=neighPos[a.id];
@@ -1797,30 +1874,34 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         var domP=Object.entries(nf.protos).sort(function(a,b){return b[1]-a[1];})[0];
         var color=protoColor(domP?domP[0]:"Autre");
         if(total===0)return;
-        var lineW=Math.min(3.2,1.2+(total-1)*0.28);
         var p1=edgePt(hubCx,hubCy,hubW,hubH,np.cx,np.cy);
         var p2=edgePt(np.cx,np.cy,np.w,np.h,hubCx,hubCy);
         var bidir=nf.out>0&&nf.in>0;
         if(bidir){
           var dx=p2.x-p1.x,dy=p2.y-p1.y,len=Math.hypot(dx,dy)||1;
-          var ox=-dy/len*0.055,oy=dx/len*0.055;
-          seg(p1.x+ox,p1.y+oy,p2.x+ox,p2.y+oy,false,"FFFFFF",lineW+1.8);
-          seg(p1.x+ox,p1.y+oy,p2.x+ox,p2.y+oy,true,color,lineW);
-          seg(p2.x-ox,p2.y-oy,p1.x-ox,p1.y-oy,false,"FFFFFF",lineW+1.8);
-          seg(p2.x-ox,p2.y-oy,p1.x-ox,p1.y-oy,true,color,lineW);
+          var ox=-dy/len*0.065,oy=dx/len*0.065;
+          seg(p1.x+ox,p1.y+oy,p2.x+ox,p2.y+oy,false,"FFFFFF",hubLineW+2.0);
+          seg(p1.x+ox,p1.y+oy,p2.x+ox,p2.y+oy,true,color,hubLineW);
+          // Point de départ hub→voisin
+          sC.addShape(pres.shapes.OVAL,{x:p1.x+ox-0.05,y:p1.y+oy-0.05,w:0.10,h:0.10,fill:{color:color},line:{color:"FFFFFF",width:0.8}});
+          seg(p2.x-ox,p2.y-oy,p1.x-ox,p1.y-oy,false,"FFFFFF",hubLineW+2.0);
+          seg(p2.x-ox,p2.y-oy,p1.x-ox,p1.y-oy,true,color,hubLineW);
+          // Point de départ voisin→hub
+          sC.addShape(pres.shapes.OVAL,{x:p2.x-ox-0.05,y:p2.y-oy-0.05,w:0.10,h:0.10,fill:{color:color},line:{color:"FFFFFF",width:0.8}});
         }else if(nf.out>0){
-          seg(p1.x,p1.y,p2.x,p2.y,false,"FFFFFF",lineW+1.8);
-          seg(p1.x,p1.y,p2.x,p2.y,true,color,lineW);
+          seg(p1.x,p1.y,p2.x,p2.y,false,"FFFFFF",hubLineW+2.0);
+          seg(p1.x,p1.y,p2.x,p2.y,true,color,hubLineW);
+          sC.addShape(pres.shapes.OVAL,{x:p1.x-0.05,y:p1.y-0.05,w:0.10,h:0.10,fill:{color:color},line:{color:"FFFFFF",width:0.8}});
         }else{
-          seg(p2.x,p2.y,p1.x,p1.y,false,"FFFFFF",lineW+1.8);
-          seg(p2.x,p2.y,p1.x,p1.y,true,color,lineW);
+          seg(p2.x,p2.y,p1.x,p1.y,false,"FFFFFF",hubLineW+2.0);
+          seg(p2.x,p2.y,p1.x,p1.y,true,color,hubLineW);
+          sC.addShape(pres.shapes.OVAL,{x:p2.x-0.05,y:p2.y-0.05,w:0.10,h:0.10,fill:{color:color},line:{color:"FFFFFF",width:0.8}});
         }
-        // Count badge at midpoint
+        // Badge nombre de flux au milieu (ovale au lieu de rectangle)
         var mx=(p1.x+p2.x)/2,my=(p1.y+p2.y)/2;
-        if(total>1){
-          sC.addShape(pres.shapes.RECTANGLE,{x:mx-0.18,y:my-0.11,w:0.36,h:0.21,fill:{color:color},line:{type:"none"}});
-          sC.addText("×"+total,{x:mx-0.18,y:my-0.11,w:0.36,h:0.21,fontSize:7.5,bold:true,color:"FFFFFF",fontFace:"Calibri",align:"center",valign:"middle",margin:0});
-        }
+        var bw=total>=10?0.30:0.24,bh=0.18;
+        sC.addShape(pres.shapes.OVAL,{x:mx-bw/2,y:my-bh/2,w:bw,h:bh,fill:{color:color},line:{color:"FFFFFF",width:0.8}});
+        sC.addText(String(total),{x:mx-bw/2,y:my-bh/2,w:bw,h:bh,fontSize:7.5,bold:true,color:"FFFFFF",fontFace:"Calibri",align:"center",valign:"middle",margin:0});
       });
       // Neighbor boxes
       sorted.forEach(function(a){
@@ -1850,8 +1931,236 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       }
     };
 
-    // ── Consolidated A : hub au centre, secteurs angulaires par domaine ──
-    const drawConsolidatedSectorSlide=function(){
+    // ── Hub détaillé : panneau gauche = index · panneau droit = carto radiale ──
+    const drawHubDetailSlide=(hub,subset,subFlows,totalFlowCount)=>{
+      if(subFlows.length===0)return;
+      const sC=pres.addSlide();
+      sC.background={color:"FFFFFF"};
+      const sW=13.333,sH=7.5;
+
+      // ── Dimensions des deux panneaux ──
+      const HDR=0.60;             // hauteur header
+      const LP_X=0,LP_W=3.90;    // panneau gauche (index)
+      const SEP=LP_X+LP_W;       // ligne séparatrice
+      const RP_X=SEP+0.08;       // panneau droit (carto)
+      const RP_W=sW-RP_X-0.10;   // largeur carto ≈ 9.18"
+
+      // Header pleine largeur
+      sC.addShape(pres.shapes.RECTANGLE,{x:0,y:0,w:sW,h:HDR,fill:{color:cp||"0B2545"},line:{type:"none"}});
+      sC.addText("DÉTAIL FLUX · "+hub.name.toUpperCase(),{x:0.20,y:0.08,w:RP_W,h:0.32,fontSize:15,bold:true,color:"FFFFFF",fontFace:"Trebuchet MS",margin:0});
+      sC.addText(subFlows.length+" flux · "+hub.domain,{x:0.20,y:0.38,w:6,h:0.18,fontSize:8,color:"BFD7FF",fontFace:"Calibri",margin:0});
+      if(_opts.clientLogo){sC.addImage({data:_opts.clientLogo,x:12.10,y:0.06,w:1.00,h:0.46,sizing:{type:"contain",w:1.00,h:0.46}});}
+
+      // Séparateur vertical
+      sC.addShape(pres.shapes.RECTANGLE,{x:SEP,y:HDR,w:0.015,h:sH-HDR,fill:{color:"E5E7EB"},line:{type:"none"}});
+
+      // Fond panneau gauche
+      sC.addShape(pres.shapes.RECTANGLE,{x:LP_X,y:HDR,w:LP_W,h:sH-HDR,fill:{color:"F8F9FB"},line:{type:"none"}});
+      // Panneau droit : zone de la carto radiale
+      const CY=HDR+0.08, CH=sH-HDR-0.12;
+      const cx=RP_X+RP_W/2, cy=CY+CH/2;
+      const hubDomColor=(_pDC[hub.domain]||_pDC.Autre).ac.replace("#","");
+      const hubW=1.70,hubH=0.76;
+
+      // Géométrie radiale contrainte au panneau droit
+      const neighbors=subset.filter(function(a){return a.id!==hub.id;});
+      const nN=neighbors.length;
+      const neighW=Math.min(1.50,Math.max(0.88,2.7-nN*0.04));
+      const neighH=0.54;
+      // rx limité par la demi-largeur du panneau droit
+      var rx=Math.min(RP_W/2-neighW*0.55-0.10, Math.max(3.4,nN*0.24));
+      var ry=Math.min(CH/2-neighH*0.60-0.12,   Math.max(2.6,nN*0.17));
+      const sorted=[...neighbors].sort(function(a,b){return a.domain.localeCompare(b.domain)||a.name.localeCompare(b.name);});
+      const neighPos={};
+      sorted.forEach(function(a,i){
+        var ang=-Math.PI/2+(nN>0?2*Math.PI*i/nN:0);
+        var ncx=cx+rx*Math.cos(ang),ncy=cy+ry*Math.sin(ang);
+        neighPos[a.id]={x:ncx-neighW/2,y:ncy-neighH/2,w:neighW,h:neighH,cx:ncx,cy:ncy};
+      });
+
+      var dDash=_opts.flowLineStyle==="dash"?"lgDash":_opts.flowLineStyle==="dot"?"sysDot":"solid";
+      const seg=function(x1,y1,x2,y2,arrow,color,width){
+        var w=Math.abs(x2-x1),h=Math.abs(y2-y1);
+        if(w<0.004&&h<0.004)return;
+        var o={x:Math.min(x1,x2),y:Math.min(y1,y2),w:w||0.001,h:h||0.001,line:{color:color,width:width,dashType:color==="FFFFFF"?"solid":dDash}};
+        if(x2<x1)o.flipH=true;if(y2<y1)o.flipV=true;
+        if(arrow){o.line.endArrowType="triangle";o.line.endArrowSize=5;}
+        sC.addShape(pres.shapes.LINE,o);
+      };
+
+      // ── Ancrage distribué sur la face du nœud ──
+      // Calcule le point d'entrée/sortie sur la face d'un rectangle rectangulaire
+      // (bcx,bcy) = centre de la boîte, (bw,bh) = dimensions
+      // (dx,dy) = direction vers la cible (depuis le centre de la boîte)
+      // faceOff = décalage LE LONG de la face (en pouces), positif = sens anti-horaire
+      const facePt=function(bcx,bcy,bw,bh,dx,dy,faceOff){
+        var adx=Math.abs(dx)||0.001,ady=Math.abs(dy)||0.001;
+        var sx=(bw/2)/adx,sy=(bh/2)/ady;
+        var marg=0.05; // marge pour ne pas sortir des coins arrondis
+        if(sx<=sy){
+          // Face gauche ou droite — exit en X, spread en Y
+          var exitX=bcx+(dx>0?1:-1)*(bw/2);
+          var baseY=bcy+dy*sx; // Y où la direction touche la face
+          return{x:exitX,y:Math.max(bcy-bh/2+marg,Math.min(bcy+bh/2-marg,baseY+faceOff))};
+        }else{
+          // Face haute ou basse — exit en Y, spread en X
+          var exitY=bcy+(dy>0?1:-1)*(bh/2);
+          var baseX=bcx+dx*sy; // X où la direction touche la face
+          return{x:Math.max(bcx-bw/2+marg,Math.min(bcx+bw/2-marg,baseX+faceOff)),y:exitY};
+        }
+      };
+
+      // Grouper les flux par voisin, sortir sortants avant entrants (stabilité visuelle)
+      var flowsByNeigh={};
+      subFlows.forEach(function(f){
+        var nid=f.from===hub.id?f.to:f.from;
+        if(!flowsByNeigh[nid])flowsByNeigh[nid]=[];
+        flowsByNeigh[nid].push(f);
+      });
+      Object.values(flowsByNeigh).forEach(function(arr){
+        arr.sort(function(a,b){
+          // sortants d'abord, puis par label
+          var ao=a.from===hub.id?0:1,bo=b.from===hub.id?0:1;
+          if(ao!==bo)return ao-bo;
+          return (a.label||"").localeCompare(b.label||"");
+        });
+      });
+
+      var usedProtos=new Set();
+      // Entrées de la légende numérotée : {num, color, dir, neighName, label, proto}
+      var legendRows=[];
+      var flowNum=0;
+
+      // ── Dessin des flux individuels (avant les boîtes nœuds) ──
+      sorted.forEach(function(a){
+        var np=neighPos[a.id];if(!np)return;
+        var nFlows=flowsByNeigh[a.id]||[];
+        var n=nFlows.length;if(n===0)return;
+
+        var dxHN=np.cx-cx,dyHN=np.cy-cy;
+        var adxHN=Math.abs(dxHN)||0.001,adyHN=Math.abs(dyHN)||0.001;
+        var hubFaceHalf=(adxHN/adyHN>=1?hubH:hubW)/2;
+        var nFaceHalf  =(adxHN/adyHN>=1?neighH:neighW)/2;
+        var hubStep=n>1?Math.min(0.15,hubFaceHalf*0.55/((n-1)/2||1)):0;
+        var nStep  =n>1?Math.min(0.13,nFaceHalf  *0.55/((n-1)/2||1)):0;
+
+        nFlows.forEach(function(f,fi){
+          flowNum++;
+          var off=fi-(n-1)/2;
+          var pHub  =facePt(cx,   cy,   hubW, hubH, dxHN, dyHN,  off*hubStep);
+          var pNeigh=facePt(np.cx,np.cy,np.w, np.h,-dxHN,-dyHN,  off*nStep);
+
+          var color=protoColor(f.protocol||"Autre");
+          usedProtos.add(f.protocol||"Autre");
+          var isOut=f.from===hub.id;
+          var fromPt=isOut?pHub:pNeigh, toPt=isOut?pNeigh:pHub;
+
+          // Halo + flèche
+          seg(fromPt.x,fromPt.y,toPt.x,toPt.y,false,"FFFFFF",_FLOW_LW+1.6);
+          seg(fromPt.x,fromPt.y,toPt.x,toPt.y,true,color,_FLOW_LW);
+          // Point de départ
+          sC.addShape(pres.shapes.OVAL,{x:fromPt.x-0.05,y:fromPt.y-0.05,w:0.10,h:0.10,fill:{color:color},line:{color:"FFFFFF",width:0.7}});
+
+          // Badge numéro au milieu de la ligne (ovale coloré, petit)
+          var mx=(fromPt.x+toPt.x)/2, my=(fromPt.y+toPt.y)/2;
+          var numStr=String(flowNum);
+          var bw=flowNum>=10?0.22:0.17, bh=0.15;
+          sC.addShape(pres.shapes.OVAL,{x:mx-bw/2,y:my-bh/2,w:bw,h:bh,fill:{color:color},line:{color:"FFFFFF",width:0.8}});
+          sC.addText(numStr,{x:mx-bw/2,y:my-bh/2,w:bw,h:bh,fontSize:6,bold:true,color:"FFFFFF",fontFace:"Calibri",align:"center",valign:"middle",margin:0});
+
+          // Entrée légende
+          var txt=(f.label&&f.label.trim())||protoLabel(f.protocol||"Autre");
+          legendRows.push({num:flowNum,color:color,dir:isOut?"→":"←",neighName:a.name,label:txt,proto:protoLabel(f.protocol||"Autre")});
+        });
+      });
+
+      // ── Boîtes voisins (par-dessus les flèches) ──
+      sorted.forEach(function(a){
+        var np=neighPos[a.id];if(!np)return;
+        var domColor=(_pDC[a.domain]||_pDC.Autre).ac.replace("#","");
+        var isArret=a.status==="Arrêt";
+        sC.addShape(pres.shapes.RECTANGLE,{x:np.x,y:np.y,w:0.05,h:np.h,fill:{color:domColor},line:{type:"none"}});
+        sC.addShape(pres.shapes.RECTANGLE,{x:np.x,y:np.y,w:np.w,h:np.h,
+          fill:{color:isArret?"FFF0F0":"FFFFFF"},line:{color:isArret?"E06C75":domColor,width:1.0},
+          shadow:{type:"outer",blur:2,offset:1,color:"000000",opacity:0.08,angle:135}});
+        sC.addText(a.name,{x:np.x+0.08,y:np.y,w:np.w-0.12,h:np.h*0.62,
+          fontSize:8,bold:true,color:isArret?"CC0000":"1A1A1A",fontFace:"Calibri",align:"center",valign:"middle",margin:0,shrinkText:true});
+        sC.addText(a.domain,{x:np.x+0.08,y:np.y+np.h*0.60,w:np.w-0.12,h:np.h*0.40,
+          fontSize:6,color:"6B7280",fontFace:"Calibri",align:"center",valign:"top",margin:0,shrinkText:true});
+        // Pastille nb flux dans le coin supérieur droit de la boîte
+        var nf=(flowsByNeigh[a.id]||[]).length;
+        if(nf>0){
+          sC.addShape(pres.shapes.OVAL,{x:np.x+np.w-0.17,y:np.y-0.08,w:0.17,h:0.17,fill:{color:hubDomColor},line:{color:"FFFFFF",width:0.8}});
+          sC.addText(String(nf),{x:np.x+np.w-0.17,y:np.y-0.08,w:0.17,h:0.17,fontSize:6,bold:true,color:"FFFFFF",fontFace:"Calibri",align:"center",valign:"middle",margin:0});
+        }
+      });
+
+      // ── Hub (au-dessus de tout) ──
+      sC.addShape(pres.shapes.RECTANGLE,{x:cx-hubW/2,y:cy-hubH/2,w:hubW,h:hubH,
+        fill:{color:hubDomColor},line:{color:"FFFFFF",width:2.5},
+        shadow:{type:"outer",blur:6,offset:2,color:"000000",opacity:0.18,angle:135}});
+      sC.addText("★  "+hub.name,{x:cx-hubW/2+0.06,y:cy-hubH/2,w:hubW-0.12,h:hubH*0.60,
+        fontSize:12,bold:true,color:"FFFFFF",fontFace:"Trebuchet MS",align:"center",valign:"middle",margin:0,shrinkText:true});
+      sC.addText(hub.domain,{x:cx-hubW/2+0.06,y:cy-hubH/2+hubH*0.57,w:hubW-0.12,h:hubH*0.43,
+        fontSize:7.5,color:"D0E8FF",fontFace:"Calibri",align:"center",valign:"middle",margin:0});
+
+      // ── Panneau gauche : index des flux ──
+      if(legendRows.length>0){
+        var IDX_X=LP_X+0.12, IDX_W=LP_W-0.22;
+        var IDX_Y=HDR+0.08,  IDX_H=sH-HDR-0.12;
+        // Titre
+        sC.addText("INDEX DES FLUX",{x:IDX_X,y:IDX_Y,w:IDX_W,h:0.18,
+          fontSize:7,bold:true,color:"0B2545",fontFace:"Calibri",charSpacing:1.0,margin:0});
+        sC.addText(legendRows.length+" flux",{x:IDX_X,y:IDX_Y+0.18,w:IDX_W,h:0.13,
+          fontSize:6,color:"9CA3AF",fontFace:"Calibri",margin:0});
+        // Séparateur titre
+        sC.addShape(pres.shapes.RECTANGLE,{x:IDX_X,y:IDX_Y+0.33,w:IDX_W,h:0.012,fill:{color:"D1D5DB"},line:{type:"none"}});
+
+        var rowH=0.148;
+        var availH=IDX_H-0.38;
+        var maxRowsSingle=Math.floor(availH/rowH);
+        // 2 sous-colonnes si nécessaire
+        var SUB=legendRows.length>maxRowsSingle?2:1;
+        var perCol=Math.ceil(legendRows.length/SUB);
+        var subW=(IDX_W-0.06*(SUB-1))/SUB;
+
+        legendRows.forEach(function(r,ri){
+          var subCol=Math.floor(ri/perCol);
+          var subRow=ri%perCol;
+          var ex=IDX_X+subCol*(subW+0.06);
+          var ey=IDX_Y+0.36+subRow*rowH;
+          if(ey+rowH>IDX_Y+IDX_H)return; // ne déborde pas
+
+          // Fond alterné
+          if(subRow%2===0){
+            sC.addShape(pres.shapes.RECTANGLE,{x:ex-0.02,y:ey,w:subW+0.04,h:rowH,
+              fill:{color:"EEEEF2"},line:{type:"none"}});
+          }
+          // Pastille numérotée
+          var bw=r.num>=10?0.20:0.15;
+          sC.addShape(pres.shapes.OVAL,{x:ex,y:ey+(rowH-0.13)/2,w:bw,h:0.13,
+            fill:{color:r.color},line:{type:"none"}});
+          sC.addText(String(r.num),{x:ex,y:ey+(rowH-0.13)/2,w:bw,h:0.13,
+            fontSize:5.5,bold:true,color:"FFFFFF",fontFace:"Calibri",align:"center",valign:"middle",margin:0});
+          // Direction (→ vert, ← bleu)
+          var dirColor=r.dir==="→"?"059669":"2563EB";
+          sC.addText(r.dir,{x:ex+bw+0.03,y:ey,w:0.13,h:rowH,
+            fontSize:7.5,bold:true,color:dirColor,fontFace:"Calibri",valign:"middle",margin:0});
+          // Nom voisin (bold)
+          var neighX=ex+bw+0.17;
+          var neighW2=subW*0.40;
+          sC.addText(r.neighName,{x:neighX,y:ey,w:neighW2,h:rowH,
+            fontSize:6,bold:true,color:"111827",fontFace:"Calibri",valign:"middle",margin:0,shrinkText:true});
+          // Label flux (italic gris) — sur même ligne si espace, sinon shrink
+          var labelTxt=r.label&&r.label!==r.proto?r.label:r.proto;
+          sC.addText(labelTxt,{x:neighX+neighW2,y:ey,w:subW-(bw+0.17+neighW2),h:rowH,
+            fontSize:5.5,color:"6B7280",fontFace:"Calibri",valign:"middle",margin:0,shrinkText:true,italic:true});
+        });
+      }
+    };
+
+    // ── Consolidated A supprimé (vue secteurs) ──
+    const drawConsolidatedSectorSlide=function(){return;// supprimé
       if(apps.length===0)return;
       var sC=pres.addSlide();
       sC.background={color:"F8F9FA"};
@@ -1980,7 +2289,47 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       sC.addText(hub.domain+" · "+(deg[hub.id]||0)+" flux",{x:pos[hub.id].x+0.06,y:pos[hub.id].y+hubH*0.57,w:hubW-0.12,h:hubH*0.43,fontSize:7,color:"D0E8FF",fontFace:"Calibri",align:"center",valign:"middle",margin:0});
     };
 
-    // ── Consolidated C : hub au centre, clusters rectangulaires par domaine ──
+    // ── Shared helpers for consolidated slides ──
+    var _mkEdgePt=function(p,tx,ty){var dx=tx-p.cx,dy=ty-p.cy;if(Math.abs(dx)<0.001&&Math.abs(dy)<0.001)return{x:p.cx,y:p.cy};var sx=(p.w/2)/Math.abs(dx||0.001),sy=(p.h/2)/Math.abs(dy||0.001),s=Math.min(sx,sy)*0.95;return{x:p.cx+dx*s,y:p.cy+dy*s};};
+    // dashType selon flowLineStyle : "solid" | "lgDash" | "sysDot"
+    var _flowDash=_opts.flowLineStyle==="dash"?"lgDash":_opts.flowLineStyle==="dot"?"sysDot":"solid";
+    // Épaisseur uniforme pour toutes les flèches carto-consolidée & hub
+    var _FLOW_LW=1.8;
+    var _mkDrawSeg=function(sld){return function(x1,y1,x2,y2,arrow,color,width){var w=Math.abs(x2-x1),h=Math.abs(y2-y1);if(w<0.003&&h<0.003)return;var o={x:Math.min(x1,x2),y:Math.min(y1,y2),w:w||0.001,h:h||0.001,line:{color:color,width:width,dashType:color==="FFFFFF"?"solid":_flowDash}};if(x2<x1)o.flipH=true;if(y2<y1)o.flipV=true;if(arrow){o.line.endArrowType="triangle";o.line.endArrowSize=5;}sld.addShape(pres.shapes.LINE,o);};};
+    var _mkAddBadge=function(sld){return function(x,y,val,col){var bw=val>=10?0.28:0.22,bh=0.16;sld.addShape(pres.shapes.OVAL,{x:x-bw/2,y:y-bh/2,w:bw,h:bh,fill:{color:col},line:{color:"FFFFFF",width:0.8}});sld.addText(String(val),{x:x-bw/2,y:y-bh/2,w:bw,h:bh,fontSize:6.5,bold:true,color:"FFFFFF",fontFace:"Calibri",align:"center",valign:"middle",margin:0});};};
+    var _drawClusterArrows=function(sld,clAgg,clPos,flowCol){
+      var drawSeg=_mkDrawSeg(sld),addBadge=_mkAddBadge(sld);
+      var lw=_FLOW_LW;
+      Object.values(clAgg).forEach(function(ca){
+        var pA=clPos[ca.a],pB=clPos[ca.b];if(!pA||!pB)return;
+        var p1=_mkEdgePt(pA,pB.cx,pB.cy),p2=_mkEdgePt(pB,pA.cx,pA.cy);
+        if(ca.out>0&&ca.in>0){
+          var dx=p2.x-p1.x,dy=p2.y-p1.y,len=Math.hypot(dx,dy)||1;
+          var ox=-dy/len*0.07,oy=dx/len*0.07;
+          // Halo + flèche A→B
+          drawSeg(p1.x+ox,p1.y+oy,p2.x+ox,p2.y+oy,false,"FFFFFF",lw+2.0);
+          drawSeg(p1.x+ox,p1.y+oy,p2.x+ox,p2.y+oy,true,flowCol,lw);
+          addBadge((p1.x+ox+p2.x+ox)/2,(p1.y+oy+p2.y+oy)/2,ca.out,flowCol);
+          // Point de départ A→B
+          sld.addShape(pres.shapes.OVAL,{x:p1.x+ox-0.07,y:p1.y+oy-0.07,w:0.09,h:0.09,fill:{color:flowCol},line:{color:"FFFFFF",width:0.8}});
+          // Halo + flèche B→A
+          drawSeg(p2.x-ox,p2.y-oy,p1.x-ox,p1.y-oy,false,"FFFFFF",lw+2.0);
+          drawSeg(p2.x-ox,p2.y-oy,p1.x-ox,p1.y-oy,true,flowCol,lw);
+          addBadge((p2.x-ox+p1.x-ox)/2,(p2.y-oy+p1.y-oy)/2,ca.in,flowCol);
+          // Point de départ B→A
+          sld.addShape(pres.shapes.OVAL,{x:p2.x-ox-0.07,y:p2.y-oy-0.07,w:0.09,h:0.09,fill:{color:flowCol},line:{color:"FFFFFF",width:0.8}});
+        }else{
+          var from=ca.out>0?p1:p2,to=ca.out>0?p2:p1;
+          drawSeg(from.x,from.y,to.x,to.y,false,"FFFFFF",lw+2.0);
+          drawSeg(from.x,from.y,to.x,to.y,true,flowCol,lw);
+          addBadge((from.x+to.x)/2,(from.y+to.y)/2,ca.out+ca.in,flowCol);
+          // Point de départ
+          sld.addShape(pres.shapes.OVAL,{x:from.x-0.07,y:from.y-0.07,w:0.09,h:0.09,fill:{color:flowCol},line:{color:"FFFFFF",width:0.8}});
+        }
+      });
+    };
+
+    // ── Consolidated — clusters par domaine (Options A+B : hub central si dominant, sinon intégré) ──
     const drawConsolidatedRingSlide=function(){
       if(apps.length===0)return;
       var sC=pres.addSlide();
@@ -1996,119 +2345,178 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       var degMap={};apps.forEach(function(a){degMap[a.id]=0;});
       flows.forEach(function(f){degMap[f.from]=(degMap[f.from]||0)+1;degMap[f.to]=(degMap[f.to]||0)+1;});
       var hub=apps.reduce(function(best,a){return(degMap[a.id]||0)>(degMap[best.id]||0)?a:best;},apps[0]);
+      // Dominant = hub connects to ≥ 5 flows and reaches ≥ 2 distinct foreign domains
+      var hubForeignDoms=new Set();
+      flows.forEach(function(f){
+        if(f.from===hub.id){var t=apps.find(function(a){return a.id===f.to;});if(t&&t.domain!==hub.domain)hubForeignDoms.add(t.domain);}
+        if(f.to===hub.id){var t=apps.find(function(a){return a.id===f.from;});if(t&&t.domain!==hub.domain)hubForeignDoms.add(t.domain);}
+      });
+      var hubIsDominant=(degMap[hub.id]||0)>=5&&hubForeignDoms.size>=2;
       var hubW=1.60,hubH=0.70;
-      var ring1Ids=new Set();
-      flows.forEach(function(f){if(f.from===hub.id)ring1Ids.add(f.to);if(f.to===hub.id)ring1Ids.add(f.from);});
-      // Cluster grid constants (app boxes inside clusters)
       var cAW=0.95,cAH=0.30,cGap=0.05,cHdr=0.22,cPad=0.08;
-      // Build domain cluster info
-      var domOrder=[...new Set(apps.filter(function(a){return a.id!==hub.id;}).map(function(a){return a.domain;}))].sort();
-      var NDoms=domOrder.length;
-      if(NDoms===0)return;
+      var flowCol=cp||"2979FF";
+      // Domain order: exclude hub from its own domain cluster only when dominant
+      var domOrder;
+      if(hubIsDominant){
+        domOrder=[...new Set(apps.filter(function(a){return a.id!==hub.id;}).map(function(a){return a.domain;}))].sort();
+      }else{
+        domOrder=[...new Set(apps.map(function(a){return a.domain;}))].sort();
+      }
+      var NDoms=domOrder.length;if(NDoms===0)return;
       var domInfo={};
       domOrder.forEach(function(d){
-        var dApps=apps.filter(function(a){return a.domain===d&&a.id!==hub.id;}).sort(function(a,b){return a.name.localeCompare(b.name);});
-        var k=dApps.length;
-        var cols=k<=1?1:k<=4?2:3;
-        var rows=Math.ceil(k/cols);
+        var dApps;
+        if(hubIsDominant){
+          dApps=apps.filter(function(a){return a.domain===d&&a.id!==hub.id;}).sort(function(a,b){return a.name.localeCompare(b.name);});
+        }else{
+          dApps=apps.filter(function(a){return a.domain===d;}).sort(function(a,b){if(a.id===hub.id)return -1;if(b.id===hub.id)return 1;return a.name.localeCompare(b.name);});
+        }
+        var k=dApps.length,cols=k<=1?1:k<=4?2:3,rows=Math.ceil(k/cols);
         domInfo[d]={dApps:dApps,k:k,cols:cols,rows:rows,cW:cPad*2+cols*cAW+(cols-1)*cGap,cH:cPad*2+cHdr+rows*cAH+(rows-1)*cGap};
       });
-      // Ellipse radii for cluster centers — adapt to cluster sizes
       var maxCW=domOrder.reduce(function(m,d){return Math.max(m,domInfo[d].cW);},0);
       var maxCH=domOrder.reduce(function(m,d){return Math.max(m,domInfo[d].cH);},0);
-      var rxEll=Math.min(CW/2-maxCW/2-0.10,Math.max(2.6,hubW/2+maxCW*0.55+NDoms*0.14));
-      var ryEll=Math.min(CH/2-maxCH/2-0.10,Math.max(1.9,hubH/2+maxCH*0.55+NDoms*0.10));
-      // Cluster center positions on ellipse
+      // Éloigner les clusters au maximum du canvas → flèches longues & lisibles
+      var rxEll=Math.min(CW/2-maxCW/2-0.18,Math.max(5.2,hubW/2+3.2+maxCW/2));
+      var ryEll=Math.min(CH/2-maxCH/2-0.18,Math.max(2.95,hubH/2+2.4+maxCH/2));
       var domPos={};
       domOrder.forEach(function(d,i){
         var ang=-Math.PI/2+2*Math.PI*i/NDoms;
         domPos[d]={ccx:cx+rxEll*Math.cos(ang),ccy:cy+ryEll*Math.sin(ang)};
       });
-      // App positions within clusters (for per-app pos map)
-      var pos={};
-      pos[hub.id]={x:cx-hubW/2,y:cy-hubH/2,w:hubW,h:hubH,cx:cx,cy:cy};
-      domOrder.forEach(function(d){
-        var di=domInfo[d],dp=domPos[d];
-        var bx=dp.ccx-di.cW/2,by=dp.ccy-di.cH/2;
-        di.dApps.forEach(function(a,i){
-          var col=i%di.cols,row=Math.floor(i/di.cols);
-          var ax=bx+cPad+col*(cAW+cGap),ay=by+cPad+cHdr+row*(cAH+cGap);
-          pos[a.id]={x:ax,y:ay,w:cAW,h:cAH,cx:ax+cAW/2,cy:ay+cAH/2};
-        });
-      });
-      // Cluster-level position map (used for inter-cluster arrows)
-      var clPos={"__hub__":{cx:cx,cy:cy,w:hubW,h:hubH}};
+      // Cluster position map
+      var clPos={};
+      if(hubIsDominant){clPos["__hub__"]={cx:cx,cy:cy,w:hubW,h:hubH};}
       domOrder.forEach(function(d){var di=domInfo[d],dp=domPos[d];clPos[d]={cx:dp.ccx,cy:dp.ccy,w:di.cW,h:di.cH};});
-      // Helpers
-      var edgePt=function(p,tx,ty){var dx=tx-p.cx,dy=ty-p.cy;if(Math.abs(dx)<0.001&&Math.abs(dy)<0.001)return{x:p.cx,y:p.cy};var sx=(p.w/2)/Math.abs(dx||0.001),sy=(p.h/2)/Math.abs(dy||0.001),s=Math.min(sx,sy)*0.95;return{x:p.cx+dx*s,y:p.cy+dy*s};};
-      var drawSeg=function(x1,y1,x2,y2,arrow,color,width){var w=Math.abs(x2-x1),h=Math.abs(y2-y1);if(w<0.003&&h<0.003)return;var o={x:Math.min(x1,x2),y:Math.min(y1,y2),w:w||0.001,h:h||0.001,line:{color:color,width:width,dashType:"solid"}};if(x2<x1)o.flipH=true;if(y2<y1)o.flipV=true;if(arrow){o.line.endArrowType="triangle";o.line.endArrowSize=5;}sC.addShape(pres.shapes.LINE,o);};
-      var addBadge=function(x,y,val,col){var bw=val>=10?0.26:0.20,bh=0.14;sC.addShape(pres.shapes.RECTANGLE,{x:x-bw/2,y:y-bh/2,w:bw,h:bh,fill:{color:col},line:{type:"none"}});sC.addText(String(val),{x:x-bw/2,y:y-bh/2,w:bw,h:bh,fontSize:6,bold:true,color:"FFFFFF",fontFace:"Calibri",align:"center",valign:"middle",margin:0});};
-      // Aggregate flows at cluster level (one arrow per inter-cluster pair)
-      var getClKey=function(appId){return appId===hub.id?"__hub__":(apps.find(function(a){return a.id===appId;})||{domain:"__unk__"}).domain;};
+      // Flow aggregation
+      var getClKey=function(appId){if(hubIsDominant&&appId===hub.id)return"__hub__";return(apps.find(function(a){return a.id===appId;})||{domain:"__unk__"}).domain;};
       var clAgg={};
       flows.forEach(function(f){
-        var sc=getClKey(f.from),tc=getClKey(f.to);
-        if(!sc||!tc||sc===tc)return;
-        var ka=sc<tc?sc:tc,kb=sc<tc?tc:sc;
-        var k=ka+"|||"+kb;
+        var sc=getClKey(f.from),tc=getClKey(f.to);if(!sc||!tc||sc===tc)return;
+        var ka=sc<tc?sc:tc,kb=sc<tc?tc:sc,k=ka+"|||"+kb;
         if(!clAgg[k])clAgg[k]={a:ka,b:kb,out:0,in:0};
         if(sc===ka)clAgg[k].out++;else clAgg[k].in++;
       });
-      var flowCol=cp||"2979FF";
-      // Layer 1: cluster backgrounds + domain headers + app boxes
+      // Layer 1: domain clusters
       domOrder.forEach(function(d){
         var di=domInfo[d],dp=domPos[d];
         var dc=(_pDC[d]||_pDC.Autre).ac.replace("#","");
         var bx=dp.ccx-di.cW/2,by=dp.ccy-di.cH/2;
-        // Cluster background
         sC.addShape(pres.shapes.RECTANGLE,{x:bx,y:by,w:di.cW,h:di.cH,fill:{color:"EEF2FB"},line:{color:dc,width:1.2},shadow:{type:"outer",blur:4,offset:2,color:"000000",opacity:0.10,angle:135}});
-        // Domain header band
         sC.addShape(pres.shapes.RECTANGLE,{x:bx,y:by,w:di.cW,h:cHdr,fill:{color:dc},line:{type:"none"}});
         sC.addText(d,{x:bx+0.05,y:by,w:di.cW-0.10,h:cHdr,fontSize:7,bold:true,color:"FFFFFF",fontFace:"Calibri",align:"center",valign:"middle",margin:0,shrinkText:true});
-        // App boxes in grid
         di.dApps.forEach(function(a,i){
           var col=i%di.cols,row=Math.floor(i/di.cols);
           var ax=bx+cPad+col*(cAW+cGap),ay=by+cPad+cHdr+row*(cAH+cGap);
-          var isArret=a.status==="Arrêt";
-          var isR1=ring1Ids.has(a.id);
-          sC.addShape(pres.shapes.RECTANGLE,{x:ax,y:ay,w:cAW,h:cAH,fill:{color:isArret?"FFEAEA":"FFFFFF"},line:{color:isArret?"E06C75":dc,width:isR1?0.9:0.6}});
-          if(isR1){sC.addShape(pres.shapes.RECTANGLE,{x:ax,y:ay,w:0.05,h:cAH,fill:{color:dc},line:{type:"none"}});}
-          sC.addText(a.name,{x:ax+(isR1?0.08:0.04),y:ay,w:cAW-(isR1?0.12:0.08),h:cAH,fontSize:isR1?6.5:6,bold:isR1,color:isArret?"990000":"1A1A1A",fontFace:"Calibri",align:"center",valign:"middle",margin:0,shrinkText:true});
+          var isHubApp=!hubIsDominant&&a.id===hub.id;
+          sC.addShape(pres.shapes.RECTANGLE,{x:ax,y:ay,w:cAW,h:cAH,fill:{color:isHubApp?dc:"FFFFFF"},line:{color:dc,width:isHubApp?1.5:0.6}});
+          sC.addText((isHubApp?"★ ":"")+a.name,{x:ax+0.04,y:ay,w:cAW-0.08,h:cAH,fontSize:isHubApp?7:6.5,bold:isHubApp,color:isHubApp?"FFFFFF":"1A1A1A",fontFace:"Calibri",align:"center",valign:"middle",margin:0,shrinkText:true});
         });
       });
-      // Layer 2: inter-cluster arrows (drawn on top so arrowheads visible at cluster edges)
-      Object.values(clAgg).forEach(function(ca){
-        var pA=clPos[ca.a],pB=clPos[ca.b];if(!pA||!pB)return;
-        var total=ca.out+ca.in;
-        var lw=Math.min(2.8,1.0+total*0.16);
-        var p1=edgePt(pA,pB.cx,pB.cy),p2=edgePt(pB,pA.cx,pA.cy);
-        if(ca.out>0&&ca.in>0){
-          var dx=p2.x-p1.x,dy=p2.y-p1.y,len=Math.hypot(dx,dy)||1;
-          var ox=-dy/len*0.06,oy=dx/len*0.06;
-          drawSeg(p1.x+ox,p1.y+oy,p2.x+ox,p2.y+oy,false,"FFFFFF",lw+1.8);
-          drawSeg(p1.x+ox,p1.y+oy,p2.x+ox,p2.y+oy,true,flowCol,lw);
-          addBadge((p1.x+ox+p2.x+ox)/2,(p1.y+oy+p2.y+oy)/2,ca.out,flowCol);
-          drawSeg(p2.x-ox,p2.y-oy,p1.x-ox,p1.y-oy,false,"FFFFFF",lw+1.8);
-          drawSeg(p2.x-ox,p2.y-oy,p1.x-ox,p1.y-oy,true,flowCol,lw);
-          addBadge((p2.x-ox+p1.x-ox)/2,(p2.y-oy+p1.y-oy)/2,ca.in,flowCol);
-        }else{
-          var from=ca.out>0?p1:p2,to=ca.out>0?p2:p1;
-          drawSeg(from.x,from.y,to.x,to.y,false,"FFFFFF",lw+1.8);
-          drawSeg(from.x,from.y,to.x,to.y,true,flowCol,lw);
-          addBadge((from.x+to.x)/2,(from.y+to.y)/2,total,flowCol);
-        }
+      // Layer 2: arrows
+      _drawClusterArrows(sC,clAgg,clPos,flowCol);
+      // Layer 3: hub box at center (only when dominant)
+      if(hubIsDominant){
+        var hubDC=(_pDC[hub.domain]||_pDC.Autre).ac.replace("#","");
+        sC.addShape(pres.shapes.RECTANGLE,{x:cx-hubW/2,y:cy-hubH/2,w:hubW,h:hubH,fill:{color:hubDC},line:{color:"FFFFFF",width:2.5},shadow:{type:"outer",blur:7,offset:2,color:"000000",opacity:0.20,angle:135}});
+        sC.addText("★  "+hub.name,{x:cx-hubW/2+0.06,y:cy-hubH/2,w:hubW-0.12,h:hubH*0.60,fontSize:12,bold:true,color:"FFFFFF",fontFace:"Trebuchet MS",align:"center",valign:"middle",margin:0,shrinkText:true});
+        sC.addText(hub.domain+" · "+(degMap[hub.id]||0)+" flux",{x:cx-hubW/2+0.06,y:cy-hubH/2+hubH*0.57,w:hubW-0.12,h:hubH*0.43,fontSize:7,color:"D0E8FF",fontFace:"Calibri",align:"center",valign:"middle",margin:0});
+      }
+    };
+
+    // ── Consolidated — vue domaine central (Option C) ──
+    const drawDomainCentricSlide=function(){
+      if(apps.length===0)return;
+      var sC=pres.addSlide();
+      sC.background={color:"FFFFFF"};
+      var sW=13.333,sH=7.5;
+      sC.addShape(pres.shapes.RECTANGLE,{x:0,y:0,w:sW,h:0.58,fill:{color:cp||"0B2545"},line:{type:"none"}});
+      sC.addText("CARTOGRAPHIE CONSOLIDÉE — VUE PAR DOMAINE PIVOT",{x:0.3,y:0.08,w:sW-2.5,h:0.28,fontSize:14,bold:true,color:"FFFFFF",fontFace:"Trebuchet MS",margin:0});
+      sC.addText(apps.length+" applications · "+[...new Set(apps.map(function(a){return a.domain;}))].length+" domaines · "+flows.length+" flux",{x:0.3,y:0.37,w:7,h:0.17,fontSize:8,color:"BFD7FF",fontFace:"Calibri",margin:0});
+      if(_opts.clientLogo){sC.addImage({data:_opts.clientLogo,x:12.10,y:0.05,w:1.00,h:0.48,sizing:{type:"contain",w:1.00,h:0.48}});}
+      var CX=0.20,CY=0.68,CW=sW-0.40,CH=sH-0.78;
+      var cx=CX+CW/2,cy=CY+CH/2;
+      // Hub app (for visual highlight inside its cluster)
+      var degMap={};apps.forEach(function(a){degMap[a.id]=0;});
+      flows.forEach(function(f){degMap[f.from]=(degMap[f.from]||0)+1;degMap[f.to]=(degMap[f.to]||0)+1;});
+      var hub=apps.reduce(function(best,a){return(degMap[a.id]||0)>(degMap[best.id]||0)?a:best;},apps[0]);
+      var cAW=0.95,cAH=0.30,cGap=0.05,cHdr=0.22,cPad=0.08;
+      var flowCol=cp||"2979FF";
+      // All domains — hub app stays in its domain cluster
+      var allDoms=[...new Set(apps.map(function(a){return a.domain;}))].sort();
+      var domInfo={};
+      allDoms.forEach(function(d){
+        var dApps=apps.filter(function(a){return a.domain===d;}).sort(function(a,b){if(a.id===hub.id)return -1;if(b.id===hub.id)return 1;return a.name.localeCompare(b.name);});
+        var k=dApps.length,cols=k<=1?1:k<=4?2:3,rows=Math.ceil(k/cols);
+        domInfo[d]={dApps:dApps,k:k,cols:cols,rows:rows,cW:cPad*2+cols*cAW+(cols-1)*cGap,cH:cPad*2+cHdr+rows*cAH+(rows-1)*cGap};
       });
-      // Layer 3: hub box (topmost)
-      var hubDC=(_pDC[hub.domain]||_pDC.Autre).ac.replace("#","");
-      sC.addShape(pres.shapes.RECTANGLE,{x:pos[hub.id].x,y:pos[hub.id].y,w:hubW,h:hubH,fill:{color:hubDC},line:{color:"FFFFFF",width:2.5},shadow:{type:"outer",blur:7,offset:2,color:"000000",opacity:0.20,angle:135}});
-      sC.addText("★  "+hub.name,{x:pos[hub.id].x+0.06,y:pos[hub.id].y,w:hubW-0.12,h:hubH*0.60,fontSize:12,bold:true,color:"FFFFFF",fontFace:"Trebuchet MS",align:"center",valign:"middle",margin:0,shrinkText:true});
-      sC.addText(hub.domain+" · "+(degMap[hub.id]||0)+" flux",{x:pos[hub.id].x+0.06,y:pos[hub.id].y+hubH*0.57,w:hubW-0.12,h:hubH*0.43,fontSize:7,color:"D0E8FF",fontFace:"Calibri",align:"center",valign:"middle",margin:0});
+      // Pivot domain = domain with most inter-domain flows
+      var domScore={};allDoms.forEach(function(d){domScore[d]=0;});
+      flows.forEach(function(f){
+        var fa=apps.find(function(a){return a.id===f.from;}),ta=apps.find(function(a){return a.id===f.to;});
+        if(!fa||!ta||fa.domain===ta.domain)return;
+        domScore[fa.domain]=(domScore[fa.domain]||0)+1;
+        domScore[ta.domain]=(domScore[ta.domain]||0)+1;
+      });
+      var pivotDom=allDoms.reduce(function(best,d){return(domScore[d]||0)>(domScore[best]||0)?d:best;},allDoms[0]);
+      var satelliteDoms=allDoms.filter(function(d){return d!==pivotDom;});
+      var NDoms=satelliteDoms.length;
+      var pivDI=domInfo[pivotDom];
+      var maxCW=satelliteDoms.reduce(function(m,d){return Math.max(m,domInfo[d].cW);},pivDI.cW);
+      var maxCH=satelliteDoms.reduce(function(m,d){return Math.max(m,domInfo[d].cH);},pivDI.cH);
+      // Éloigner les clusters satellites au maximum → flèches longues & lisibles
+      var rxEll=Math.min(CW/2-maxCW/2-0.18,Math.max(5.2,pivDI.cW/2+3.2+maxCW/2));
+      var ryEll=Math.min(CH/2-maxCH/2-0.18,Math.max(2.95,pivDI.cH/2+2.4+maxCH/2));
+      // Cluster positions: pivot at center, satellites on ellipse
+      var domPos={};
+      domPos[pivotDom]={ccx:cx,ccy:cy};
+      satelliteDoms.forEach(function(d,i){
+        var ang=-Math.PI/2+2*Math.PI*i/Math.max(NDoms,1);
+        domPos[d]={ccx:cx+rxEll*Math.cos(ang),ccy:cy+ryEll*Math.sin(ang)};
+      });
+      var clPos={};
+      allDoms.forEach(function(d){var di=domInfo[d],dp=domPos[d];clPos[d]={cx:dp.ccx,cy:dp.ccy,w:di.cW,h:di.cH};});
+      // Aggregate inter-domain flows only
+      var clAgg={};
+      flows.forEach(function(f){
+        var fa=apps.find(function(a){return a.id===f.from;}),ta=apps.find(function(a){return a.id===f.to;});
+        if(!fa||!ta||fa.domain===ta.domain)return;
+        var sc=fa.domain,tc=ta.domain;
+        var ka=sc<tc?sc:tc,kb=sc<tc?tc:sc,k=ka+"|||"+kb;
+        if(!clAgg[k])clAgg[k]={a:ka,b:kb,out:0,in:0};
+        if(sc===ka)clAgg[k].out++;else clAgg[k].in++;
+      });
+      // Draw cluster helper
+      var drawCluster=function(d,isPivot){
+        var di=domInfo[d],dp=domPos[d];
+        var dc=(_pDC[d]||_pDC.Autre).ac.replace("#","");
+        var bx=dp.ccx-di.cW/2,by=dp.ccy-di.cH/2;
+        sC.addShape(pres.shapes.RECTANGLE,{x:bx,y:by,w:di.cW,h:di.cH,fill:{color:isPivot?"E8F0FE":"EEF2FB"},line:{color:dc,width:isPivot?2.5:1.2},shadow:{type:"outer",blur:isPivot?8:4,offset:isPivot?3:2,color:"000000",opacity:isPivot?0.18:0.10,angle:135}});
+        sC.addShape(pres.shapes.RECTANGLE,{x:bx,y:by,w:di.cW,h:cHdr,fill:{color:dc},line:{type:"none"}});
+        var hdrTxt=isPivot?"★ "+d+" — domaine pivot":d;
+        sC.addText(hdrTxt,{x:bx+0.05,y:by,w:di.cW-0.10,h:cHdr,fontSize:isPivot?7.5:7,bold:true,color:"FFFFFF",fontFace:"Calibri",align:"center",valign:"middle",margin:0,shrinkText:true});
+        di.dApps.forEach(function(a,i){
+          var col=i%di.cols,row=Math.floor(i/di.cols);
+          var ax=bx+cPad+col*(cAW+cGap),ay=by+cPad+cHdr+row*(cAH+cGap);
+          var isHubApp=a.id===hub.id;
+          sC.addShape(pres.shapes.RECTANGLE,{x:ax,y:ay,w:cAW,h:cAH,fill:{color:isHubApp?dc:"FFFFFF"},line:{color:dc,width:isHubApp?1.5:0.6}});
+          sC.addText((isHubApp?"★ ":"")+a.name,{x:ax+0.04,y:ay,w:cAW-0.08,h:cAH,fontSize:isHubApp?7:6.5,bold:isHubApp,color:isHubApp?"FFFFFF":"1A1A1A",fontFace:"Calibri",align:"center",valign:"middle",margin:0,shrinkText:true});
+        });
+      };
+      // Layer 1: satellite clusters
+      satelliteDoms.forEach(function(d){drawCluster(d,false);});
+      // Layer 2: arrows
+      _drawClusterArrows(sC,clAgg,clPos,flowCol);
+      // Layer 3: pivot cluster on top (above arrows)
+      drawCluster(pivotDom,true);
+      // Legend note
+      sC.addText("Le domaine pivot est celui qui concentre le plus de flux inter-domaines.",{x:CX,y:CY+CH+0.05,w:CW,h:0.16,fontSize:6.5,color:"888888",fontFace:"Calibri",italic:true,align:"center",margin:0});
     };
 
     // ── Tableau récapitulatif des flux (paginé) ──
     const drawRecapTableSlides=()=>{
       const ROWS_PER_SLIDE=18;
-      const SD1C={"Transfert TSA":"F59E0B","Abandon":"EF4444"};
+      const SD1C={"Transfert TSA":"F59E0B","Maintien":"10B981","Rebuild":"F97316","Abandon":"EF4444"};
       const SD2C={"Clone & Clean":"3B82F6","Transfert":"10B981","Abandon":"EF4444","Rebuild":"F97316"};
       // Aggregate flows by app pair
       const pairAgg={};
@@ -2253,6 +2661,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     if(_opts.inclConsolidatedCarto){
       drawConsolidatedSectorSlide();
       drawConsolidatedRingSlide();
+      drawDomainCentricSlide();
     }
 
     // ── Cartographie principale selon le mode choisi ──
@@ -2282,19 +2691,21 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       const appConn={};
       flows.forEach(function(f){appConn[f.from]=(appConn[f.from]||0)+1;appConn[f.to]=(appConn[f.to]||0)+1;});
       const sortedHubs=[...apps].sort(function(a,b){return (appConn[b.id]||0)-(appConn[a.id]||0);});
-      const topHubs=sortedHubs.filter(function(a){return (appConn[a.id]||0)>0;}).slice(0,8);
+      const domFilter=_opts.hubDomainFilter;
+      const topHubs=sortedHubs.filter(function(a){return (appConn[a.id]||0)>0&&(!domFilter||domFilter.includes(a.domain));}).slice(0,_opts.hubLimit);
       topHubs.forEach(function(hub){
         const neighborIds=new Set([hub.id]);
         flows.forEach(function(f){if(f.from===hub.id)neighborIds.add(f.to);if(f.to===hub.id)neighborIds.add(f.from);});
         const subset=apps.filter(function(a){return neighborIds.has(a.id);});
         const subFlows=flows.filter(function(f){return neighborIds.has(f.from)||neighborIds.has(f.to);}).filter(function(f){return f.from===hub.id||f.to===hub.id;});
         drawHubRadialSlide(hub,subset,subFlows,appConn[hub.id]||0);
+        drawHubDetailSlide(hub,subset,subFlows,appConn[hub.id]||0);
       });
       if(topHubs.length===0){drawCartoSlide("Cartographie globale AS-IS",apps,[],false);drawCartoSlide("Cartographie globale — avec flux",apps,flows,true);}
-    } else {
-      // global (default)
-      drawCartoSlide("URBANISATION — VUE D'ENSEMBLE",apps,[],false);
+    } else if(_opts.cartoMode==="global"){
+      drawCartoSlide("CARTOGRAPHIE GLOBALE — TOUTES APPLICATIONS",apps,flows,true);
     }
+    // cartoMode "none" → pas de slides de cartographie détaillée
 
     // ── Slide SYNTHÈSE GLOBALE (fonction réutilisable, pagination si saturé) ──
     var _sharedSynPos={};// hoisted: shared between drawSynthSlide and drawDetailedSynth
@@ -3173,7 +3584,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     });
 
     }// end inclFocusDomain
-    if(_opts.inclKPI){
+    if(false){// Vue d'ensemble KPIs supprimée
     // ─── Slide 2: Vue d'ensemble KPIs ───
     const s2=SS(pres.addSlide());
     s2.background={color:"F5F6FA"};
@@ -3195,166 +3606,6 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     s2.addTable([...tblH,...tblR],{x:0.5,y:2.6,w:9,colW:[3,2,2,2],border:{pt:0.5,color:"DDDDDD"},rowH:0.35});
 
     }// end inclKPI
-    // ─── Slide 3: Synthèse compacte ───
-    const catDomMap={};
-    apps.forEach(a=>{
-      const cat=a.category||"Autre";
-      if(!catDomMap[cat]) catDomMap[cat]={};
-      if(!catDomMap[cat][a.domain]) catDomMap[cat][a.domain]=[];
-      catDomMap[cat][a.domain].push(a);
-    });
-    const cats=Object.keys(catDomMap);
-    const hasCategories=cats.length>1||(cats.length===1&&cats[0]!=="Autre");
-    const autoLayers={Commercial:"front",Marketing:"front",Finance:"metier",RH:"metier",Production:"metier",Logistique:"metier",IT:"support",Juridique:"support",Direction:"support",Autre:"support"};
-    let zones;
-    if(hasCategories){
-      zones=cats.map(cat=>({name:cat,domains:Object.entries(catDomMap[cat]).map(([d,a])=>({name:d,apps:a}))}));
-    } else {
-      const lg={front:[],metier:[],support:[]};
-      doms.forEach(d=>{const l=autoLayers[d]||"support";const da=apps.filter(a=>a.domain===d);if(da.length>0) lg[l].push({name:d,apps:da});});
-      zones=[];
-      if(lg.front.length>0) zones.push({name:"Front / Client",domains:lg.front});
-      if(lg.metier.length>0) zones.push({name:"Métier / Opérations",domains:lg.metier});
-      if(lg.support.length>0) zones.push({name:"Support / Transverse",domains:lg.support});
-    }
-
-    // Compact synthesis: categories as horizontal bands, domains as columns, apps as colored blocks
-    // ALL apps must be visible — auto-paginate across multiple slides
-    const sW=10,sH=5.625,sM=0.25;
-    const aH=0.14,aGx=0.03,aGy=0.02; // app block dimensions
-
-    // Pre-compute zone heights to know how to split across slides
-    // Domain block inner structure: title=0.16, then app grid
-    // Zone structure: title=0.22, then domain blocks with dH=zH-0.26
-    // Apps start at dY+0.16, so app area height = dH-0.16 = zH-0.42
-    // Need: maxRows*(aH+aGy) <= zH-0.42  =>  zH >= maxRows*(aH+aGy)+0.42
-    const zoneHeights=zones.map(zone=>{
-      const nd=zone.domains.length;
-      const dW=((sW-sM*2-0.12)-(nd-1)*0.06)/nd;
-      const aAreaW=dW-0.08;
-      const aCols=Math.max(1,Math.floor(aAreaW/0.72));
-      const maxRows=Math.max(...zone.domains.map(d=>Math.ceil(d.apps.length/aCols)));
-      return Math.max(0.5,maxRows*(aH+aGy)+0.44);
-    });
-
-    // Paginate: pack zones into slides so they fit
-    const slideZones=[]; // [[{zone,height},...],...]
-    let curSlide=[],curH=0;
-    const maxH=sH-0.7;
-    zones.forEach((zone,zi)=>{
-      const h=zoneHeights[zi]+0.08;
-      if(curH+h>maxH&&curSlide.length>0){slideZones.push(curSlide);curSlide=[];curH=0;}
-      curSlide.push({zone,height:zoneHeights[zi]});
-      curH+=h;
-    });
-    if(curSlide.length>0) slideZones.push(curSlide);
-
-    const sl3cp=_opts.clientPrimary||"2979FF";
-    slideZones.forEach((szList,pageIdx)=>{
-      const sl3=SS(pres.addSlide());
-      sl3.background={color:"F8F9FC"};
-      // Header bar avec couleur client
-      sl3.addShape(pres.shapes.RECTANGLE,{x:0,y:0,w:10,h:0.50,fill:{color:sl3cp},line:{type:"none"}});
-      if(_opts.clientLogo){sl3.addImage({data:_opts.clientLogo,x:9.05,y:0.04,w:0.90,h:0.42,sizing:{type:"contain",w:0.90,h:0.42}});}
-      sl3.addText(pageIdx===0?"SYNTHÈSE — CARTOGRAPHIE APPLICATIVE":"SYNTHÈSE (SUITE "+(pageIdx+1)+"/"+slideZones.length+")",{x:sM,y:0.08,w:7.5,h:0.35,fontSize:13,bold:true,color:"FFFFFF",fontFace:"Trebuchet MS",margin:0,charSpacing:0.5});
-      sl3.addText(apps.length+" applications · "+doms.length+" domaines · "+flows.length+" flux",{x:sM,y:0.54,w:5,h:0.16,fontSize:9,color:"64748B",fontFace:"Calibri",margin:0});
-      let cy=0.76;
-
-      szList.forEach(({zone,height},zi)=>{
-        const zApps=zone.domains.reduce((s,d)=>s+d.apps.length,0);
-        const zH=height;
-        const zW=sW-sM*2;
-        const zColor=["1B4332","3C1642","0B2545","6B2737","5C4B00","2C3333","4A1942","1A3636"][zi%8];
-
-        // Category band
-        sl3.addShape(pres.shapes.RECTANGLE,{x:sM,y:cy,w:zW,h:zH,fill:{color:"FFFFFF"},shadow:{type:"outer",blur:3,offset:1,color:"000000",opacity:0.06,angle:135}});
-        sl3.addShape(pres.shapes.RECTANGLE,{x:sM,y:cy,w:0.04,h:zH,fill:{color:zColor}});
-        sl3.addText(zone.name.toUpperCase(),{x:sM+0.1,y:cy+0.03,w:2.5,h:0.15,fontSize:10,bold:true,color:zColor,fontFace:"Calibri",charSpacing:1.5,margin:0});
-        sl3.addText(zApps+" apps",{x:sM+zW-1.2,y:cy+0.03,w:1,h:0.15,fontSize:6,color:"999999",fontFace:"Calibri",align:"right",margin:0});
-
-        // Domains as columns
-        const nd=zone.domains.length;
-        const dGap=0.06;
-        const dAreaX=sM+0.06,dAreaW=zW-0.12;
-        const dW=(dAreaW-(nd-1)*dGap)/nd;
-        const dY=cy+0.22,dH=zH-0.26;
-
-        zone.domains.forEach((dom,di)=>{
-          const c=_pDC[dom.name]||_pDC.Autre;
-          const ac=c.ac.replace("#",""),bg=c.bg.replace("#",""),fg=c.fg.replace("#","");
-          const dx=dAreaX+di*(dW+dGap);
-
-          // Domain block
-          sl3.addShape(pres.shapes.RECTANGLE,{x:dx,y:dY,w:dW,h:dH,fill:{color:"EDEDED"}});
-          sl3.addShape(pres.shapes.RECTANGLE,{x:dx,y:dY,w:dW,h:0.015,fill:{color:ac}});
-          sl3.addText(dom.name.toUpperCase()+" ("+dom.apps.length+")",{x:dx+0.03,y:dY+0.02,w:dW-0.06,h:0.12,fontSize:5.5,bold:true,color:ac,fontFace:"Calibri",charSpacing:0.8,margin:0});
-
-          // Apps as compact colored blocks — ALL apps rendered
-          const aYstart=dY+0.16;
-          const aAreaW=dW-0.08;
-          const aCols=Math.max(1,Math.floor(aAreaW/0.72));
-          const aW=Math.min(0.7,(aAreaW-(aCols-1)*aGx)/aCols);
-          dom.apps.forEach((app,ai)=>{
-            const col=ai%aCols,row=Math.floor(ai/aCols);
-            const ax=dx+0.04+col*(aW+aGx);
-            const ay2=aYstart+row*(aH+aGy);
-            const stHex=(SC[app.status]||"#888").replace("#","");
-            const isArret=app.status==="Arrêt";
-            sl3.addShape(pres.shapes.RECTANGLE,{x:ax,y:ay2,w:aW,h:aH,fill:{color:isArret?"FF9999":"FFFFFF"},shadow:{type:"outer",blur:1,offset:0.5,color:"000000",opacity:0.1,angle:135}});
-            sl3.addShape(pres.shapes.RECTANGLE,{x:ax,y:ay2+aH-0.025,w:aW,h:0.025,fill:{color:stHex}});
-            sl3.addText(app.name,{x:ax+0.02,y:ay2,w:aW-0.04,h:aH-0.03,fontSize:4.5,bold:true,color:isArret?"990000":"1a1a1a",fontFace:"Calibri",margin:0,valign:"middle"});
-          });
-        });
-
-        cy+=zH+0.08;
-      });
-    });
-
-    // ─── Slides: One slide per domain ───
-    doms.forEach(dom=>{
-      const c=_pDC[dom]||_pDC.Autre;
-      const domApps=apps.filter(a=>a.domain===dom);
-      const cat=domApps[0]?.category||"";
-      const bg=c.bg.replace("#",""),ac=c.ac.replace("#",""),fg=c.fg.replace("#","");
-
-      // Table header row
-      const mkHdr=()=>[[
-        {text:"Application",options:{bold:true,fill:{color:bg},color:fg,fontSize:8}},
-        {text:"Éditeur",options:{bold:true,fill:{color:bg},color:fg,fontSize:8}},
-        {text:"Statut",options:{bold:true,fill:{color:bg},color:fg,fontSize:10,align:"center"}},
-        {text:"Criticité",options:{bold:true,fill:{color:bg},color:fg,fontSize:10,align:"center"}}
-      ]];
-
-      // Paginate — 22 rows per slide for compact display
-      const rowsPerPage=22;
-      const pages=Math.ceil(domApps.length/rowsPerPage);
-      for(let pg=0;pg<pages;pg++){
-        const sl=SS(pres.addSlide());
-        sl.background={color:"F5F6FA"};
-        // Header bar
-        sl.addShape(pres.shapes.RECTANGLE,{x:0,y:0,w:10,h:0.65,fill:{color:bg}});
-        sl.addShape(pres.shapes.RECTANGLE,{x:0,y:0.63,w:10,h:0.03,fill:{color:ac}});
-        const title=pg===0?dom.toUpperCase():dom.toUpperCase()+" ("+(pg+1)+"/"+pages+")";
-        sl.addText(title,{x:0.5,y:0.1,w:5,h:0.45,fontSize:20,bold:true,color:fg,fontFace:"Trebuchet MS",margin:0});
-        sl.addText(domApps.length+" applications"+(cat?" · "+cat:""),{x:6,y:0.15,w:3.5,h:0.35,fontSize:11,color:ac,fontFace:"Calibri",align:"right",margin:0});
-
-        // Table
-        const pageApps=domApps.slice(pg*rowsPerPage,(pg+1)*rowsPerPage);
-        const tblRows=pageApps.map((app,ai)=>{
-          const stHex=(SC[app.status]||"#888").replace("#","");
-          const crHex=(CC[app.criticality]||"#999").replace("#","");
-          const rowBg=app.status==="Arrêt"?"FF9999":ai%2===0?"FFFFFF":"F5F6FA";
-          return [
-            {text:app.name,options:{fontSize:7.5,bold:true,color:"333333",fill:{color:rowBg}}},
-            {text:app.vendor||"—",options:{fontSize:7.5,color:"555555",fill:{color:rowBg}}},
-            {text:app.status,options:{fontSize:10,color:app.status==="Arrêt"?"FFFFFF":stHex,align:"center",bold:true,fill:{color:app.status==="Arrêt"?"E06C75":stHex,transparency:app.status==="Arrêt"?0:85}}},
-            {text:app.criticality,options:{fontSize:10,color:crHex,align:"center",fill:{color:rowBg}}}
-          ];
-        });
-        sl.addTable([...mkHdr(),...tblRows],{x:0.4,y:0.8,w:9.2,colW:[3.5,2.5,1.6,1.6],border:{pt:0.5,color:"DDDDDD"},rowH:0.21});
-      }
-    });
-
     // ─── Final slide: Matrice des flux ───
     const sf=SS(pres.addSlide());
     sf.background={color:"F5F6FA"};
@@ -3367,7 +3618,47 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     sf.addTable([mHdr,...mRows],{x:0.5,y:1.1,w:9,colW:Array(doms.length+1).fill(cw),border:{pt:0.5,color:"DDDDDD"},rowH:0.32});
 
 
-    if(_opts.inclRecapTable){drawRecapTableSlides();}
+    // ── Récapitulatif des applications (paginé) — avant le récap flux ──
+    if(_opts.inclRecapTable){
+      (function drawAppRecapSlides(){
+        const ROWS_PER_SLIDE=22;
+        const SD1C={"Transfert TSA":"F59E0B","Maintien":"10B981","Rebuild":"F97316","Abandon":"EF4444"};
+        const SD2C={"Clone & Clean":"3B82F6","Transfert":"10B981","Abandon":"EF4444","Rebuild":"F97316"};
+        const sortedApps=[...apps].sort(function(a,b){
+          if(a.domain!==b.domain)return a.domain.localeCompare(b.domain);
+          return a.name.localeCompare(b.name);
+        });
+        if(sortedApps.length===0)return;
+        const totalPages=Math.ceil(sortedApps.length/ROWS_PER_SLIDE);
+        for(var page=0;page<totalPages;page++){
+          var sA=pres.addSlide();
+          sA.background={color:"FFFFFF"};
+          var suffix=totalPages>1?" ("+(page+1)+"/"+totalPages+")":"";
+          sA.addShape(pres.shapes.RECTANGLE,{x:0,y:0,w:13.333,h:0.55,fill:{color:cp||"0B2545"},line:{type:"none"}});
+          sA.addText("RÉCAPITULATIF DES APPLICATIONS"+suffix,{x:0.3,y:0.10,w:12,h:0.35,fontSize:14,bold:true,color:"FFFFFF",fontFace:"Trebuchet MS",margin:0});
+          if(_opts.clientLogo){sA.addImage({data:_opts.clientLogo,x:12.10,y:0.10,w:1.00,h:0.48,sizing:{type:"contain",w:1.00,h:0.48}});}
+          var pageApps=sortedApps.slice(page*ROWS_PER_SLIDE,(page+1)*ROWS_PER_SLIDE);
+          var hdr=function(txt){return {text:txt,options:{bold:true,fill:{color:"1E293B"},color:"FFFFFF",fontSize:9,fontFace:"Calibri",valign:"middle"}};};
+          var header=[[hdr("Domaine"),hdr("Application"),hdr("Statut Day 1"),hdr("Statut Day 2")]];
+          var tblRows=pageApps.map(function(app,ri){
+            var d1c=SD1C[app.statusD1]||null;
+            var d2c=SD2C[app.statusD2]||null;
+            var rowBg=ri%2===0?"FFFFFF":"F8FAFC";
+            var domColor=(_pDC[app.domain]||_pDC.Autre).ac.replace("#","");
+            var cell=function(txt,extra){return {text:txt,options:Object.assign({fontSize:9,fontFace:"Calibri",valign:"middle",fill:{color:rowBg},color:"1E293B"},extra||{})};};
+            return [
+              cell(app.domain,{color:domColor,bold:true}),
+              cell(app.name,{bold:true}),
+              cell(app.statusD1||"—",d1c?{bold:true,color:d1c}:{color:"9CA3AF"}),
+              cell(app.statusD2||"—",d2c?{bold:true,color:d2c}:{color:"9CA3AF"}),
+            ];
+          });
+          sA.addTable([...header,...tblRows],{x:0.25,y:0.65,w:12.83,colW:[2.80,6.10,1.97,1.96],border:{pt:0.4,color:"E2E8F0"},rowH:0.32});
+          sA.addText(sortedApps.length+" applications · "+doms.length+" domaines · Généré le "+new Date().toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"}),{x:0.25,y:7.30,w:12.83,h:0.18,fontSize:7,color:"94A3B8",fontFace:"Calibri",margin:0,italic:true,align:"center"});
+        }
+      })();
+      drawRecapTableSlides();
+    }
     if(_opts.inclLegend){
     // ─── Slide Légende ───
     const sLeg=SS(pres.addSlide());
@@ -4384,7 +4675,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
             {v:riskApps.length,l:"Abandon D1 + flux",c:"#EF4444",glow:"rgba(239,68,68,0.18)",icon:"⚠"},
           ];
           var d2Cols=["Clone & Clean","Transfert","Abandon","Rebuild"];
-          var d1Rows=["Transfert TSA","Abandon"];
+          var d1Rows=["Transfert TSA","Maintien","Rebuild","Abandon"];
           var allMatrixN=d1Rows.map(function(d1){return d2Cols.map(function(d2){return apps.filter(function(a){return a.statusD1===d1&&a.statusD2===d2;}).length;});}).flat();
           var mxMat=Math.max.apply(null,allMatrixN)||1;
           return <div>
@@ -4397,7 +4688,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
             </div>
             {/* Donuts D1/D2 avec jauges */}
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))",gap:16,marginBottom:16}}>
-              {[{title:"Day 1 — Closing",opts:["Transfert TSA","Abandon"],colors:SD1,field:"statusD1",defN:d1Def.length,ac:"#F59E0B"},{title:"Day 2 — Cible",opts:["Clone & Clean","Transfert","Abandon","Rebuild"],colors:SD2,field:"statusD2",defN:d2Def.length,ac:"#8B5CF6"}].map(function(cfg){
+              {[{title:"Day 1 — Closing",opts:["Transfert TSA","Maintien","Rebuild","Abandon"],colors:SD1,field:"statusD1",defN:d1Def.length,ac:"#F59E0B"},{title:"Day 2 — Cible",opts:["Clone & Clean","Transfert","Abandon","Rebuild"],colors:SD2,field:"statusD2",defN:d2Def.length,ac:"#8B5CF6"}].map(function(cfg){
                 var data3=cfg.opts.map(function(s){return{s:s,n:apps.filter(function(a){return a[cfg.field]===s;}).length};}).concat([{s:"Non défini",n:apps.filter(function(a){return!a[cfg.field];}).length}]).filter(function(d){return d.n>0;});
                 var cumA=0;var hovId="co_"+cfg.field;
                 var arcs=data3.map(function(d,i){
@@ -5587,7 +5878,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
         {id:"category",label:"Catégorie",sel:selCat,setSel:setSelCat,items:cats.map(c=>({v:c,label:c,color:"#D63384"}))},
         {id:"status",label:"Statut",sel:selStat,setSel:setSelStat,items:["Maintien","Arrêt","Standalone temporaire","Migrée","Remplacée"].map(s=>({v:s,label:s==="Standalone temporaire"?"Standalone temp.":s,color:SC[s]||"#888"}))},
         {id:"criticality",label:"Criticité",sel:selCrit,setSel:setSelCrit,items:["Haute","Moyenne","Basse"].map(c=>({v:c,label:c,color:CC[c]||"#888"}))},
-        {id:"d1",label:"Day 1",sel:selD1?[selD1]:[],setSel:function(updater){var prev=selD1?[selD1]:[];var next=typeof updater==="function"?updater(prev):updater;setSelD1(next.length?next[next.length-1]:"");},items:[{v:"Transfert TSA",label:"TSA",color:"#F59E0B"},{v:"Abandon",label:"Abandon",color:"#EF4444"}]},
+        {id:"d1",label:"Day 1",sel:selD1?[selD1]:[],setSel:function(updater){var prev=selD1?[selD1]:[];var next=typeof updater==="function"?updater(prev):updater;setSelD1(next.length?next[next.length-1]:"");},items:[{v:"Transfert TSA",label:"TSA",color:"#F59E0B"},{v:"Maintien",label:"Maintien",color:"#10B981"},{v:"Rebuild",label:"Rebuild",color:"#F97316"},{v:"Abandon",label:"Abandon",color:"#EF4444"}]},
         {id:"d2",label:"Day 2",sel:selD2?[selD2]:[],setSel:function(updater){var prev=selD2?[selD2]:[];var next=typeof updater==="function"?updater(prev):updater;setSelD2(next.length?next[next.length-1]:"");},items:[{v:"Clone & Clean",label:"Clone",color:"#3B82F6"},{v:"Transfert",label:"Transfert",color:"#10B981"},{v:"Abandon",label:"Abandon",color:"#EF4444"},{v:"Rebuild",label:"Rebuild",color:"#F97316"}]}
       ].map(flt=>{
         const isOpen=openFilter===flt.id;
@@ -5837,146 +6128,186 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
                 if(eApp.id&&apps.find(a=>a.id===eApp.id))setApps(p=>p.map(a=>a.id===eApp.id?{...a,...eApp}:a));else setApps(p=>[...p,{...eApp,id:uid()}]);setShowAM(false);setSelApp(null);}} style={{...B,background:"#548CA8"}}>{eApp.id&&apps.find(a=>a.id===eApp.id)?"Sauvegarder":"Créer"}</button></div>
     </div></div>}
     {/* Domain color editor */}
-    {showExportModal&&<div style={{position:"fixed",inset:0,background:T.overlay,display:"flex",alignItems:"center",justifyContent:"center",zIndex:400}} onMouseDown={function(e){if(e.target===e.currentTarget)setShowExportModal(false);}}>
-      <div style={{background:T.bgCard,borderRadius:12,padding:28,width:580,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 8px 40px #00000060"}} onMouseDown={function(e){e.stopPropagation();}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-          <div><div style={{fontSize:16,fontWeight:700,color:T.fg}}>Options d&apos;export PowerPoint</div><div style={{fontSize:11,color:T.fgMuted,marginTop:2}}>{apps.length} apps &middot; {flows.length} flux &middot; {doms.length} domaines</div></div>
-          <button onClick={function(){setShowExportModal(false);}} style={{background:"none",border:"none",fontSize:18,color:T.fgMuted,cursor:"pointer"}}>&#10005;</button>
-        </div>
+    {showExportModal&&(function(){
+      var _hubLim=Math.max(1,parseInt(exportOpts.hubLimit)||8);
+      var _hubDomF=exportOpts.hubDomainFilter&&exportOpts.hubDomainFilter.length>0?exportOpts.hubDomainFilter:null;
+      var _hubConn=apps.filter(function(a){return flows.some(function(f){return f.from===a.id||f.to===a.id;})&&(!_hubDomF||_hubDomF.includes(a.domain));});
+      var nCarto=Math.min(_hubConn.length,_hubLim)*2;
+      var slideCount=2;// synthèse compacte + matrice flux (toujours présents)
+      if(exportOpts.inclExecSlides)slideCount+=2;
+      if(exportOpts.inclMatrices)slideCount+=1+(Math.ceil(flows.length/18)||1);
+      if(exportOpts.inclConsolidatedCarto)slideCount+=2;
+      if(exportOpts.inclDomainStatus)slideCount+=2;
+      slideCount+=nCarto;
+      var set=function(k,v){setExportOpts(function(p){var n=Object.assign({},p);n[k]=v;return n;});};
+      var applyPreset=function(p){
+        var base={inclExecSlides:false,inclMatrices:false,inclConsolidatedCarto:false,inclDomainStatus:false,cartoMode:"none"};
+        if(p==="cartographie")set("__preset__",Object.assign(base,{inclExecSlides:true,inclConsolidatedCarto:true,cartoMode:"byDomain"}));
+        else if(p==="decision")set("__preset__",Object.assign(base,{inclExecSlides:true,inclMatrices:true,inclDomainStatus:true,cartoMode:"byDomain",inclConsolidatedCarto:true}));
+        else if(val==="complet")set("__preset__",Object.assign(base,{inclExecSlides:true,inclMatrices:true,inclConsolidatedCarto:true,inclDomainStatus:true,cartoMode:"byDomain"}));
+        setExportOpts(function(prev){
+          var base2={inclExecSlides:false,inclMatrices:false,inclConsolidatedCarto:false,inclDomainStatus:false,cartoMode:"none"};
+          if(p==="cartographie")return Object.assign({},prev,base2,{inclExecSlides:true,inclConsolidatedCarto:true,cartoMode:"byDomain"});
+          if(p==="decision")return Object.assign({},prev,base2,{inclExecSlides:true,inclMatrices:true,inclDomainStatus:true,cartoMode:"byDomain",inclConsolidatedCarto:true});
+          return Object.assign({},prev,base2,{inclExecSlides:true,inclMatrices:true,inclConsolidatedCarto:true,inclDomainStatus:true,cartoMode:"byDomain"});
+        });
+      };
+      var Chk=function(k,label,desc,n){
+        var on=exportOpts[k];
+        return <label style={{display:"flex",alignItems:"flex-start",gap:12,cursor:"pointer",padding:"11px 14px",borderRadius:9,background:on?"#2979FF0D":"transparent",border:"1px solid "+(on?"#2979FF50":T.border),marginBottom:6,transition:"background .12s,border .12s"}}>
+          <input type="checkbox" checked={on} onChange={function(e){set(k,e.target.checked);}} style={{accentColor:"#2979FF",width:16,height:16,marginTop:1,flexShrink:0}}/>
+          <div style={{flex:1}}>
+            <div style={{fontSize:12,fontWeight:700,color:T.fg}}>{label}</div>
+            <div style={{fontSize:10,color:T.fgMuted,marginTop:2}}>{desc}</div>
+          </div>
+          <span style={{fontSize:9,fontWeight:700,color:on?"#2979FF":T.fgMuted,background:on?"#2979FF15":T.bgAlt,border:"1px solid "+(on?"#2979FF30":T.border),borderRadius:10,padding:"2px 8px",whiteSpace:"nowrap",alignSelf:"center",flexShrink:0}}>{"+"+n+" slide"+(n>1?"s":"")}</span>
+        </label>;
+      };
+      return <div style={{position:"fixed",inset:0,background:T.overlay,display:"flex",alignItems:"center",justifyContent:"center",zIndex:400}} onMouseDown={function(e){if(e.target===e.currentTarget)setShowExportModal(false);}}>
+        <div style={{background:T.bgCard,borderRadius:14,width:580,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 12px 50px #00000070",display:"flex",flexDirection:"column"}} onMouseDown={function(e){e.stopPropagation();}}>
 
-        <div style={{display:"flex",flexDirection:"column",gap:16}}>
+          {/* ── En-tête ── */}
+          <div style={{padding:"20px 22px 14px",borderBottom:"1px solid "+T.border,display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,background:T.bgCard,zIndex:2,borderRadius:"14px 14px 0 0"}}>
+            <div>
+              <div style={{fontSize:16,fontWeight:800,color:T.fg}}>Export PowerPoint</div>
+              <div style={{fontSize:10,color:T.fgMuted,marginTop:3}}>{apps.length} applications · {flows.length} flux · {doms.length} domaines</div>
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:12}}>
+              <div style={{textAlign:"center",background:"#EF6C0015",borderRadius:10,padding:"6px 16px",border:"1px solid #EF6C0040"}}>
+                <div style={{fontSize:24,fontWeight:800,color:"#EF6C00",lineHeight:1}}>{slideCount}</div>
+                <div style={{fontSize:8,color:"#EF6C00",fontWeight:700,textTransform:"uppercase",letterSpacing:0.6,marginTop:2}}>slides</div>
+              </div>
+              <button onClick={function(){setShowExportModal(false);}} style={{background:"none",border:"none",fontSize:18,color:T.fgMuted,cursor:"pointer"}}>✕</button>
+            </div>
+          </div>
 
-          {/* Identité client */}
-          <div style={{background:T.bgAlt,borderRadius:8,padding:14}}>
-            <div style={{fontSize:12,fontWeight:600,color:T.fg,marginBottom:10}}>&#127775; Identit&#233; client</div>
-            <div style={{display:"flex",gap:16,alignItems:"flex-start",flexWrap:"wrap"}}>
-              <div style={{display:"flex",flexDirection:"column",gap:4}}>
-                <label style={{fontSize:10,color:T.fgMuted}}>Couleur principale</label>
-                <div style={{display:"flex",alignItems:"center",gap:8}}>
-                  <input type="color" value={"#"+(exportOpts.clientPrimary||"2979FF")} onChange={function(e){var hex=e.target.value.replace("#","");setExportOpts(function(p){return Object.assign({},p,{clientPrimary:hex});});}} style={{width:40,height:32,border:"1px solid #555",borderRadius:4,cursor:"pointer",padding:2}}/>
-                  <span style={{fontSize:10,color:T.fgDim,fontFamily:"monospace"}}>{"#"+(exportOpts.clientPrimary||"2979FF")}</span>
+          <div style={{padding:"20px 22px",display:"flex",flexDirection:"column",gap:20}}>
+
+            {/* ── Recommandations ── */}
+            <div style={{background:T.bgAlt,borderRadius:10,padding:14}}>
+              <div style={{fontSize:10,fontWeight:700,color:T.fgMuted,textTransform:"uppercase",letterSpacing:0.8,marginBottom:10}}>Générations recommandées</div>
+              <div style={{display:"flex",gap:8}}>
+                {[
+                  {id:"cartographie",icon:"🗺",label:"Cartographie",desc:"Slides exécutives + carto consolidée et détaillée par domaine",color:"#2979FF"},
+                  {id:"decision",icon:"📊",label:"Aide à la décision",desc:"Carto + matrices de flux + vision Day 1 & Day 2",color:"#8B5CF6"},
+                  {id:"complet",icon:"📦",label:"Livrable complet",desc:"Toutes les sections — cartographie, flux et trajectoires",color:"#EF6C00"},
+                ].map(function(pr){
+                  return <button key={pr.id} onMouseDown={function(e){e.preventDefault();applyPreset(pr.id);}} style={{flex:1,background:pr.color+"10",border:"1px solid "+pr.color+"35",borderRadius:9,padding:"10px 8px",cursor:"pointer",textAlign:"left",transition:"background .12s"}}>
+                    <div style={{fontSize:14,marginBottom:4}}>{pr.icon}</div>
+                    <div style={{fontSize:11,fontWeight:700,color:pr.color,marginBottom:3}}>{pr.label}</div>
+                    <div style={{fontSize:9,color:T.fgMuted,lineHeight:1.4}}>{pr.desc}</div>
+                  </button>;
+                })}
+              </div>
+            </div>
+
+            {/* ── Identité client ── */}
+            <div style={{background:T.bgAlt,borderRadius:10,padding:14}}>
+              <div style={{fontSize:11,fontWeight:700,color:T.fg,marginBottom:12}}>Identité client</div>
+              <div style={{display:"flex",gap:20,alignItems:"flex-start",flexWrap:"wrap"}}>
+                <div>
+                  <label style={{fontSize:10,color:T.fgMuted,display:"block",marginBottom:4}}>Couleur principale</label>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                    <input type="color" value={"#"+(exportOpts.clientPrimary||"2979FF")} onChange={function(e){set("clientPrimary",e.target.value.replace("#",""));}} style={{width:38,height:30,border:"1px solid "+T.border,borderRadius:4,cursor:"pointer",padding:2}}/>
+                    <span style={{fontSize:10,color:T.fgDim,fontFamily:"monospace"}}>{"#"+(exportOpts.clientPrimary||"2979FF")}</span>
+                  </div>
+                  <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                    {["0B2545","1B3A5C","2979FF","10B981","6366F1","EF6C00","E06C75","2D6A4F"].map(function(c){
+                      return <div key={c} onMouseDown={function(e){e.preventDefault();set("clientPrimary",c);}} style={{width:22,height:22,borderRadius:5,background:"#"+c,cursor:"pointer",border:exportOpts.clientPrimary===c?"2px solid #fff":"2px solid transparent",boxShadow:exportOpts.clientPrimary===c?"0 0 0 2px #"+c:"none"}}/>;
+                    })}
+                  </div>
                 </div>
-                <div style={{display:"flex",gap:4,marginTop:4,flexWrap:"wrap"}}>
-                  {["1B3A5C","2979FF","10B981","6366F1","EF6C00","E06C75","0B2545","2D6A4F"].map(function(c){
-                    return <div key={c} onMouseDown={function(e){e.preventDefault();setExportOpts(function(p){return Object.assign({},p,{clientPrimary:c});});}} style={{width:20,height:20,borderRadius:4,background:"#"+c,cursor:"pointer",border:exportOpts.clientPrimary===c?"2px solid #fff":"2px solid transparent",boxShadow:exportOpts.clientPrimary===c?"0 0 6px #"+c+"80":"none"}}/>;
-                  })}
+                <div>
+                  <label style={{fontSize:10,color:T.fgMuted,display:"block",marginBottom:4}}>Logo (PNG/JPG)</label>
+                  <input type="file" accept="image/*" onChange={function(e){var f=e.target.files&&e.target.files[0];if(!f)return;var rd=new FileReader();rd.onload=function(ev){set("clientLogo",ev.target.result);};rd.readAsDataURL(f);}} style={{fontSize:10,color:T.fg,cursor:"pointer"}}/>
+                  {exportOpts.clientLogo&&<div style={{display:"flex",alignItems:"center",gap:6,marginTop:6}}>
+                    <img src={exportOpts.clientLogo} alt="logo" style={{height:28,maxWidth:80,objectFit:"contain",borderRadius:4,border:"1px solid "+T.border}}/>
+                    <button onMouseDown={function(){set("clientLogo",null);}} style={{background:"none",border:"none",fontSize:13,color:T.fgMuted,cursor:"pointer"}}>✕</button>
+                  </div>}
                 </div>
               </div>
-              <div style={{display:"flex",flexDirection:"column",gap:4}}>
-                <label style={{fontSize:10,color:T.fgMuted}}>Logo client (PNG/JPG)</label>
-                <input type="file" accept="image/*" onChange={function(e){var f=e.target.files&&e.target.files[0];if(!f)return;var rd=new FileReader();rd.onload=function(ev){setExportOpts(function(p){return Object.assign({},p,{clientLogo:ev.target.result});});};rd.readAsDataURL(f);}} style={{fontSize:10,color:T.fg,cursor:"pointer"}}/>
-                {exportOpts.clientLogo&&<div style={{display:"flex",alignItems:"center",gap:6}}>
-                  <img src={exportOpts.clientLogo} alt="logo" style={{height:28,maxWidth:80,objectFit:"contain",borderRadius:4,border:"1px solid "+T.border}}/>
-                  <button onMouseDown={function(){setExportOpts(function(p){return Object.assign({},p,{clientLogo:null});});}} style={{background:"none",border:"none",fontSize:12,color:T.fgMuted,cursor:"pointer"}}>✕</button>
-                </div>}
+            </div>
+
+            {/* ── Contenu du livrable ── */}
+            <div>
+              <div style={{fontSize:11,fontWeight:700,color:T.fg,marginBottom:10}}>Contenu du livrable</div>
+              {Chk("inclExecSlides","Slides exécutives","Page de titre + Synthèse & Messages clés",2)}
+              {Chk("inclMatrices","Matrices de flux","Récap applications (Domaine / App / D1 / D2) + récap flux + vue agrégée par domaine",2+(Math.ceil(flows.length/18)||1)+(Math.ceil(apps.length/22)||1))}
+              {Chk("inclConsolidatedCarto","Vues de cartographie consolidée","Clusters par domaine + vue domaine pivot",2)}
+              {Chk("inclDomainStatus","Vision Day 1 & Day 2","Applications colorées par stratégie de closing et cible (Transfert TSA, Maintien, Rebuild, Abandon)",2)}
+            </div>
+
+            {/* ── Style des flèches de flux ── */}
+            <div>
+              <div style={{fontSize:11,fontWeight:700,color:T.fg,marginBottom:4}}>Style des flèches de flux</div>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                {[
+                  {v:"solid",l:"Trait plein",icon:"—"},
+                  {v:"dash", l:"Tirets",     icon:"- -"},
+                  {v:"dot",  l:"Points",     icon:"···"},
+                ].map(function(s){
+                  var sel=exportOpts.flowLineStyle===s.v;
+                  return <label key={s.v} style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",padding:"8px 14px",borderRadius:8,background:sel?"#2979FF0D":"transparent",border:"1px solid "+(sel?"#2979FF50":T.border),flex:"1 1 auto",minWidth:90}}>
+                    <input type="radio" name="flowLineStyle" value={s.v} checked={sel} onChange={function(){set("flowLineStyle",s.v);}} style={{accentColor:"#2979FF"}}/>
+                    <span style={{fontSize:14,fontFamily:"monospace",color:sel?"#2979FF":T.fgMuted,marginRight:4}}>{s.icon}</span>
+                    <span style={{fontSize:11,fontWeight:sel?700:400,color:T.fg}}>{s.l}</span>
+                  </label>;
+                })}
               </div>
             </div>
+
+            {/* ── Cartographie par Hub applicatif ── */}
+            {(function(){
+              var connectedApps=apps.filter(function(a){return flows.some(function(f){return f.from===a.id||f.to===a.id;});});
+              var domFilter=exportOpts.hubDomainFilter||[];
+              var filteredConn=domFilter.length>0?connectedApps.filter(function(a){return domFilter.includes(a.domain);}):connectedApps;
+              var toggleDom=function(d){
+                var cur=exportOpts.hubDomainFilter||[];
+                var next=cur.includes(d)?cur.filter(function(x){return x!==d;}):[...cur,d];
+                set("hubDomainFilter",next.length>0?next:null);
+              };
+              return <div>
+                <div style={{fontSize:11,fontWeight:700,color:T.fg,marginBottom:4}}>Cartographie par Hub applicatif</div>
+                <div style={{fontSize:10,color:T.fgMuted,marginBottom:10}}>Un slide synthèse + un slide détail flux par hub, triés par connectivité décroissante.</div>
+                <div style={{padding:"12px 14px",borderRadius:9,background:"#2979FF08",border:"1px solid #2979FF40"}}>
+                  {/* Nombre de hubs */}
+                  <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
+                    <span style={{fontSize:11,fontWeight:600,color:T.fg,whiteSpace:"nowrap"}}>Nombre de hubs :</span>
+                    <input type="number" min={1} max={apps.length||99} value={exportOpts.hubLimit} onChange={function(e){set("hubLimit",Math.max(1,parseInt(e.target.value)||1));}} style={{width:60,padding:"3px 8px",borderRadius:6,border:"1px solid "+T.border,background:T.bg,color:T.fg,fontSize:12,fontWeight:700,textAlign:"center"}}/>
+                    <span style={{fontSize:10,color:T.fgMuted}}>{filteredConn.length} apps connectées {domFilter.length>0?"dans les domaines sélectionnés":"au total"}</span>
+                  </div>
+                  {/* Filtre par domaine */}
+                  <div style={{fontSize:10,fontWeight:700,color:T.fg,marginBottom:6}}>Filtrer par domaine <span style={{fontWeight:400,color:T.fgMuted}}>(tous si aucun coché)</span></div>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                    {doms.map(function(d){
+                      var sel2=domFilter.includes(d);
+                      var dc=domColors[d]||{ac:"#9E9E9E"};
+                      var nConn=connectedApps.filter(function(a){return a.domain===d;}).length;
+                      return <button key={d} onClick={function(){toggleDom(d);}} style={{display:"flex",alignItems:"center",gap:5,padding:"4px 10px",borderRadius:20,border:"1.5px solid "+(sel2?dc.ac:"#D1D5DB"),background:sel2?dc.ac+"22":"transparent",cursor:"pointer",fontSize:10,fontWeight:sel2?700:400,color:sel2?dc.ac:T.fgMuted,transition:"all .12s"}}>
+                        <span style={{width:7,height:7,borderRadius:"50%",background:dc.ac,flexShrink:0,display:"inline-block"}}/>
+                        {d}
+                        <span style={{fontSize:9,opacity:0.7}}>({nConn})</span>
+                      </button>;
+                    })}
+                  </div>
+                </div>
+              </div>;
+            })()}
+
           </div>
 
-          {/* Slides exécutives */}
-          <div style={{background:T.bgAlt,borderRadius:8,padding:14}}>
-            <div style={{fontSize:12,fontWeight:600,color:T.fg,marginBottom:10}}>&#128101; Slides ex&#233;cutives</div>
-            <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",padding:"6px 8px",borderRadius:4,background:exportOpts.inclExecSlides?T.bgHover:"transparent"}}>
-              <input type="checkbox" checked={exportOpts.inclExecSlides} onChange={function(e){var v=e.target.checked;setExportOpts(function(p){var n=Object.assign({},p);n.inclExecSlides=v;return n;});}} style={{accentColor:"#2979FF",width:14,height:14}}/>
-              <span style={{fontSize:11,color:T.fg}}>Inclure les slides ex&#233;cutives (Page de titre + Synth&#232;se ex&#233;cutive)</span>
-            </label>
-          </div>
-
-          {/* Mode de rendu cartographie */}
-          <div style={{background:T.bgAlt,borderRadius:8,padding:14}}>
-            <div style={{fontSize:12,fontWeight:600,color:T.fg,marginBottom:10}}>Mode de rendu cartographie</div>
-            {[
-              {v:"global",l:"Vue globale",d:"Toutes les applications sur un slide unifié"},
-              {v:"byDomain",l:"Par domaine fonctionnel",d:"Un slide par domaine · apps et flux contextualisés"},
-              {v:"byHub",l:"Par système drainant",d:"Slides centrés sur les hubs · app la plus connectée au centre"},
-            ].map(function(opt){
-              return <label key={opt.v} style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",padding:"8px 10px",borderRadius:8,background:exportOpts.cartoMode===opt.v?T.bgHover:"transparent",border:exportOpts.cartoMode===opt.v?"1px solid #2979FF30":"1px solid transparent",marginBottom:4}}>
-                <input type="radio" name="cartoMode" value={opt.v} checked={exportOpts.cartoMode===opt.v} onChange={function(){setExportOpts(function(p){return Object.assign({},p,{cartoMode:opt.v});});}} style={{marginTop:2,accentColor:"#2979FF"}}/>
-                <div><div style={{fontSize:12,fontWeight:600,color:T.fg}}>{opt.l}</div><div style={{fontSize:10,color:T.fgMuted}}>{opt.d}</div></div>
-              </label>;
-            })}
-          </div>
-
-          {/* Slides de synthèse */}
-          <div style={{background:T.bgAlt,borderRadius:8,padding:14}}>
-            <div style={{fontSize:12,fontWeight:600,color:T.fg,marginBottom:10}}>&#128202; Slides de synth&#232;se</div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-              {[
-                {k:"inclDomainStatus",l:"Vue par domaine (Day 1 & Day 2)",d:"2 slides · applications colorées par statut"},
-              ].map(function(item){
-                return <label key={item.k} style={{display:"flex",alignItems:"flex-start",gap:8,cursor:"pointer",padding:"6px 8px",borderRadius:4,background:exportOpts[item.k]?T.bgHover:"transparent"}}>
-                  <input type="checkbox" checked={exportOpts[item.k]} onChange={function(e){var v=e.target.checked;setExportOpts(function(p){var n=Object.assign({},p);n[item.k]=v;return n;});}} style={{accentColor:"#2979FF",width:14,height:14,marginTop:2}}/>
-                  <div><div style={{fontSize:11,color:T.fg}}>{item.l}</div><div style={{fontSize:9,color:T.fgMuted}}>{item.d}</div></div>
-                </label>;
-              })}
+          {/* ── Pied de page ── */}
+          <div style={{padding:"12px 22px",borderTop:"1px solid "+T.border,display:"flex",gap:10,justifyContent:"space-between",alignItems:"center",position:"sticky",bottom:0,background:T.bgCard,borderRadius:"0 0 14px 14px"}}>
+            <div style={{fontSize:10,color:T.fgMuted}}><strong style={{color:T.fg}}>{slideCount} slides</strong> seront générées</div>
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={function(){setShowExportModal(false);}} style={{...B,background:T.border,padding:"9px 20px",fontSize:12}}>Annuler</button>
+              <button onClick={function(){setShowExportModal(false);exportPPTX(exportOpts).catch(function(err){alert("Erreur export PPTX :\n"+(err&&err.message?err.message:String(err)));});}} style={{...B,background:"#EF6C00",padding:"9px 28px",fontWeight:800,fontSize:13}}>⬇ Générer le PPTX</button>
             </div>
           </div>
 
-          {/* Synthèse détaillée */}
-          <div style={{background:T.bgAlt,borderRadius:8,padding:14}}>
-            <div style={{fontSize:12,fontWeight:600,color:T.fg,marginBottom:10}}>Slide Synth&#232;se d&#233;taill&#233;e (flux)</div>
-            {[
-              {v:"none",l:"Ne pas inclure",d:"Uniquement la synth\u00e8se agr\u00e9g\u00e9e"},
-              {v:"radial",l:"Vue radiale",d:"Tous les flux individuels sur un slide orbital"},
-              {v:"byDomain",l:"Par domaine source",d:"Un slide par domaine \u2192 hub (plus lisible)"},
-            ].map(function(opt){
-              return <label key={opt.v} style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",padding:"8px 10px",borderRadius:8,background:exportOpts.synthDetail===opt.v?T.bgHover:"transparent",border:exportOpts.synthDetail===opt.v?"1px solid #2979FF30":"1px solid transparent",marginBottom:4}}>
-                <input type="radio" name="synthDetail" value={opt.v} checked={exportOpts.synthDetail===opt.v} onChange={function(){setExportOpts(function(p){return Object.assign({},p,{synthDetail:opt.v});});}} style={{marginTop:2,accentColor:"#2979FF"}}/>
-                <div><div style={{fontSize:12,fontWeight:600,color:T.fg}}>{opt.l}</div><div style={{fontSize:10,color:T.fgMuted}}>{opt.d}</div></div>
-              </label>;
-            })}
-          </div>
-
-          {/* Slides à inclure */}
-          <div style={{background:T.bgAlt,borderRadius:8,padding:14}}>
-            <div style={{fontSize:12,fontWeight:600,color:T.fg,marginBottom:10}}>Autres slides &#224; inclure</div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-              {[
-                {k:"inclConsolidatedCarto",l:"Carto consolidée (sans étiquettes)"},
-                {k:"inclRecapTable",l:"Tableau récapitulatif flux"},
-                {k:"inclAggregated",l:"Vue agr\u00e9g\u00e9e domaines"},
-                {k:"inclHubSlides",l:"Slides hub (flux d\u00e9taill\u00e9s)"},
-                {k:"inclFocusDomain",l:"Focus par domaine"},
-                {k:"inclKPI",l:"KPIs & synth\u00e8se"},
-                {k:"inclLegend",l:"Slide l\u00e9gende"},
-              ].map(function(item){
-                return <label key={item.k} style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",padding:"6px 8px",borderRadius:4,background:exportOpts[item.k]?T.bgHover:"transparent"}}>
-                  <input type="checkbox" checked={exportOpts[item.k]} onChange={function(e){var v=e.target.checked;setExportOpts(function(p){var n=Object.assign({},p);n[item.k]=v;return n;});}} style={{accentColor:"#2979FF",width:14,height:14}}/>
-                  <span style={{fontSize:11,color:T.fg}}>{item.l}</span>
-                </label>;
-              })}
-            </div>
-          </div>
-
-          {/* Estimation */}
-          <div style={{fontSize:10,color:T.fgDim,padding:"6px 10px",background:T.bgAlt,borderRadius:6}}>
-            &#128196; Estimation&nbsp;: environ {
-              (function(){
-                var n=1;// urbanisation
-                n++;// synthèse compacte
-                n++;// matrice flux
-                if(exportOpts.inclExecSlides)n+=2;// title + exec
-                if(exportOpts.synthDetail!=="none")n+=(exportOpts.synthDetail==="byDomain"?doms.length:1);
-                if(exportOpts.inclConsolidatedCarto)n++;
-                if(exportOpts.inclRecapTable)n+=Math.ceil(flows.length/18)||1;
-                if(exportOpts.inclAggregated)n++;
-                if(exportOpts.inclHubSlides)n+=Math.ceil(flows.length/6)+2;
-                if(exportOpts.inclFocusDomain)n+=doms.length*2;
-                if(exportOpts.inclKPI)n+=2;
-                if(exportOpts.inclLegend)n++;
-                if(exportOpts.inclDomainStatus)n+=2;
-                return n;
-              })()
-            } slides
-          </div>
         </div>
-
-        <div style={{display:"flex",gap:10,marginTop:20,justifyContent:"flex-end"}}>
-          <button onClick={function(){setShowExportModal(false);}} style={{...B,background:T.border,padding:"8px 18px"}}>Annuler</button>
-          <button onClick={function(){setShowExportModal(false);exportPPTX(exportOpts).catch(function(err){alert("Erreur export PPTX:\n"+(err&&err.message?err.message:String(err))+"\n\n"+(err&&err.stack?err.stack.slice(0,400):""));});}} style={{...B,background:"#EF6C00",padding:"8px 24px",fontWeight:700,fontSize:13}}>&#11015; G&#233;n&#233;rer le PPTX</button>
-        </div>
-      </div>
-    </div>}
+      </div>;
+    })()}
     {showDomEdit!=null&&showDomEdit!==false&&<div className="moverlay" style={{position:"fixed",inset:0,background:T.overlay,display:"flex",alignItems:"center",justifyContent:"center",zIndex:350}} onMouseDown={e=>{if(e.target===e.currentTarget)setShowDomEdit(null);}}><div style={{background:T.bgCard,borderRadius:8,padding:24,width:380}} onMouseDown={e=>e.stopPropagation()}>
       <h3 style={{fontSize:16,fontWeight:700,marginBottom:16}}>Couleur du domaine</h3>
       <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20,padding:"12px 16px",background:T.bg,borderRadius:8}}>
