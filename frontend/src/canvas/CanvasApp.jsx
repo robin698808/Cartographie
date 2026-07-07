@@ -2144,15 +2144,14 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         sC.addShape(pres.shapes.RECTANGLE,{x:IDX_X,y:IDX_Y+0.33,w:IDX_W,h:0.012,fill:{color:"D1D5DB"},line:{type:"none"}});
 
         // ── Dimensions du tableau ──
-        var HDR_ROW_H=0.155; // ligne d'en-tête
         var tblY=IDX_Y+0.36;
         var tblAvailH=IDX_H-(tblY-IDX_Y)-0.06;
-        var minRowH=0.128,maxRowH=0.155;
-        var dynRowH=Math.min(maxRowH,Math.max(minRowH,tblAvailH/(legendRows.length+1)));
+        // Hauteur uniforme pour toutes les lignes (header inclus) → ovales alignés exactement
+        var dynRowH=Math.min(0.155,Math.max(0.128,tblAvailH/(legendRows.length+1)));
         var visRows=legendRows.slice(0,Math.floor(tblAvailH/dynRowH)-1);
 
-        // Largeurs colonnes : badge | dir | nom app | label/protocole
-        var C0=0.26,C1=0.20,C2=1.36,C3=IDX_W-C0-C1-C2;
+        // Largeurs colonnes : badge | direction | nom app | label/protocole
+        var C0=0.26,C1=0.28,C2=1.34,C3=IDX_W-C0-C1-C2;
 
         // ── En-tête du tableau ──
         var hdrNoB={type:"none"};
@@ -2178,21 +2177,21 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
           ];
         });
 
-        // ── Dessin du tableau ──
+        // ── Dessin du tableau (rowH uniforme = alignement garanti) ──
         var allRows=[hdrCells].concat(dataRows);
-        var rowHArr=[HDR_ROW_H].concat(dataRows.map(function(){return dynRowH;}));
         sC.addTable(allRows,{
           x:IDX_X,y:tblY,w:IDX_W,
           colW:[C0,C1,C2,C3],
-          rowH:rowHArr,
+          rowH:dynRowH,// valeur unique → même hauteur header et data
           border:{type:"none"},
         });
 
         // ── Ovales superposés sur la colonne badge (col 0) ──
+        // Ligne header = row 0 → data row ri commence à tblY + (ri+1)*dynRowH
         var ovalW=0.17,ovalH=0.14;
         var ovalX=IDX_X+(C0-ovalW)/2;
         visRows.forEach(function(r,ri){
-          var ovalY=tblY+HDR_ROW_H+ri*dynRowH+(dynRowH-ovalH)/2;
+          var ovalY=tblY+(ri+1)*dynRowH+(dynRowH-ovalH)/2;
           sC.addShape(pres.shapes.OVAL,{x:ovalX,y:ovalY,w:ovalW,h:ovalH,fill:{color:r.color},line:{type:"none"}});
           sC.addText(String(r.num),{x:ovalX,y:ovalY,w:ovalW,h:ovalH,
             fontSize:5.5,bold:true,color:"FFFFFF",fontFace:"Calibri",align:"center",valign:"middle",margin:0});
@@ -2200,7 +2199,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
 
         // Indicateur si lignes tronquées
         if(legendRows.length>visRows.length){
-          var truncY=tblY+HDR_ROW_H+visRows.length*dynRowH+0.03;
+          var truncY=tblY+(visRows.length+1)*dynRowH+0.03;
           sC.addText("+"+(legendRows.length-visRows.length)+" flux non affichés",{
             x:IDX_X,y:truncY,w:IDX_W,h:0.14,fontSize:6,color:"9CA3AF",fontFace:"Calibri",italic:true,align:"center",margin:0});
         }
