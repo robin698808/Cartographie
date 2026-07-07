@@ -1044,7 +1044,8 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
 
     // --- Slide Synthese Executive ---
     {
-    const sSX=SS(_addSlide());
+    const _sXRaw=_addSlide();// raw slide : addChart requiert les coords 13.333" réelles
+    const sSX=SS(_sXRaw);
     sSX.background={color:"F8F9FC"};
     // Bandeau header clair
     sSX.addShape(pres.shapes.RECTANGLE,{x:0,y:0,w:10,h:0.60,fill:{color:cp},line:{type:"none"}});
@@ -1070,25 +1071,50 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       sSX.addText(k.l,{x:kx+0.14,y:ky+0.60,w:1.50,h:0.18,fontSize:8,color:"64748B",fontFace:"Calibri",margin:0});
       if(k.sub)sSX.addText(k.sub,{x:kx+0.14,y:ky+0.78,w:1.50,h:0.14,fontSize:6.5,color:"94A3B8",fontFace:"Calibri",margin:0});
     });
-    // Helper barres horizontales empilees + legende
-    const sxDrawBars=function(sl,bx,by,bw,stats,tot){
+    // ── Helper donut (dessine sur le raw slide en coords 13.333") ──
+    // bx,by,bw,bh : coords de la carte en espace 10" SS ; defCnt : nb définis
+    const sxDrawDonut=function(bx,by,bw,bh,stats,tot,defCnt){
       if(!tot)return;
-      let cx2=bx;
-      stats.forEach(function(st){
-        if(!st.v)return;
-        const sw=(st.v/tot)*bw;
-        sl.addShape(pres.shapes.RECTANGLE,{x:cx2,y:by,w:sw,h:0.24,fill:{color:st.c},line:{type:"none"}});
-        cx2+=sw;
+      var RK=K; // K=13.333/10 déjà défini
+      // Carte en coords raw
+      var rbx=bx*RK,rby=by*RK,rbw=bw*RK,rbh=bh*RK;
+      var hdrH=0.28*RK; // hauteur de la banderole
+      // Zone de contenu (sous la banderole, avec marges)
+      var cx=rbx+0.14*RK, cy=rby+hdrH+0.10*RK;
+      var cw=rbw-0.28*RK, ch=rbh-hdrH-0.18*RK;
+      // Donut : carré, à gauche de la zone
+      var dSide=Math.min(ch,cw*0.46);
+      var dx=cx, dy=cy+(ch-dSide)/2;
+      // Légende : à droite du donut
+      var legX=dx+dSide+0.18, legW=cw-dSide-0.22, legY=cy, legH=ch;
+      var actSt=stats.filter(function(s){return s.v>0;});
+      if(actSt.length===0)return;
+      // Donut chart
+      _sXRaw.addChart("doughnut",[{name:"S",labels:actSt.map(function(s){return s.l;}),values:actSt.map(function(s){return s.v;})}],{
+        x:dx,y:dy,w:dSide,h:dSide,
+        holeSize:62,
+        chartColors:actSt.map(function(s){return s.c;}),
+        showLegend:false,
+        showValue:false,
+        showPercent:false,
+        showTitle:false,
+        dataLabelFontSize:1,
       });
-      let lx2=bx;let ly2=by+0.30;
-      stats.forEach(function(st){
-        if(!st.v)return;
-        const pct2=Math.round(st.v/tot*100);
-        const lw3=1.48;
-        if(lx2+lw3>bx+bw+0.05){lx2=bx;ly2+=0.24;}
-        sl.addShape(pres.shapes.RECTANGLE,{x:lx2,y:ly2+0.055,w:0.10,h:0.10,fill:{color:st.c},line:{type:"none"}});
-        sl.addText(st.l+" ("+st.v+" — "+pct2+"%)",{x:lx2+0.14,y:ly2,w:lw3-0.14,h:0.22,fontSize:7.5,color:"AABBCC",fontFace:"Calibri",margin:0,shrinkText:true});
-        lx2+=lw3;
+      // Texte central (nb définis + %)
+      var pctDef=tot?Math.round(defCnt/tot*100):0;
+      var ctX=dx+dSide/2-0.52, ctY=dy+dSide/2-0.28;
+      _sXRaw.addText(String(defCnt),{x:ctX,y:ctY,w:1.04,h:0.34,fontSize:18,bold:true,color:"1E293B",fontFace:"Trebuchet MS",align:"center",valign:"middle",margin:0});
+      _sXRaw.addText(pctDef+"% définis",{x:ctX,y:ctY+0.32,w:1.04,h:0.20,fontSize:7,color:"94A3B8",fontFace:"Calibri",align:"center",valign:"top",margin:0});
+      // Légende : pastille colorée | nom | valeur+%
+      var rowH=Math.min(0.38,legH/Math.max(actSt.length,1));
+      var totLH=actSt.length*rowH;
+      var lY=legY+(legH-totLH)/2;
+      actSt.forEach(function(s){
+        var pct=Math.round(s.v/tot*100);
+        _sXRaw.addShape(pres.shapes.OVAL,{x:legX,y:lY+(rowH-0.14)/2,w:0.14,h:0.14,fill:{color:s.c},line:{type:"none"}});
+        _sXRaw.addText(s.l,{x:legX+0.19,y:lY,w:legW-0.68,h:rowH,fontSize:7.5,color:"374151",fontFace:"Calibri",valign:"middle",margin:0,shrinkText:true});
+        _sXRaw.addText(s.v+" | "+pct+"%",{x:legX+legW-0.64,y:lY,w:0.64,h:rowH,fontSize:7,color:"94A3B8",fontFace:"Calibri",align:"right",valign:"middle",margin:0});
+        lY+=rowH;
       });
     };
     // Bloc Day 1
@@ -1097,28 +1123,28 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       {l:"Maintien",v:apps.filter(function(a){return a.statusD1==="Maintien";}).length,c:"10B981"},
       {l:"Rebuild",v:apps.filter(function(a){return a.statusD1==="Rebuild";}).length,c:"6366F1"},
       {l:"Abandon",v:apps.filter(function(a){return a.statusD1==="Abandon";}).length,c:"EF4444"},
-      {l:"Non défini",v:apps.filter(function(a){return !a.statusD1;}).length,c:"4A5568"},
+      {l:"Non défini",v:apps.filter(function(a){return !a.statusD1;}).length,c:"CBD5E1"},
     ];
     const d1bx=0.25,d1by=1.80,d1bw=4.50,d1bh=2.30;
     sSX.addShape(pres.shapes.RECTANGLE,{x:d1bx,y:d1by,w:d1bw,h:d1bh,fill:{color:"FFFFFF"},line:{color:"E2E8F0",width:0.5},shadow:{type:"outer",blur:3,offset:1,color:"000000",opacity:0.06,angle:135}});
     sSX.addShape(pres.shapes.RECTANGLE,{x:d1bx,y:d1by,w:d1bw,h:0.28,fill:{color:"FEF3C7"},line:{type:"none"}});
     sSX.addText("VISION CLOSING — DAY 1",{x:d1bx+0.14,y:d1by+0.05,w:3.2,h:0.20,fontSize:9,bold:true,color:"D97706",fontFace:"Calibri",charSpacing:1,margin:0});
-    sSX.addText(sxD1Def+" définies / "+apps.length,{x:d1bx+d1bw-1.55,y:d1by+0.05,w:1.45,h:0.18,fontSize:8,color:"94A3B8",fontFace:"Calibri",align:"right",margin:0});
-    sxDrawBars(sSX,d1bx+0.15,d1by+0.36,d1bw-0.30,d1Stats2,apps.length);
+    sSX.addText(sxD1Def+" / "+apps.length+" définies",{x:d1bx+d1bw-1.55,y:d1by+0.05,w:1.45,h:0.18,fontSize:8,color:"94A3B8",fontFace:"Calibri",align:"right",margin:0});
+    sxDrawDonut(d1bx,d1by,d1bw,d1bh,d1Stats2,apps.length,sxD1Def);
     // Bloc Day 2
     const d2Stats2=[
       {l:"Clone & Clean",v:apps.filter(function(a){return a.statusD2==="Clone & Clean";}).length,c:"3B82F6"},
       {l:"Transfert",v:apps.filter(function(a){return a.statusD2==="Transfert";}).length,c:"10B981"},
       {l:"Rebuild",v:apps.filter(function(a){return a.statusD2==="Rebuild";}).length,c:"8B5CF6"},
       {l:"Abandon",v:apps.filter(function(a){return a.statusD2==="Abandon";}).length,c:"EF4444"},
-      {l:"Non défini",v:apps.filter(function(a){return !a.statusD2;}).length,c:"4A5568"},
+      {l:"Non défini",v:apps.filter(function(a){return !a.statusD2;}).length,c:"CBD5E1"},
     ];
     const d2bx=5.00,d2by=1.80,d2bw=4.75,d2bh=2.30;
     sSX.addShape(pres.shapes.RECTANGLE,{x:d2bx,y:d2by,w:d2bw,h:d2bh,fill:{color:"FFFFFF"},line:{color:"E2E8F0",width:0.5},shadow:{type:"outer",blur:3,offset:1,color:"000000",opacity:0.06,angle:135}});
     sSX.addShape(pres.shapes.RECTANGLE,{x:d2bx,y:d2by,w:d2bw,h:0.28,fill:{color:"EDE9FE"},line:{type:"none"}});
     sSX.addText("VISION CIBLE — DAY 2",{x:d2bx+0.14,y:d2by+0.05,w:3.2,h:0.20,fontSize:9,bold:true,color:"7C3AED",fontFace:"Calibri",charSpacing:1,margin:0});
-    sSX.addText(sxD2Def+" définies / "+apps.length,{x:d2bx+d2bw-1.55,y:d2by+0.05,w:1.45,h:0.18,fontSize:8,color:"94A3B8",fontFace:"Calibri",align:"right",margin:0});
-    sxDrawBars(sSX,d2bx+0.15,d2by+0.36,d2bw-0.30,d2Stats2,apps.length);
+    sSX.addText(sxD2Def+" / "+apps.length+" définies",{x:d2bx+d2bw-1.55,y:d2by+0.05,w:1.45,h:0.18,fontSize:8,color:"94A3B8",fontFace:"Calibri",align:"right",margin:0});
+    sxDrawDonut(d2bx,d2by,d2bw,d2bh,d2Stats2,apps.length,sxD2Def);
     // Bloc responsables (bas)
     const sxOwners={};
     apps.forEach(function(a){const o=a.owner&&a.owner.trim()?a.owner.trim():"Non renseigné";sxOwners[o]=(sxOwners[o]||0)+1;});
