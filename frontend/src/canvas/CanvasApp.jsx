@@ -3258,14 +3258,14 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       synSl.addText("\u201Cn flux\u201D = agr\u00E9g\u00E9",{x:lgX+2.45,y:lgY+0.18,w:1.05,h:0.12,fontSize:5,color:"555555",fontFace:"Calibri",margin:0,valign:"middle"});
       return {sat:_synSatS.v,pos:synPos};
     };
-    if(flows.length>0){
-      // Dry-run check: estimate saturation by app count per slide width
+    if(false&&flows.length>0){
+      // Slide Synthèse-Cartographie & flux supprimé
       var estCols=0;
       [...new Set(apps.map(function(a){return a.domain;}))].forEach(function(d){
         var n=apps.filter(function(a){return a.domain===d;}).length;
         estCols+=n>8?2:1;
       });
-      var estSat=estCols>14;// too many columns = will be squeezed
+      var estSat=estCols>14;
       if(estSat){
         // Split synthesis: half the domains per slide
         var allD=[...new Set(apps.map(function(a){return a.domain;}))];
@@ -6128,7 +6128,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
       var _hubDomF=exportOpts.hubDomainFilter&&exportOpts.hubDomainFilter.length>0?exportOpts.hubDomainFilter:null;
       var _hubConn=apps.filter(function(a){return flows.some(function(f){return f.from===a.id||f.to===a.id;})&&(!_hubDomF||_hubDomF.includes(a.domain));});
       var nCarto=Math.min(_hubConn.length,_hubLim)*2;
-      var slideCount=2;// synthèse compacte + matrice flux (toujours présents)
+      var slideCount=1;// matrice flux (toujours présente)
       if(exportOpts.inclExecSlides)slideCount+=2;
       if(exportOpts.inclMatrices)slideCount+=1+(Math.ceil(flows.length/18)||1);
       if(exportOpts.inclConsolidatedCarto)slideCount+=2;
@@ -6268,7 +6268,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
                   {/* Nombre de hubs */}
                   <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
                     <span style={{fontSize:11,fontWeight:600,color:T.fg,whiteSpace:"nowrap"}}>Nombre de hubs :</span>
-                    <input type="number" min={1} max={apps.length||99} value={exportOpts.hubLimit} onChange={function(e){set("hubLimit",Math.max(1,parseInt(e.target.value)||1));}} style={{width:60,padding:"3px 8px",borderRadius:6,border:"1px solid "+T.border,background:T.bg,color:T.fg,fontSize:12,fontWeight:700,textAlign:"center"}}/>
+                    <input type="number" min={1} max={filteredConn.length||1} value={Math.min(exportOpts.hubLimit,filteredConn.length||1)} onChange={function(e){set("hubLimit",Math.max(1,Math.min(parseInt(e.target.value)||1,filteredConn.length||1)));}} style={{width:60,padding:"3px 8px",borderRadius:6,border:"1px solid "+T.border,background:T.bg,color:T.fg,fontSize:12,fontWeight:700,textAlign:"center"}}/>
                     <span style={{fontSize:10,color:T.fgMuted}}>{filteredConn.length} apps connectées {domFilter.length>0?"dans les domaines sélectionnés":"au total"}</span>
                   </div>
                   {/* Filtre par domaine */}
