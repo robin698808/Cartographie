@@ -2132,58 +2132,78 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       sC.addText(hub.domain,{x:cx-hubW/2+0.06,y:cy-hubH/2+hubH*0.57,w:hubW-0.12,h:hubH*0.43,
         fontSize:7.5,color:"D0E8FF",fontFace:"Calibri",align:"center",valign:"middle",margin:0});
 
-      // ── Panneau gauche : index des flux ──
+      // ── Panneau gauche : index des flux (tableau + ovales superposés) ──
       if(legendRows.length>0){
-        var IDX_X=LP_X+0.12, IDX_W=LP_W-0.22;
+        var IDX_X=LP_X+0.10, IDX_W=LP_W-0.18;
         var IDX_Y=HDR+0.08,  IDX_H=sH-HDR-0.12;
         // Titre
         sC.addText("INDEX DES FLUX",{x:IDX_X,y:IDX_Y,w:IDX_W,h:0.18,
           fontSize:7,bold:true,color:"0B2545",fontFace:"Calibri",charSpacing:1.0,margin:0});
         sC.addText(legendRows.length+" flux",{x:IDX_X,y:IDX_Y+0.18,w:IDX_W,h:0.13,
           fontSize:6,color:"9CA3AF",fontFace:"Calibri",margin:0});
-        // Séparateur titre
         sC.addShape(pres.shapes.RECTANGLE,{x:IDX_X,y:IDX_Y+0.33,w:IDX_W,h:0.012,fill:{color:"D1D5DB"},line:{type:"none"}});
 
-        var rowH=0.148;
-        var availH=IDX_H-0.38;
-        var maxRowsSingle=Math.floor(availH/rowH);
-        // 2 sous-colonnes si nécessaire
-        var SUB=legendRows.length>maxRowsSingle?2:1;
-        var perCol=Math.ceil(legendRows.length/SUB);
-        var subW=(IDX_W-0.06*(SUB-1))/SUB;
+        // ── Dimensions du tableau ──
+        var HDR_ROW_H=0.155; // ligne d'en-tête
+        var tblY=IDX_Y+0.36;
+        var tblAvailH=IDX_H-(tblY-IDX_Y)-0.06;
+        var minRowH=0.128,maxRowH=0.155;
+        var dynRowH=Math.min(maxRowH,Math.max(minRowH,tblAvailH/(legendRows.length+1)));
+        var visRows=legendRows.slice(0,Math.floor(tblAvailH/dynRowH)-1);
 
-        legendRows.forEach(function(r,ri){
-          var subCol=Math.floor(ri/perCol);
-          var subRow=ri%perCol;
-          var ex=IDX_X+subCol*(subW+0.06);
-          var ey=IDX_Y+0.36+subRow*rowH;
-          if(ey+rowH>IDX_Y+IDX_H)return; // ne déborde pas
+        // Largeurs colonnes : badge | dir | nom app | label/protocole
+        var C0=0.26,C1=0.20,C2=1.36,C3=IDX_W-C0-C1-C2;
 
-          // Fond alterné
-          if(subRow%2===0){
-            sC.addShape(pres.shapes.RECTANGLE,{x:ex-0.02,y:ey,w:subW+0.04,h:rowH,
-              fill:{color:"EEEEF2"},line:{type:"none"}});
-          }
-          // Pastille numérotée
-          var bw=r.num>=10?0.20:0.15;
-          sC.addShape(pres.shapes.OVAL,{x:ex,y:ey+(rowH-0.13)/2,w:bw,h:0.13,
-            fill:{color:r.color},line:{type:"none"}});
-          sC.addText(String(r.num),{x:ex,y:ey+(rowH-0.13)/2,w:bw,h:0.13,
-            fontSize:5.5,bold:true,color:"FFFFFF",fontFace:"Calibri",align:"center",valign:"middle",margin:0});
-          // Direction (→ vert, ← bleu)
+        // ── En-tête du tableau ──
+        var hdrNoB={type:"none"};
+        var hdrCells=[
+          {text:"#",    options:{fontSize:6,bold:true,color:"FFFFFF",fontFace:"Calibri",align:"center",valign:"middle",fill:{color:"0B2545"},border:hdrNoB}},
+          {text:"Dir",  options:{fontSize:6,bold:true,color:"FFFFFF",fontFace:"Calibri",align:"center",valign:"middle",fill:{color:"0B2545"},border:hdrNoB}},
+          {text:"Application",options:{fontSize:6,bold:true,color:"FFFFFF",fontFace:"Calibri",valign:"middle",fill:{color:"0B2545"},border:hdrNoB}},
+          {text:"Flux / Protocole",options:{fontSize:6,bold:true,color:"FFFFFF",fontFace:"Calibri",valign:"middle",fill:{color:"0B2545"},border:hdrNoB}},
+        ];
+
+        // ── Lignes de données ──
+        var dataRows=visRows.map(function(r,ri){
+          var even=ri%2===0;
+          var fill={color:even?"F1F5F9":"FFFFFF"};
+          var noB={type:"none"};
           var dirColor=r.dir==="→"?"059669":"2563EB";
-          sC.addText(r.dir,{x:ex+bw+0.03,y:ey,w:0.13,h:rowH,
-            fontSize:7.5,bold:true,color:dirColor,fontFace:"Calibri",valign:"middle",margin:0});
-          // Nom voisin (bold)
-          var neighX=ex+bw+0.17;
-          var neighW2=subW*0.40;
-          sC.addText(r.neighName,{x:neighX,y:ey,w:neighW2,h:rowH,
-            fontSize:6,bold:true,color:"111827",fontFace:"Calibri",valign:"middle",margin:0,shrinkText:true});
-          // Label flux (italic gris) — sur même ligne si espace, sinon shrink
           var labelTxt=r.label&&r.label!==r.proto?r.label:r.proto;
-          sC.addText(labelTxt,{x:neighX+neighW2,y:ey,w:subW-(bw+0.17+neighW2),h:rowH,
-            fontSize:5.5,color:"6B7280",fontFace:"Calibri",valign:"middle",margin:0,shrinkText:true,italic:true});
+          return [
+            {text:"",    options:{fill:fill,border:noB}},// badge : ovale superposé
+            {text:r.dir, options:{fontSize:8,bold:true,color:dirColor,fontFace:"Calibri",align:"center",valign:"middle",fill:fill,border:noB}},
+            {text:r.neighName,options:{fontSize:6.5,bold:true,color:"111827",fontFace:"Calibri",valign:"middle",fill:fill,border:noB,shrinkText:true}},
+            {text:labelTxt,   options:{fontSize:6,italic:true,color:"6B7280",fontFace:"Calibri",valign:"middle",fill:fill,border:noB,shrinkText:true}},
+          ];
         });
+
+        // ── Dessin du tableau ──
+        var allRows=[hdrCells].concat(dataRows);
+        var rowHArr=[HDR_ROW_H].concat(dataRows.map(function(){return dynRowH;}));
+        sC.addTable(allRows,{
+          x:IDX_X,y:tblY,w:IDX_W,
+          colW:[C0,C1,C2,C3],
+          rowH:rowHArr,
+          border:{type:"none"},
+        });
+
+        // ── Ovales superposés sur la colonne badge (col 0) ──
+        var ovalW=0.17,ovalH=0.14;
+        var ovalX=IDX_X+(C0-ovalW)/2;
+        visRows.forEach(function(r,ri){
+          var ovalY=tblY+HDR_ROW_H+ri*dynRowH+(dynRowH-ovalH)/2;
+          sC.addShape(pres.shapes.OVAL,{x:ovalX,y:ovalY,w:ovalW,h:ovalH,fill:{color:r.color},line:{type:"none"}});
+          sC.addText(String(r.num),{x:ovalX,y:ovalY,w:ovalW,h:ovalH,
+            fontSize:5.5,bold:true,color:"FFFFFF",fontFace:"Calibri",align:"center",valign:"middle",margin:0});
+        });
+
+        // Indicateur si lignes tronquées
+        if(legendRows.length>visRows.length){
+          var truncY=tblY+HDR_ROW_H+visRows.length*dynRowH+0.03;
+          sC.addText("+"+(legendRows.length-visRows.length)+" flux non affichés",{
+            x:IDX_X,y:truncY,w:IDX_W,h:0.14,fontSize:6,color:"9CA3AF",fontFace:"Calibri",italic:true,align:"center",margin:0});
+        }
       }
     };
 
