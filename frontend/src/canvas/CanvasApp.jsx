@@ -912,7 +912,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     const scCW=3.02,scCH=3.52,scCGap=0.23,scCX0=0.25,scCY0=0.72;
     const scCardDefs=[
       {icon:"◎",title:"CONCENTRATION DES FLUX",accent:"6366F1",type:"pairs"},
-      {icon:"◈",title:"FLUX DOMAINE À DOMAINE",accent:"0EA5E9",type:"domflow"},
+      {icon:"◎",title:"DOMAINES PAR VOLUME DE FLUX",accent:"0EA5E9",type:"domflow"},
       {icon:"◈",title:"HUBS DU SYSTÈME D'INFORMATION",accent:"F59E0B",type:"hubs"},
     ];
     scCardDefs.forEach(function(card,ci){
@@ -938,48 +938,27 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
           });
         }
       } else if(card.type==="domflow"){
-        if(!scDomTop||!scDomBot||scDomTop[0]===scDomBot[0]){
-          sSC.addText("Pas assez de données",{x:cx+0.12,y:cy+0.50,w:scCW-0.24,h:0.30,fontSize:9,color:"94A3B8",fontFace:"Calibri",margin:0});
+        // Classement des domaines par volume de flux — même pattern que le panneau hubs
+        const dfMaxV=scDomFlE.length>0?(scDomFlE[0][1]||1):1;
+        const dfRows=scDomFlE.slice(0,5);
+        if(dfRows.length===0){
+          sSC.addText("Aucun flux défini",{x:cx+0.12,y:cy+0.50,w:scCW-0.24,h:0.30,fontSize:9,color:"94A3B8",fontFace:"Calibri",margin:0});
         } else {
-          const dfTopDC=(_pDC[scDomTop[0]]||_pDC.Autre).ac.replace("#","");
-          const dfBotDC=(_pDC[scDomBot[0]]||_pDC.Autre).ac.replace("#","");
-          const dfTopN=apps.filter(function(a){return a.domain===scDomTop[0];}).length;
-          const dfBotN=apps.filter(function(a){return a.domain===scDomBot[0];}).length;
-          // Flux directs entre les deux domaines
-          const dfTopOut=flows.filter(function(f){const fd=(apps.find(function(a){return a.id===f.from;})||{}).domain,td=(apps.find(function(a){return a.id===f.to;})||{}).domain;return fd===scDomTop[0]&&td===scDomBot[0];}).length;
-          const dfBotOut=flows.filter(function(f){const fd=(apps.find(function(a){return a.id===f.from;})||{}).domain,td=(apps.find(function(a){return a.id===f.to;})||{}).domain;return fd===scDomBot[0]&&td===scDomTop[0];}).length;
-          // Boîte domaine supérieur
-          const dfBoxH=0.78,dfY0=cy+0.38;
-          sSC.addShape(pres.shapes.RECTANGLE,{x:cx+0.12,y:dfY0,w:scCW-0.24,h:dfBoxH,fill:{color:dfTopDC,transparency:87},line:{color:dfTopDC,width:0.8}});
-          sSC.addShape(pres.shapes.RECTANGLE,{x:cx+0.12,y:dfY0,w:scCW-0.24,h:0.18,fill:{color:dfTopDC},line:{type:"none"}});
-          sSC.addText("DOMAINE LE PLUS ACTIF",{x:cx+0.15,y:dfY0+0.02,w:scCW-0.30,h:0.14,fontSize:6,bold:true,color:"FFFFFF",fontFace:"Calibri",charSpacing:0.3,margin:0});
-          sSC.addText(scDomTop[0],{x:cx+0.15,y:dfY0+0.21,w:scCW-0.30,h:0.30,fontSize:13,bold:true,color:"0F172A",fontFace:"Trebuchet MS",margin:0,shrinkText:true});
-          sSC.addText(dfTopN+" app"+(dfTopN!==1?"s":"")+" · "+scDomTop[1]+" flux impliqués",{x:cx+0.15,y:dfY0+0.54,w:scCW-0.30,h:0.18,fontSize:7,color:dfTopDC,fontFace:"Calibri",margin:0,shrinkText:true});
-          // Zone flèches
-          const dfArY=dfY0+dfBoxH+0.08;
-          const dfArH=0.72;
-          const dfMidX=cx+scCW/2;
-          if(dfTopOut>0||dfBotOut>0){
-            if(dfTopOut>0){
-              const ax1=dfMidX-(dfBotOut>0?0.16:0.001);
-              sSC.addShape(pres.shapes.LINE,{x:ax1,y:dfArY,w:0.001,h:dfArH,line:{color:dfTopDC,width:1.5,endArrowType:"triangle",endArrowSize:3}});
-              sSC.addText(String(dfTopOut),{x:ax1-0.38,y:dfArY+dfArH/2-0.12,w:0.30,h:0.20,fontSize:9,bold:true,color:dfTopDC,fontFace:"Calibri",align:"right",margin:0});
-            }
-            if(dfBotOut>0){
-              const ax2=dfMidX+(dfTopOut>0?0.16:0.001);
-              sSC.addShape(pres.shapes.LINE,{x:ax2,y:dfArY,w:0.001,h:dfArH,flipV:true,line:{color:dfBotDC,width:1.5,endArrowType:"triangle",endArrowSize:3}});
-              sSC.addText(String(dfBotOut),{x:ax2+0.08,y:dfArY+dfArH/2-0.12,w:0.30,h:0.20,fontSize:9,bold:true,color:dfBotDC,fontFace:"Calibri",margin:0});
-            }
-          } else {
-            sSC.addText("Aucun flux direct",{x:cx+0.12,y:dfArY+0.25,w:scCW-0.24,h:0.20,fontSize:7.5,color:"94A3B8",fontFace:"Calibri",align:"center",margin:0});
-          }
-          // Boîte domaine inférieur
-          const dfY1=dfArY+dfArH+0.08;
-          sSC.addShape(pres.shapes.RECTANGLE,{x:cx+0.12,y:dfY1,w:scCW-0.24,h:dfBoxH,fill:{color:dfBotDC,transparency:90},line:{color:dfBotDC,width:0.8}});
-          sSC.addShape(pres.shapes.RECTANGLE,{x:cx+0.12,y:dfY1,w:scCW-0.24,h:0.18,fill:{color:dfBotDC},line:{type:"none"}});
-          sSC.addText("DOMAINE LE MOINS ACTIF",{x:cx+0.15,y:dfY1+0.02,w:scCW-0.30,h:0.14,fontSize:6,bold:true,color:"FFFFFF",fontFace:"Calibri",charSpacing:0.3,margin:0});
-          sSC.addText(scDomBot[0],{x:cx+0.15,y:dfY1+0.21,w:scCW-0.30,h:0.30,fontSize:13,bold:true,color:"0F172A",fontFace:"Trebuchet MS",margin:0,shrinkText:true});
-          sSC.addText(dfBotN+" app"+(dfBotN!==1?"s":"")+" · "+scDomBot[1]+" flux impliqués",{x:cx+0.15,y:dfY1+0.54,w:scCW-0.30,h:0.18,fontSize:7,color:dfBotDC,fontFace:"Calibri",margin:0,shrinkText:true});
+          dfRows.forEach(function(de,di){
+            const dhy=cy+0.42+di*0.58;
+            const dFlV=de[1];
+            const dDC=(_pDC[de[0]]||_pDC.Autre).ac.replace("#","");
+            const dbw=Math.max(0.06,(dFlV/dfMaxV)*(scCW-0.70));
+            // Accent color strip
+            sSC.addShape(pres.shapes.RECTANGLE,{x:cx+0.12,y:dhy+0.04,w:0.06,h:0.14,fill:{color:dDC},line:{type:"none"}});
+            sSC.addText(de[0],{x:cx+0.22,y:dhy,w:scCW-0.36,h:0.22,fontSize:9,bold:true,color:"0F172A",fontFace:"Calibri",margin:0,shrinkText:true});
+            // Bar track (gris clair)
+            sSC.addShape(pres.shapes.RECTANGLE,{x:cx+0.12,y:dhy+0.28,w:scCW-0.28,h:0.14,fill:{color:"F1F5F9"},line:{type:"none"}});
+            // Bar fill (couleur domaine)
+            sSC.addShape(pres.shapes.RECTANGLE,{x:cx+0.12,y:dhy+0.28,w:dbw,h:0.14,fill:{color:dDC},line:{type:"none"}});
+            // Count at end
+            sSC.addText(String(dFlV)+" flux",{x:cx+0.18+dbw,y:dhy+0.26,w:scCW-0.36-dbw,h:0.18,fontSize:7.5,bold:true,color:dDC,fontFace:"Calibri",margin:0,shrinkText:true});
+          });
         }
       } else if(card.type==="hubs"){
         if(scHubs.length===0){
