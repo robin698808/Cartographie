@@ -2150,7 +2150,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         var visRows=legendRows.slice(0,Math.floor(tblAvailH/dynRowH)-1);
 
         // Largeurs colonnes : badge (manuel) | direction | nom app | label/protocole
-        var C0=0.18,C1=0.20,C2=1.40,C3=IDX_W-C0-C1-C2;
+        var C0=0.22,C1=0.52,C2=1.14,C3=IDX_W-C0-C1-C2;
         var noB={type:"none"};
 
         // ── Tableau 4 colonnes (# avec fond coloré | direction | app | flux) ──
