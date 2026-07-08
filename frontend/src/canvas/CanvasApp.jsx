@@ -2089,8 +2089,9 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
           // Point de départ
           sC.addShape(pres.shapes.OVAL,{x:fromPt.x-0.05,y:fromPt.y-0.05,w:0.10,h:0.10,fill:{color:color},line:{color:"FFFFFF",width:0.7}});
 
-          // Badge numéro au milieu de la ligne (ovale coloré, petit)
-          var mx=(fromPt.x+toPt.x)/2, my=(fromPt.y+toPt.y)/2;
+          // Badge numéro : t décalé selon l'index dans le groupe → évite les superpositions
+          var t=n===1?0.50:0.30+fi*(0.40/(n-1));
+          var mx=fromPt.x+(toPt.x-fromPt.x)*t, my=fromPt.y+(toPt.y-fromPt.y)*t;
           var numStr=String(flowNum);
           var bw=flowNum>=10?0.22:0.17, bh=0.15;
           sC.addShape(pres.shapes.OVAL,{x:mx-bw/2,y:my-bh/2,w:bw,h:bh,fill:{color:color},line:{color:"FFFFFF",width:0.8}});
