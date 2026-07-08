@@ -1169,12 +1169,13 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     }// end sSX block
 
     // ─── Slides: Vue par domaine - Statut Day 1 & Day 2 ───
+    // Source unique de vérité : la légende est dérivée du colorMap pour garantir l'alignement.
     if(_opts.inclDomainStatus){
       const d1Colors={"Transfert TSA":"F59E0B","Maintien":"10B981","Rebuild":"6366F1","Abandon":"EF4444","Non défini":"94A3B8"};
       const d2Colors={"Clone & Clean":"3B82F6","Transfert":"10B981","Rebuild":"8B5CF6","Abandon":"EF4444","Non défini":"94A3B8"};
       [
-        {label:"CARTOGRAPHIE PAR DOMAINE — STATUT DAY 1 (CLOSING)",field:"statusD1",colorMap:d1Colors,legend:[["Transfert TSA","F59E0B"],["Maintien","10B981"],["Rebuild","6366F1"],["Abandon","EF4444"],["Non défini","94A3B8"]]},
-        {label:"CARTOGRAPHIE PAR DOMAINE — STATUT DAY 2 (CIBLE)",field:"statusD2",colorMap:d2Colors,legend:[["Clone & Clean","3B82F6"],["Transfert","10B981"],["Rebuild","8B5CF6"],["Abandon","EF4444"],["Non défini","94A3B8"]]},
+        {label:"CARTOGRAPHIE PAR DOMAINE — STATUT DAY 1 (CLOSING)",field:"statusD1",colorMap:d1Colors,legend:Object.entries(d1Colors)},
+        {label:"CARTOGRAPHIE PAR DOMAINE — STATUT DAY 2 (CIBLE)",field:"statusD2",colorMap:d2Colors,legend:Object.entries(d2Colors)},
       ].forEach(function(cfg){
         const dsSlide=SS(_addSlide());
         dsSlide.background={color:"F8F9FC"};
@@ -2568,7 +2569,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     const drawRecapTableSlides=()=>{
       const ROWS_PER_SLIDE=18;
       const SD1C={"Transfert TSA":"F59E0B","Maintien":"10B981","Rebuild":"6366F1","Abandon":"EF4444"};
-      const SD2C={"Clone & Clean":"3B82F6","Transfert":"10B981","Abandon":"EF4444","Rebuild":"F97316"};
+      const SD2C={"Clone & Clean":"3B82F6","Transfert":"10B981","Abandon":"EF4444","Rebuild":"8B5CF6"};
       // Aggregate flows by app pair
       const pairAgg={};
       flows.forEach(function(f){
@@ -3670,7 +3671,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       (function drawAppRecapSlides(){
         const ROWS_PER_SLIDE=22;
         const SD1C={"Transfert TSA":"F59E0B","Maintien":"10B981","Rebuild":"6366F1","Abandon":"EF4444"};
-        const SD2C={"Clone & Clean":"3B82F6","Transfert":"10B981","Abandon":"EF4444","Rebuild":"F97316"};
+        const SD2C={"Clone & Clean":"3B82F6","Transfert":"10B981","Abandon":"EF4444","Rebuild":"8B5CF6"};
         const sortedApps=[...apps].sort(function(a,b){
           if(a.domain!==b.domain)return a.domain.localeCompare(b.domain);
           return a.name.localeCompare(b.name);
