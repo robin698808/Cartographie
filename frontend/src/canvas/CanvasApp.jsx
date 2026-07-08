@@ -1270,6 +1270,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     }// end inclDomainStatus
 
     // ─── Slides: Environnement applicatif Day 1 & Day 2 ───
+    // Style : grandes zones Catégorie (tirets + fond teinté) > Domaines (boîtes) > Chips applicatifs
     [
       {title:"ENVIRONNEMENT APPLICATIF — DAY 1",subtitle:"STATUT DE CLOSING",field:"statusD1",
        colorMap:{"Transfert TSA":"F59E0B","Maintien":"10B981","Rebuild":"6366F1","Abandon":"EF4444","Non défini":"94A3B8"}},
@@ -1277,177 +1278,206 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
        colorMap:{"Clone & Clean":"3B82F6","Transfert":"10B981","Rebuild":"8B5CF6","Abandon":"EF4444","Non défini":"94A3B8"}},
     ].forEach(function(cfg){
       if(!apps.length)return;
-      // Build domain list with dominant category
+
+      // ── Dimensions fixes du slide (no SS proxy) ──
+      var mX=0.22, mY_top=0.58; // marges
+      var hdrH=0.56, legH=0.33, statsH=0.46;
+      var cY=hdrH+legH+0.05; // début zone contenu
+      var cH=H-cY-statsH-0.08; // hauteur disponible ≈ 5.97"
+      var cW=W-2*mX; // largeur disponible ≈ 12.893"
+
+      // ── Palette catégories ──
+      var CAT_PAL=["548CA8","D4A017","E06C75","52B788","9D4EDD","D63384","7B78FF","40A578"];
+
+      // ── Dimensions chips & domaines (vertical → scalable) ──
+      var CW=1.24,CH=0.225; // chip width/height
+      var CGH=0.052,CGV=0.040; // chip gaps H/V
+      var DPX=0.09,DPY=0.088; // padding intérieur boîte domaine
+      var DNH=0.21; // hauteur étiquette nom domaine (au-dessus de la boîte)
+      var DDGH=0.095,DDGV=0.10; // gap entre domaines H/V
+
+      // ── Dimensions zones catégorie ──
+      var CPX=0.12; // padding horizontal dans la catégorie
+      var CPTY=0.28; // padding haut (pour le nom de catégorie)
+      var CPBY=0.09; // padding bas
+      var CCGH=0.10; // gap horizontal entre colonnes de catégories
+      var CCGV=0.08; // gap vertical entre catégories empilées
+
+      // ── Construction liste domaines ──
       var envDoms=[...new Set(apps.map(function(a){return a.domain;}))]
         .map(function(d){
           var dc=_pDC[d]||_pDC.Autre;
-          var domApps=apps.filter(function(a){return a.domain===d;});
+          var dApps=apps.filter(function(a){return a.domain===d;});
           var catCounts={};
-          domApps.forEach(function(a){var c=a.category||"";if(c)catCounts[c]=(catCounts[c]||0)+1;});
-          var domCat=Object.keys(catCounts).sort(function(a,b){return catCounts[b]-catCounts[a];})[0]||"";
-          return{name:d,apps:domApps,ac:(dc.ac||"#78909C").replace("#",""),category:domCat};
+          dApps.forEach(function(a){var c=a.category||"";if(c)catCounts[c]=(catCounts[c]||0)+1;});
+          var dCat=Object.keys(catCounts).sort(function(a,b){return catCounts[b]-catCounts[a];})[0]||"";
+          return{name:d,apps:dApps,ac:(dc.ac||"#78909C").replace("#",""),category:dCat};
         })
         .sort(function(a,b){return b.apps.length-a.apps.length;});
       var hasCats=envDoms.some(function(d){return d.category;});
-      // Layout constants (raw 13.333"×7.5" — pas de proxy SS)
-      var marginX=0.35;
-      var hdrH=0.65, legStripH=0.44, statsH=0.72;
-      var contentY=hdrH+legStripH+0.14;
-      var contentH=H-contentY-statsH-0.12;
-      var contentW=W-2*marginX;
-      var panPad=0.13, domHdrH=0.42;
-      var chipW=1.10, chipH=0.22, chipGapH=0.06, chipGapV=0.04;
-      // Helper: hauteur d'un panneau domaine selon chips-par-ligne
-      function envPanelH(nApps,localCpr){
-        var rows=Math.ceil(nApps/localCpr)||1;
-        return domHdrH+panPad+rows*(chipH+chipGapV)-chipGapV+panPad;
-      }
-      // Helper: dessine un panneau domaine (carte) sur le slide sl
-      function drawEnvDomain(sl,px,py,domW,localCpr,dom){
-        sl.addShape(pres.shapes.RECTANGLE,{x:px,y:py,w:domW,h:envPanelH(dom.apps.length,localCpr),fill:{color:"FFFFFF"},line:{color:dom.ac,width:0.75},shadow:{type:"outer",blur:4,offset:1,color:"000000",opacity:0.07,angle:135}});
-        sl.addShape(pres.shapes.RECTANGLE,{x:px,y:py,w:domW,h:domHdrH,fill:{color:dom.ac,transparency:85},line:{type:"none"}});
-        var iconD=0.26, iconX=px+panPad, iconY=py+(domHdrH-iconD)/2;
-        sl.addShape(pres.shapes.OVAL,{x:iconX,y:iconY,w:iconD,h:iconD,fill:{color:dom.ac},line:{type:"none"}});
-        sl.addText(dom.name.charAt(0).toUpperCase(),{x:iconX,y:iconY,w:iconD,h:iconD,fontSize:10,bold:true,color:"FFFFFF",fontFace:"Calibri",align:"center",valign:"middle",margin:0});
-        var txtX=px+panPad+iconD+0.07, txtW=domW-panPad-iconD-0.20;
-        sl.addText(dom.name,{x:txtX,y:py+0.03,w:txtW,h:domHdrH*0.56,fontSize:7.5,bold:true,color:dom.ac,fontFace:"Calibri",margin:0,shrinkText:true,valign:"middle"});
-        sl.addText(dom.apps.length+" app"+(dom.apps.length>1?"s":""),{x:txtX,y:py+domHdrH*0.60,w:txtW,h:domHdrH*0.36,fontSize:5.5,color:"94A3B8",fontFace:"Calibri",margin:0});
-        dom.apps.forEach(function(app,ai){
-          var row=Math.floor(ai/localCpr), col=ai%localCpr;
-          var cx=px+panPad+col*(chipW+chipGapH);
-          var cy2=py+domHdrH+panPad+row*(chipH+chipGapV);
-          var st=app[cfg.field]||"Non défini";
-          var stc=cfg.colorMap[st]||"94A3B8";
-          sl.addShape(pres.shapes.RECTANGLE,{x:cx,y:cy2,w:chipW,h:chipH,fill:{color:stc,transparency:82},line:{color:stc,width:0.4}});
-          sl.addShape(pres.shapes.RECTANGLE,{x:cx,y:cy2,w:0.05,h:chipH,fill:{color:stc},line:{type:"none"}});
-          sl.addText(app.name,{x:cx+0.09,y:cy2,w:chipW-0.12,h:chipH,fontSize:6,bold:true,color:"1E293B",fontFace:"Calibri",margin:0,shrinkText:true,valign:"middle"});
-        });
-      }
-      function envMakePage(){
-        var sl=_addSlide();
-        sl.background={color:"F8F9FC"};
-        sl.addShape(pres.shapes.RECTANGLE,{x:0,y:0,w:W,h:hdrH,fill:{color:cp},line:{type:"none"}});
-        sl.addShape(pres.shapes.RECTANGLE,{x:0,y:hdrH-0.03,w:W,h:0.03,fill:{color:"FFFFFF",transparency:75},line:{type:"none"}});
-        sl.addText(cfg.title,{x:marginX,y:0.09,w:9.5,h:0.36,fontSize:18,bold:true,color:"FFFFFF",fontFace:"Trebuchet MS",margin:0,charSpacing:0.5});
-        sl.addText(cfg.subtitle,{x:marginX,y:0.43,w:6.0,h:0.18,fontSize:8.5,color:"FFFFFFCC",fontFace:"Calibri",margin:0,charSpacing:2});
-        sl.addText("Généré le "+new Date().toLocaleDateString("fr-FR"),{x:W-3.0,y:0.14,w:2.7,h:0.20,fontSize:8,color:"FFFFFFAA",fontFace:"Calibri",align:"right",margin:0});
-        sl.addText(apps.length+" applications · "+envDoms.length+" domaines",{x:W-3.0,y:0.38,w:2.7,h:0.18,fontSize:7.5,color:"FFFFFFAA",fontFace:"Calibri",align:"right",margin:0});
-        var lx=marginX, lly=hdrH+0.10;
-        Object.entries(cfg.colorMap).forEach(function(le){
-          sl.addShape(pres.shapes.OVAL,{x:lx,y:lly+0.09,w:0.17,h:0.17,fill:{color:le[1]},line:{type:"none"}});
-          sl.addText(le[0],{x:lx+0.23,y:lly+0.06,w:1.85,h:0.22,fontSize:8.5,color:"374151",fontFace:"Calibri",margin:0,valign:"middle"});
-          lx+=2.10;
-        });
-        var stY=H-statsH+0.08; var barH2=0.28;
-        sl.addShape(pres.shapes.LINE,{x:marginX,y:stY-0.08,w:contentW,h:0,line:{color:"E2E8F0",width:0.75}});
-        var bsx=marginX;
-        Object.entries(cfg.colorMap).forEach(function(e){
-          var cnt=e[0]==="Non défini"?apps.filter(function(a){return !a[cfg.field];}).length:apps.filter(function(a){return a[cfg.field]===e[0];}).length;
-          if(!cnt)return;
-          var pct=cnt/apps.length, bw=contentW*pct;
-          if(bw<0.02)return;
-          sl.addShape(pres.shapes.RECTANGLE,{x:bsx,y:stY,w:bw,h:barH2,fill:{color:e[1]},line:{type:"none"}});
-          if(bw>0.55){
-            sl.addText(e[0],{x:bsx,y:stY+barH2+0.04,w:bw,h:0.16,fontSize:5.5,color:"64748B",fontFace:"Calibri",align:"center",margin:0,shrinkText:true});
-            sl.addText(String(cnt)+" ("+Math.round(pct*100)+"%)",{x:bsx,y:stY+barH2+0.20,w:bw,h:0.16,fontSize:7,bold:true,color:e[1],fontFace:"Calibri",align:"center",margin:0,shrinkText:true});
-          }
-          bsx+=bw;
-        });
-        return sl;
-      }
 
+      // ── Regroupement par catégorie ──
+      var catMap={},catOrder=[];
       if(hasCats){
-        // ── Vue avec catégories (Catégorie → Domaine → Application) ──
-        var CAT_PAL=["548CA8","D4A017","E06C75","52B788","9D4EDD","D63384","7B78FF","40A578"];
-        var catPad=0.14, catHdrH=0.38, catGap=0.20;
-        var domGapInCat=0.14, domRowGap=0.12, maxDomsPerRow=4;
-        // Grouper les domaines par catégorie dominante
-        var catMap2={}, catOrderArr=[];
         envDoms.forEach(function(dom){
           var cat=dom.category||"Sans catégorie";
-          if(!catMap2[cat]){catMap2[cat]=[];catOrderArr.push(cat);}
-          catMap2[cat].push(dom);
+          if(!catMap[cat]){catMap[cat]=[];catOrder.push(cat);}
+          catMap[cat].push(dom);
         });
-        // Trier les catégories par nb d'apps décroissant
-        catOrderArr.sort(function(a,b){
-          var aT=catMap2[a].reduce(function(s,d){return s+d.apps.length;},0);
-          var bT=catMap2[b].reduce(function(s,d){return s+d.apps.length;},0);
-          return bT-aT;
-        });
-        function catDomRows(catDoms){var rws=[];for(var i=0;i<catDoms.length;i+=maxDomsPerRow)rws.push(catDoms.slice(i,i+maxDomsPerRow));return rws;}
-        function rowDomW(nInRow){return (contentW-2*catPad-(nInRow-1)*domGapInCat)/nInRow;}
-        function rowCpr(dw){return Math.max(1,Math.floor((dw-2*panPad+chipGapH)/(chipW+chipGapH)));}
-        function catBlockH(catDoms){
-          var rws=catDomRows(catDoms); var h=catHdrH+catPad;
-          rws.forEach(function(row,ri){
-            var dw=rowDomW(row.length); var lc=rowCpr(dw);
-            var rh=Math.max.apply(null,row.map(function(d){return envPanelH(d.apps.length,lc);}));
-            h+=rh+(ri<rws.length-1?domRowGap:0);
-          });
-          return h+catPad;
-        }
-        // Scale-to-fit: mesure totale → facteur sf → redimensionner toutes les hauteurs
-        var _totalH=catOrderArr.reduce(function(s,c){return s+catBlockH(catMap2[c]);},0)+(catOrderArr.length>1?(catOrderArr.length-1)*catGap:0);
-        var sf=Math.min(1,contentH/_totalH);
-        catHdrH*=sf; catPad*=sf; catGap*=sf; domRowGap*=sf;
-        domHdrH*=sf; panPad*=sf; chipH*=sf; chipGapV*=sf;
-        var curEnvSl=envMakePage(), curY=contentY;
-        catOrderArr.forEach(function(catName,ci){
-          var catDoms=catMap2[catName];
-          var cbH=catBlockH(catDoms); // hauteurs mises à l'échelle
-          var catColor=CAT_PAL[ci%CAT_PAL.length];
-          var catTotApps=catDoms.reduce(function(s,d){return s+d.apps.length;},0);
-          var catX=marginX, catY=curY;
-          // Fond catégorie + barre d'accent gauche (dessinés en premier → derrière les cartes)
-          curEnvSl.addShape(pres.shapes.RECTANGLE,{x:catX,y:catY,w:contentW,h:cbH,fill:{color:catColor,transparency:94},line:{color:catColor,width:0.5}});
-          curEnvSl.addShape(pres.shapes.RECTANGLE,{x:catX,y:catY,w:0.07,h:cbH,fill:{color:catColor},line:{type:"none"}});
-          // Bandeau header catégorie
-          curEnvSl.addShape(pres.shapes.RECTANGLE,{x:catX,y:catY,w:contentW,h:catHdrH,fill:{color:catColor,transparency:82},line:{type:"none"}});
-          var cIconD=0.26, cIconX=catX+0.16, cIconY=catY+(catHdrH-cIconD)/2;
-          curEnvSl.addShape(pres.shapes.OVAL,{x:cIconX,y:cIconY,w:cIconD,h:cIconD,fill:{color:catColor},line:{type:"none"}});
-          curEnvSl.addText(catName.charAt(0).toUpperCase(),{x:cIconX,y:cIconY,w:cIconD,h:cIconD,fontSize:10,bold:true,color:"FFFFFF",fontFace:"Trebuchet MS",align:"center",valign:"middle",margin:0});
-          curEnvSl.addText(catName,{x:catX+0.50,y:catY+0.04,w:contentW-2.60,h:catHdrH-0.08,fontSize:9.5,bold:true,color:catColor,fontFace:"Trebuchet MS",margin:0,shrinkText:true,valign:"middle"});
-          curEnvSl.addText(catDoms.length+" domaine"+(catDoms.length>1?"s":"")+" · "+catTotApps+" applications",{x:catX+contentW-2.50,y:catY+0.04,w:2.40,h:catHdrH-0.08,fontSize:7,color:catColor,fontFace:"Calibri",align:"right",margin:0,valign:"middle"});
-          // Lignes de domaines
-          var rws=catDomRows(catDoms); var rowY=catY+catHdrH+catPad;
-          rws.forEach(function(row,ri){
-            var dw=rowDomW(row.length); var lc=rowCpr(dw);
-            var rh=Math.max.apply(null,row.map(function(d){return envPanelH(d.apps.length,lc);}));
-            row.forEach(function(dom,di){drawEnvDomain(curEnvSl,catX+catPad+di*(dw+domGapInCat),rowY,dw,lc,dom);});
-            rowY+=rh+(ri<rws.length-1?domRowGap:0);
-          });
-          curY+=cbH+catGap;
+        catOrder.sort(function(a,b){
+          return catMap[b].reduce(function(s,d){return s+d.apps.length;},0)
+                -catMap[a].reduce(function(s,d){return s+d.apps.length;},0);
         });
       } else {
-        // ── Vue sans catégories (Domaine → Application en grille) ──
-        var nd=envDoms.length;
-        var ncols=nd<=2?nd:nd<=6?2:nd<=12?3:4;
-        if(ncols<1)ncols=1;
-        var panelGap=0.20;
-        var panelW=(contentW-(ncols-1)*panelGap)/ncols;
-        var cpr=Math.max(1,Math.floor((panelW-2*panPad+chipGapH)/(chipW+chipGapH)));
-        var colXArr=Array.from({length:ncols},function(_,i){return marginX+i*(panelW+panelGap);});
-        var colYArr=Array.from({length:ncols},function(){return contentY;});
-        // Scale-to-fit: simuler le remplissage des colonnes pour trouver totalH
-        var _simY=Array.from({length:ncols},function(){return 0;});
-        envDoms.forEach(function(dom){
-          var ph=envPanelH(dom.apps.length,cpr);
-          var bc=0;for(var _c=1;_c<ncols;_c++){if(_simY[_c]<_simY[bc])bc=_c;}
-          _simY[bc]+=ph+panelGap;
-        });
-        var _simH=Math.max(0.01,Math.max.apply(null,_simY)-panelGap);
-        var sfN=Math.min(1,contentH/_simH);
-        domHdrH*=sfN; panPad*=sfN; chipH*=sfN; chipGapV*=sfN; panelGap*=sfN;
-        colYArr=Array.from({length:ncols},function(){return contentY;});
-        var curEnvSl=envMakePage();
-        envDoms.forEach(function(dom){
-          var ph=envPanelH(dom.apps.length,cpr);
-          var bestCol=0;
-          for(var ci=1;ci<ncols;ci++){if(colYArr[ci]<colYArr[bestCol])bestCol=ci;}
-          drawEnvDomain(curEnvSl,colXArr[bestCol],colYArr[bestCol],panelW,cpr,dom);
-          colYArr[bestCol]+=ph+panelGap;
-        });
+        catMap["__all__"]=envDoms;
+        catOrder=["__all__"];
       }
+
+      // ── Layout colonnes au niveau slide ──
+      var nSlCols=catOrder.length<=1?1:2;
+      var catColW=(cW-(nSlCols-1)*CCGH)/nSlCols;
+
+      // ── Calcul du nombre de colonnes de domaines et largeur domaine ──
+      function getCatLayout(catName){
+        var doms=catMap[catName];
+        var nDC=doms.length<=1?1:2;
+        var dw=(catColW-2*CPX-(nDC-1)*DDGH)/nDC;
+        if(dw<1.55&&nDC>1){nDC=1;dw=catColW-2*CPX;}
+        return{nDC:nDC,dw:dw};
+      }
+
+      // ── Fonctions hauteur (valeurs NON scalées → multiplier par sf au rendu) ──
+      function cprFn(dw){return Math.max(1,Math.floor((dw-2*DPX+CGH)/(CW+CGH)));}
+      function domBH(n,dw){var r=Math.ceil(n/cprFn(dw))||1;return DPY+r*(CH+CGV)-CGV+DPY;}
+      function domTH(n,dw){return DNH+domBH(n,dw);}
+      function catContentH(catName){
+        var info=getCatLayout(catName),doms=catMap[catName];
+        var cHs=new Array(info.nDC).fill(0);
+        doms.forEach(function(dom){
+          var best=0;for(var i=1;i<info.nDC;i++){if(cHs[i]<cHs[best])best=i;}
+          cHs[best]+=domTH(dom.apps.length,info.dw)+DDGV;
+        });
+        return Math.max.apply(null,cHs)-DDGV;
+      }
+      function catTH(catName){return CPTY+catContentH(catName)+CPBY;}
+
+      // ── Layout slide : greedy packing des catégories dans nSlCols colonnes ──
+      function computeLayout(sf){
+        var cHs=new Array(nSlCols).fill(0),asgns=[];
+        catOrder.forEach(function(cat){
+          var best=0;for(var i=1;i<nSlCols;i++){if(cHs[i]<cHs[best])best=i;}
+          asgns.push({cat:cat,col:best,yOff:cHs[best]});
+          cHs[best]+=catTH(cat)*sf+CCGV*sf;
+        });
+        return{asgns:asgns,totalH:Math.max.apply(null,cHs)-(CCGV*sf)};
+      }
+
+      // Calcul du facteur d'échelle
+      var lay0=computeLayout(1.0);
+      var sf=Math.min(1.0,cH/Math.max(0.01,lay0.totalH));
+      var layout=computeLayout(sf);
+
+      // ── Création du slide (header + légende + barre stats) ──
+      var sl=_addSlide();
+      sl.background={color:"F8F9FC"};
+      sl.addShape(pres.shapes.RECTANGLE,{x:0,y:0,w:W,h:hdrH,fill:{color:cp},line:{type:"none"}});
+      sl.addShape(pres.shapes.RECTANGLE,{x:0,y:hdrH-0.025,w:W,h:0.025,fill:{color:"FFFFFF",transparency:75},line:{type:"none"}});
+      sl.addText(cfg.title,{x:mX,y:0.08,w:9.5,h:0.32,fontSize:15,bold:true,color:"FFFFFF",fontFace:"Trebuchet MS",margin:0,charSpacing:0.5});
+      sl.addText(cfg.subtitle,{x:mX,y:0.38,w:6.0,h:0.15,fontSize:7.5,color:"FFFFFFCC",fontFace:"Calibri",margin:0,charSpacing:2});
+      sl.addText("Généré le "+new Date().toLocaleDateString("fr-FR"),{x:W-3.0,y:0.10,w:2.75,h:0.18,fontSize:7.5,color:"FFFFFFAA",fontFace:"Calibri",align:"right",margin:0});
+      sl.addText(apps.length+" applications · "+envDoms.length+" domaines",{x:W-3.0,y:0.33,w:2.75,h:0.16,fontSize:7,color:"FFFFFFAA",fontFace:"Calibri",align:"right",margin:0});
+      // Légende
+      var lx=mX,lly=hdrH+0.07;
+      Object.entries(cfg.colorMap).forEach(function(le){
+        sl.addShape(pres.shapes.RECTANGLE,{x:lx,y:lly+0.08,w:0.24,h:0.11,fill:{color:le[1]},line:{type:"none"},rounding:0.01});
+        sl.addText(le[0],{x:lx+0.30,y:lly+0.04,w:1.82,h:0.22,fontSize:7.5,color:"374151",fontFace:"Calibri",margin:0,valign:"middle"});
+        lx+=2.08;
+      });
+      // Barre stats en bas
+      var stY=H-statsH+0.05,bH2=0.22;
+      sl.addShape(pres.shapes.LINE,{x:mX,y:stY-0.05,w:cW,h:0,line:{color:"E2E8F0",width:0.75}});
+      var bsx=mX;
+      Object.entries(cfg.colorMap).forEach(function(e){
+        var cnt=e[0]==="Non défini"?apps.filter(function(a){return !a[cfg.field];}).length:apps.filter(function(a){return a[cfg.field]===e[0];}).length;
+        if(!cnt)return;
+        var pct=cnt/apps.length,bw=cW*pct;
+        if(bw<0.02)return;
+        sl.addShape(pres.shapes.RECTANGLE,{x:bsx,y:stY,w:bw,h:bH2,fill:{color:e[1]},line:{type:"none"}});
+        if(bw>0.40){
+          sl.addText(e[0],{x:bsx,y:stY+bH2+0.03,w:bw,h:0.13,fontSize:5,color:"64748B",fontFace:"Calibri",align:"center",margin:0,shrinkText:true});
+          sl.addText(cnt+" ("+Math.round(pct*100)+"%)",{x:bsx,y:stY+bH2+0.15,w:bw,h:0.13,fontSize:6,bold:true,color:e[1],fontFace:"Calibri",align:"center",margin:0,shrinkText:true});
+        }
+        bsx+=bw;
+      });
+
+      // ── Rendu des catégories ──
+      var colXsSlide=Array.from({length:nSlCols},function(_,i){return mX+i*(catColW+CCGH);});
+      layout.asgns.forEach(function(asgn){
+        var catName=asgn.cat;
+        var ci=catOrder.indexOf(catName);
+        var catColor=hasCats?CAT_PAL[ci%CAT_PAL.length]:cp;
+        var info=getCatLayout(catName);
+        var catX=colXsSlide[asgn.col];
+        var catY=cY+asgn.yOff;   // asgn.yOff est déjà mis à l'échelle par sf
+        var ch=catTH(catName)*sf;
+
+        // Zone catégorie : fond teinté + bordure tiretée + nom en haut à droite
+        sl.addShape(pres.shapes.RECTANGLE,{x:catX,y:catY,w:catColW,h:ch,
+          fill:{color:catColor,transparency:95},
+          line:{color:catColor,width:0.7,dashType:"dash"}});
+        if(hasCats){
+          var catLblW=Math.min(3.6,catColW*0.55);
+          sl.addText(catName,{x:catX+catColW-catLblW-0.06,y:catY+0.04,
+            w:catLblW,h:Math.max(0.18,CPTY*sf*0.75),
+            fontSize:9.5,bold:true,color:catColor,fontFace:"Trebuchet MS",
+            align:"right",margin:0,valign:"middle",shrinkText:true,italic:true});
+        }
+
+        // ── Rendu des domaines dans la catégorie ──
+        var doms=catMap[catName];
+        var domColHs=new Array(info.nDC).fill(0);
+        var domColXs=Array.from({length:info.nDC},function(_,i2){return catX+CPX+i2*(info.dw+DDGH);});
+
+        doms.forEach(function(dom){
+          // Trouver la colonne la moins haute
+          var best=0;
+          for(var i=1;i<info.nDC;i++){if(domColHs[i]<domColHs[best])best=i;}
+          var dx=domColXs[best];
+          var dy=catY+CPTY*sf+domColHs[best];
+
+          // Calcul hauteurs scalées
+          var lCpr=cprFn(info.dw);
+          var sCH=CH*sf,sCGV=CGV*sf,sDPY=DPY*sf,sDNH=DNH*sf;
+          var bh=sDPY+Math.ceil(dom.apps.length/lCpr||1)*(sCH+sCGV)-sCGV+sDPY;
+
+          // Nom domaine au-dessus de la boîte (bold, majuscules, couleur domaine)
+          sl.addText(dom.name,{x:dx,y:dy,w:info.dw,h:sDNH,
+            fontSize:6.5,bold:true,color:"1E293B",fontFace:"Calibri",
+            margin:0,valign:"bottom",shrinkText:true});
+
+          // Boîte domaine
+          var boxY=dy+sDNH;
+          sl.addShape(pres.shapes.RECTANGLE,{x:dx,y:boxY,w:info.dw,h:bh,
+            fill:{color:"FFFFFF"},line:{color:dom.ac,width:0.6},
+            shadow:{type:"outer",blur:3,offset:1,color:"000000",opacity:0.06,angle:135}});
+
+          // Chips applicatifs
+          dom.apps.forEach(function(app,ai){
+            var col=ai%lCpr,row=Math.floor(ai/lCpr);
+            var cx=dx+DPX+col*(CW+CGH);
+            var cy2=boxY+sDPY+row*(sCH+sCGV);
+            var st=app[cfg.field]||"Non défini";
+            var stc=cfg.colorMap[st]||"94A3B8";
+            sl.addShape(pres.shapes.RECTANGLE,{x:cx,y:cy2,w:CW,h:sCH,
+              fill:{color:stc,transparency:8},line:{color:stc,width:0.3}});
+            sl.addText(app.name,{x:cx+0.05,y:cy2,w:CW-0.08,h:sCH,
+              fontSize:5.5,bold:true,color:"FFFFFF",fontFace:"Calibri",
+              margin:0,shrinkText:true,valign:"middle"});
+          });
+
+          domColHs[best]+=domTH(dom.apps.length,info.dw)*sf+DDGV*sf;
+        });
+      });
     });
 
     }// end inclExecSlides
