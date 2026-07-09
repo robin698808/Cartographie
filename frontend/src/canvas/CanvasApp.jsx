@@ -5486,7 +5486,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     <button onClick={()=>{setShowSP(false);setView("home");}} style={{...B,background:T.border,marginTop:16}}>← Retour</button>
   </div></div>;
 
-  if(view==="import") return <div style={{minHeight:"100vh",padding:32,overflowY:"auto"}}><div style={{maxWidth:800,margin:"0 auto"}}>
+  if(view==="import") return <div style={{height:"100vh",padding:32,overflowY:"auto",boxSizing:"border-box"}}><div style={{maxWidth:800,margin:"0 auto"}}>
     {/* Status banner */}
     {loadStatus?.stats&&<div style={{background:"#52B78815",border:"1px solid #52B78840",borderRadius:8,padding:16,marginBottom:24}}>
       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}><span style={{color:"#52B788",fontSize:16}}>✓</span><span style={{fontSize:13,fontWeight:700,color:"#52B788"}}>Fichier chargé avec succès</span></div>
@@ -5552,14 +5552,14 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         <button onClick={function(){setView("mapping");setTimeout(fitCanvas,50);}} style={{...B,background:"#0EA5E9",padding:"6px 14px",fontSize:11,fontWeight:600,borderRadius:8,display:"flex",alignItems:"center",gap:5}}><span>&#8592;</span> Cartographie</button>
       </div>
       {/* ── Treemap SVG ── */}
-      <div style={{flex:1,overflow:"hidden",padding:16,boxSizing:"border-box"}}>
+      <div style={{flex:1,overflowY:"auto",padding:16,boxSizing:"border-box"}}>
         {apps.length===0?
           <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100%",gap:12}}>
             <div style={{fontSize:36,opacity:0.3}}>▦</div>
             <div style={{fontSize:14,fontWeight:600,color:T.fgMuted}}>Aucune application à cartographier</div>
           </div>
         :
-          <svg viewBox={"0 0 "+PV_W+" "+PV_H} preserveAspectRatio="xMidYMid meet" style={{display:"block",width:"100%",height:"100%",background:T.bgCard,border:"1px solid "+T.border,borderRadius:8,userSelect:"none"}}>
+          <svg viewBox={"0 0 "+PV_W+" "+PV_H} preserveAspectRatio="xMidYMid meet" style={{display:"block",width:"100%",minHeight:500,background:T.bgCard,border:"1px solid "+T.border,borderRadius:8,userSelect:"none"}}>
             {pvLayout.map(function(dom){
               var color=(DC[dom.domaine]||DC.Autre).ac;
               var isDomHover=pvHover==="d::"+dom.domaine;
