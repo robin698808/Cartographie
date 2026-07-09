@@ -737,7 +737,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       if(dr.resizeCat){
         const dx=(e.clientX-dr.lx)/zm,dy=(e.clientY-dr.ly)/zm;
         dr.lx=e.clientX;dr.ly=e.clientY;
-        setCatPads(p=>{const cur=p[dr.resizeCat]||{w:0,h:0};return{...p,[dr.resizeCat]:{w:Math.max(0,cur.w+dx),h:Math.max(0,cur.h+dy)}};});
+        setCatBounds(p=>{const b=p[dr.resizeCat];if(!b)return p;return{...p,[dr.resizeCat]:{...b,x2:b.x2+dx,y2:b.y2+dy}};});
         return;
       }
       if(dr.resize){
@@ -4224,17 +4224,10 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     if(catEntries.length===0) return null;
     return <>{catEntries.map(([cat,b],ci)=>{
       const cc=catColors[cat]||CAT_COLORS[ci%CAT_COLORS.length];
-      const cp2=catPads[cat]||{w:0,h:0};
-      // Union des bornes naturelles (apps) et des bornes fixes (stables lors du drag de domaine)
-      const fb=catBounds[cat];
-      const ub={
-        x1:fb?Math.min(b.x1,fb.x1):b.x1,
-        y1:fb?Math.min(b.y1,fb.y1):b.y1,
-        x2:fb?Math.max(b.x2,fb.x2):b.x2,
-        y2:fb?Math.max(b.y2,fb.y2):b.y2,
-      };
-      // Appliquer le padding catégorie aux bornes union
-      const bx1=ub.x1-cp2.w/2, bx2=ub.x2+cp2.w/2, by1=ub.y1, by2=ub.y2+cp2.h;
+      // Utiliser catBounds fixes (mis à jour uniquement par drag ✥ ou resize ⌟)
+      // Jamais l'union avec les bornes naturelles — la zone reste stable
+      const fb=catBounds[cat]||b;
+      const bx1=fb.x1, bx2=fb.x2, by1=fb.y1, by2=fb.y2;
       const sidePad=50, bottomPad=50;
       const barH=Math.max(Math.round(28*fontScale),Math.round(30/zm));
       const domLabelSpace=30+Math.round(22*fontScale)+20;
