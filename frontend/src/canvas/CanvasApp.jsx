@@ -6778,6 +6778,31 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
       </div>
       <div style={{display:"flex",justifyContent:"flex-end"}}><button onMouseDown={e=>{e.stopPropagation();setShowDomEdit(null);}} style={{...B,background:"#548CA8"}}>Fermer</button></div>
     </div></div>}
+    {/* Category color modal */}
+    {showCatColorEdit!=null&&<div className="moverlay" style={{position:"fixed",inset:0,background:T.overlay,display:"flex",alignItems:"center",justifyContent:"center",zIndex:350}} onMouseDown={e=>{if(e.target===e.currentTarget)setShowCatColorEdit(null);}}>
+      <div style={{background:T.bgCard,borderRadius:8,padding:24,width:360}} onMouseDown={e=>e.stopPropagation()}>
+        <h3 style={{fontSize:16,fontWeight:700,marginBottom:16,color:T.fg}}>Couleur de la catégorie</h3>
+        <div style={{fontSize:13,fontWeight:600,color:T.fgMuted,marginBottom:14}}>{showCatColorEdit}</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(8,1fr)",gap:8,marginBottom:20}}>
+          {["#548CA8","#D4A017","#E06C75","#52B788","#9D4EDD","#D63384","#7B78FF","#40A578","#FF6B35","#4ECDC4","#C44536","#2EC4B6","#E71D36","#FF9F1C","#6A0572","#00B4D8","#E9C46A","#264653","#F4845F","#2D6A4F","#B5179E","#7209B7","#4361EE","#F72585"].map(c=>{
+            const isActive=(catColors[showCatColorEdit]||CAT_COLORS[0])===c;
+            return <div key={c} onMouseDown={e=>{e.stopPropagation();e.preventDefault();setCatColors(p=>({...p,[showCatColorEdit]:c}));}}
+              style={{width:32,height:32,borderRadius:8,background:c,cursor:"pointer",border:isActive?"3px solid #fff":"3px solid transparent",boxShadow:isActive?"0 0 8px "+c+"80":"none",transition:"all 0.15s",display:"flex",alignItems:"center",justifyContent:"center"}}>
+              {isActive&&<span style={{color:"#fff",fontSize:13,fontWeight:700}}>✓</span>}
+            </div>;
+          })}
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
+          <span style={{fontSize:11,color:T.fgMuted}}>Personnalisée :</span>
+          <input type="color" value={catColors[showCatColorEdit]||CAT_COLORS[0]}
+            onChange={e=>{setCatColors(p=>({...p,[showCatColorEdit]:e.target.value}));}}
+            style={{width:48,height:32,border:"1px solid #555",borderRadius:4,background:T.bg,cursor:"pointer",padding:2}}/>
+        </div>
+        <div style={{display:"flex",justifyContent:"flex-end"}}>
+          <button onMouseDown={e=>{e.stopPropagation();setShowCatColorEdit(null);}} style={{...B,background:"#548CA8"}}>Fermer</button>
+        </div>
+      </div>
+    </div>}
     {/* Category grouping modal */}
     {showCatModal&&<div className="moverlay" style={{position:"fixed",inset:0,background:T.overlay,display:"flex",alignItems:"center",justifyContent:"center",zIndex:250}} onClick={()=>setShowCatModal(false)}><div style={{background:T.bgCard,borderRadius:8,padding:24,width:440,maxHeight:"80vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
       <h3 style={{fontSize:16,fontWeight:700,marginBottom:16}}>Gérer les catégories</h3>
