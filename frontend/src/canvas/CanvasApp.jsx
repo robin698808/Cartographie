@@ -362,6 +362,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   const [showCatModal,setShowCatModal]=useState(false);
   const [catColors,setCatColors]=useState({}); // per-category custom color overrides
   const [catPads,setCatPads]=useState({}); // per-category extra padding {cat:{w,h}}
+  const [catBounds,setCatBounds]=useState({}); // per-category fixed min bounds {cat:{x1,y1,x2,y2}}
   const [catEditName,setCatEditName]=useState("");
   const [catEditDomains,setCatEditDomains]=useState([]);
   const [globalScale,setGlobalScale]=useState(1); // global size multiplier
@@ -697,6 +698,11 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         const dy=(e.clientY-dr.lastY)/zm;
         dr.lastX=e.clientX;dr.lastY=e.clientY;
         setApps(p=>p.map(a=>dr.appIds.includes(a.id)?{...a,x:a.x+dx,y:a.y+dy}:a));
+        // Si c'est un drag de catégorie entière, déplacer aussi les bounds fixes
+        if(dr.domain.startsWith("__cat__")){
+          const cat=dr.domain.slice(7);
+          setCatBounds(p=>{const b=p[cat];if(!b)return p;return{...p,[cat]:{x1:b.x1+dx,y1:b.y1+dy,x2:b.x2+dx,y2:b.y2+dy}};});
+        }
       } else {
         // Single app drag
         setApps(p=>p.map(a=>a.id===dr.id?{...a,x:(e.clientX-dr.ox-off.x)/zm,y:(e.clientY-dr.oy-off.y)/zm}:a));
@@ -848,7 +854,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   const exportCSV=()=>{const h=["Nom","Domaine","Statut","Criticité","Éditeur","Version","Responsable","Utilisateurs","Description"];const rows=apps.map(a=>[a.name,a.domain,a.status,a.criticality,a.vendor,a.version,a.owner,a.users,a.description].map(v=>'"'+v+'"').join(";"));const blob=new Blob(["\uFEFF"+[h.join(";"),...rows].join("\n")],{type:"text/csv;charset=utf-8;"});const l=document.createElement("a");l.href=URL.createObjectURL(blob);l.download="cartographie.csv";l.click();};
 
   const saveJSON=()=>{
-    const data={version:2,theme:themeKey,date:new Date().toISOString(),apps,flows,domColors,domScales,domPads,catColors,catPads,globalScale,fontScale,zoom:zm,offset:off};
+    const data={version:2,theme:themeKey,date:new Date().toISOString(),apps,flows,domColors,domScales,domPads,catColors,catPads,catBounds,globalScale,fontScale,zoom:zm,offset:off};
     const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
     const l=document.createElement("a");l.href=URL.createObjectURL(blob);
     l.download="cartographie_"+new Date().toISOString().slice(0,10)+".json";l.click();
@@ -866,6 +872,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
           if(data.domPads) setDomPads(data.domPads);
           if(data.catColors) setCatColors(data.catColors);
           if(data.catPads) setCatPads(data.catPads);
+          if(data.catBounds) setCatBounds(data.catBounds);
           if(data.globalScale) setGlobalScale(data.globalScale);
           if(data.fontScale) setFontScale(data.fontScale);
           if(data.zoom) setZm(data.zoom);
@@ -4155,11 +4162,23 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     });
     const catEntries=Object.entries(cats);
     if(catEntries.length===0) return null;
+    // Enregistrer les bornes naturelles si pas encore fixées (première fois)
+    const toFix={};
+    catEntries.forEach(([cat,b])=>{if(!catBounds[cat])toFix[cat]={x1:b.x1,y1:b.y1,x2:b.x2,y2:b.y2};});
+    if(Object.keys(toFix).length>0) setTimeout(()=>setCatBounds(p=>({...p,...toFix})),0);
     return <>{catEntries.map(([cat,b],ci)=>{
       const cc=catColors[cat]||CAT_COLORS[ci%CAT_COLORS.length];
       const cp2=catPads[cat]||{w:0,h:0};
-      // Appliquer le padding catégorie aux bornes
-      const bx1=b.x1-cp2.w/2, bx2=b.x2+cp2.w/2, by1=b.y1, by2=b.y2+cp2.h;
+      // Union des bornes naturelles (apps) et des bornes fixes (stables lors du drag de domaine)
+      const fb=catBounds[cat];
+      const ub={
+        x1:fb?Math.min(b.x1,fb.x1):b.x1,
+        y1:fb?Math.min(b.y1,fb.y1):b.y1,
+        x2:fb?Math.max(b.x2,fb.x2):b.x2,
+        y2:fb?Math.max(b.y2,fb.y2):b.y2,
+      };
+      // Appliquer le padding catégorie aux bornes union
+      const bx1=ub.x1-cp2.w/2, bx2=ub.x2+cp2.w/2, by1=ub.y1, by2=ub.y2+cp2.h;
       const sidePad=50, bottomPad=50;
       const barH=Math.max(Math.round(28*fontScale),Math.round(30/zm));
       // topPad doit laisser de la place pour le label de domaine (30+22px) + marge
