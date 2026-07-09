@@ -831,6 +831,82 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   };
 
   var ctxValue={view,setView,isDark,T,apps,flows,sidebarOpen,setSidebarOpen};
+  const applyStarLayout=()=>{
+    if(apps.length===0)return;
+    const cW=Math.round(AW_BASE*globalScale*Math.max(0.7,fontScale));
+    const cH=Math.round(AH_BASE*globalScale*Math.max(0.7,fontScale));
+    const cGx=8,cGy=6,domPad=32,domSide=12,domGap=40;
+    // 1. Compter les flux inter-domaines
+    const domFlows={};
+    const pairFlows={};
+    flows.forEach(function(f){
+      var fa=apps.find(function(a){return a.id===f.from;});
+      var ta=apps.find(function(a){return a.id===f.to;});
+      if(!fa||!ta||fa.domain===ta.domain)return;
+      domFlows[fa.domain]=(domFlows[fa.domain]||0)+1;
+      domFlows[ta.domain]=(domFlows[ta.domain]||0)+1;
+      var key=[fa.domain,ta.domain].sort().join('\x00');
+      pairFlows[key]=(pairFlows[key]||0)+1;
+    });
+    const doms=[...new Set(apps.map(function(a){return a.domain;}))];
+    if(doms.length===0)return;
+    // 2. Hub = domaine avec le plus de flux inter-domaines (ex æquo: le plus d'apps)
+    const domAppCnt={};
+    apps.forEach(function(a){domAppCnt[a.domain]=(domAppCnt[a.domain]||0)+1;});
+    const hub=doms.reduce(function(best,d){
+      var fc=domFlows[d]||0,bc=domFlows[best]||0;
+      if(fc>bc)return d;
+      if(fc===bc&&(domAppCnt[d]||0)>(domAppCnt[best]||0))return d;
+      return best;
+    },doms[0]);
+    // 3. Taille de chaque domaine (grille compacte)
+    var getDomSize=function(dom){
+      var n=domAppCnt[dom]||1;
+      var cols=Math.max(2,Math.min(4,Math.ceil(Math.sqrt(n))));
+      var rows=Math.ceil(n/cols);
+      return{w:cols*(cW+cGx)+domSide*2,h:rows*(cH+cGy)+domPad+12,cols:cols};
+    };
+    // 4. Placer le hub au centre
+    var hubSz=getDomSize(hub);
+    var cx=600,cy=500;
+    var hubX=cx-hubSz.w/2,hubY=cy-hubSz.h/2;
+    // 5. Satellites triés par connectivité avec le hub
+    var others=doms.filter(function(d){return d!==hub;});
+    others.sort(function(a,b){
+      var ka=[a,hub].sort().join('\x00'),kb=[b,hub].sort().join('\x00');
+      return(pairFlows[kb]||0)-(pairFlows[ka]||0);
+    });
+    // 6. Rayon = assez grand pour ne pas chevaucher le hub
+    var maxSatW=others.reduce(function(m,d){return Math.max(m,getDomSize(d).w);},0);
+    var maxSatH=others.reduce(function(m,d){return Math.max(m,getDomSize(d).h);},0);
+    var radius=Math.max(Math.max(hubSz.w,hubSz.h)/2+Math.max(maxSatW,maxSatH)/2+domGap*2,320);
+    // 7. Positionner les apps
+    var na=apps.map(function(a){return Object.assign({},a);});
+    // Hub
+    var hubApps=na.filter(function(a){return a.domain===hub;});
+    var hubCols=getDomSize(hub).cols;
+    hubApps.forEach(function(a,i){
+      a.x=hubX+domSide+(i%hubCols)*(cW+cGx);
+      a.y=hubY+domPad+Math.floor(i/hubCols)*(cH+cGy);
+    });
+    // Satellites
+    others.forEach(function(dom,i){
+      var angle=(i/others.length)*2*Math.PI-(Math.PI/2);
+      var sz=getDomSize(dom);
+      var dx=cx+radius*Math.cos(angle)-sz.w/2;
+      var dy=cy+radius*Math.sin(angle)-sz.h/2;
+      var domApps=na.filter(function(a){return a.domain===dom;});
+      domApps.forEach(function(a,j){
+        a.x=dx+domSide+(j%sz.cols)*(cW+cGx);
+        a.y=dy+domPad+Math.floor(j/sz.cols)*(cH+cGy);
+      });
+    });
+    setApps(na);
+    setCatBounds({});
+    setDomPads({});
+    setTimeout(fitCanvas,50);
+  };
+
   const fitCanvas=()=>{
     if(!apps.length)return;
     const maxX=Math.max(...apps.map(a=>a.x+(AW_BASE*globalScale||140)),100);
@@ -6295,6 +6371,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
         </div>;})}
       {activeFilters&&<button onMouseDown={e=>{e.stopPropagation();setSelDom([]);setSelCat([]);setSelCrit([]);}} style={{...B,padding:"4px 8px",fontSize:11,background:"#FF525220",color:"#FF5252",borderRadius:4}}>✕</button>}
       <div style={{flex:1}}/>
+      <button onMouseDown={e=>{e.stopPropagation();applyStarLayout();}} title="Disposition en étoile — hub au centre, domaines connectés rayonnent autour" style={{...B,padding:"4px 10px",fontSize:11,background:"#2979FF18",color:"#2979FF",border:"1px solid #2979FF40",borderRadius:6,display:"flex",alignItems:"center",gap:5,fontWeight:600}}>⭐ Étoile</button>
       {/* ── Navigation menu (mouse icon) ── */}
       <div style={{position:"relative"}}>
         <button onClick={function(){setOpenMenu(openMenu==="modes"?null:"modes");}} style={{...B,background:openMenu==="modes"?T.bgHover:(!selMode&&!cMode?"#2979FF22":selMode?"#00BFA522":"transparent"),border:"1px solid "+(!selMode&&!cMode?"#2979FF":selMode?"#00BFA5":"transparent"),padding:"4px 10px",fontSize:11,borderRadius:4,display:"flex",alignItems:"center",gap:5}} title="Mode navigation">
