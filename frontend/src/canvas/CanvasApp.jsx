@@ -704,12 +704,14 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   },[]);
   const _catDocUp=useCallback(()=>{
     catDocDragRef.current=null;
+    document.body.style.cursor='';
     document.removeEventListener('mousemove',_catDocMove);
     document.removeEventListener('mouseup',_catDocUp);
   },[_catDocMove]);
   const startCatDrag=useCallback((e,cat,appIds)=>{
     e.preventDefault();e.stopPropagation();
     catDocDragRef.current={cat,appIds,lastX:e.clientX,lastY:e.clientY};
+    document.body.style.cursor='grabbing';
     document.addEventListener('mousemove',_catDocMove);
     document.addEventListener('mouseup',_catDocUp);
   },[_catDocMove,_catDocUp]);
