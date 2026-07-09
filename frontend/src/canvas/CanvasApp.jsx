@@ -5533,8 +5533,8 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
           </div>
         :
           <svg viewBox={"0 0 "+PV_W+" "+PV_H} preserveAspectRatio="xMidYMid meet" style={{display:"block",width:Math.round(PV_W*pvZm)+"px",height:Math.round(PV_H*pvZm)+"px",background:T.bgCard,border:"1px solid "+T.border,borderRadius:8,userSelect:"none"}}>
-            {pvLayout.map(function(dom){
-              var color=(DC[dom.domaine]||DC.Autre).ac;
+            {(function(){var PV_PAL=["#2563EB","#475569","#0891B2","#4F46E5","#0E7490","#64748B","#1D4ED8","#0369A1","#334155","#6366F1","#1E40AF","#0F766E"];return pvLayout.map(function(dom,di){
+              var color=PV_PAL[di%PV_PAL.length];
               var isDomHover=pvHover==="d::"+dom.domaine;
               return <g key={"d-"+dom.domaine}>
                 {/* Fond domaine */}
@@ -5577,7 +5577,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
                   </g>;
                 })}
               </g>;
-            })}
+            })})()}
           </svg>
         }
       </div>
