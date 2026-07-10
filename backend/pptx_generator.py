@@ -914,6 +914,239 @@ def add_flux_table_slides(prs: Presentation, apps: List[Dict], flows: List[Dict]
                 cx += cw
 
 
+def add_flux_matrix_slide(prs: Presentation, apps: List[Dict], flows: List[Dict], opts: Dict):
+    """Slide : matrice flux inter-domaines (domaine × domaine)."""
+    if not flows:
+        return
+    primary = opts.get('clientPrimary', '2979FF')
+    layout = prs.slide_layouts[8]
+    slide = prs.slides.add_slide(layout)
+    set_placeholders(slide, title="FLUX — VUE AGRÉGÉE PAR DOMAINE",
+                     breadcrumb="Cartographie Applicative",
+                     subtitle=f"{len(flows)} flux · {len(apps)} applications")
+
+    app_by_id = {a['id']: a for a in apps}
+    doms = list(dict.fromkeys(a.get('domain', 'Autre') for a in apps))
+
+    # Build matrix
+    matrix = {d: {d2: 0 for d2 in doms} for d in doms}
+    for f in flows:
+        fa = app_by_id.get(f.get('from', ''), {})
+        ta = app_by_id.get(f.get('to', ''), {})
+        fd, td = fa.get('domain'), ta.get('domain')
+        if fd and td and fd != td:
+            matrix[fd][td] = matrix[fd].get(td, 0) + 1
+
+    # Max value for colour scaling
+    max_v = max((matrix[r][c] for r in doms for c in doms), default=1) or 1
+
+    # Sizes
+    n = len(doms)
+    cell_w = min(0.95, (CONTENT_W - 1.60) / n)
+    cell_h = min(0.38, (CONTENT_H - 0.40) / n)
+    lbl_w = max(1.20, CONTENT_W - n * cell_w - 0.10)
+    lbl_h = cell_h
+    hdr_h = lbl_h
+    tbl_x = CONTENT_X
+    tbl_y = CONTENT_Y
+
+    # Column headers (domain names)
+    for ci, dom in enumerate(doms):
+        cx = tbl_x + lbl_w + ci * cell_w
+        add_rect(slide, cx, tbl_y, cell_w, hdr_h, fill_hex=primary)
+        add_text(slide, dom[:12], cx + 0.03, tbl_y + 0.02, cell_w - 0.04, hdr_h - 0.04,
+                 font_size=max(6.0, min(8.0, cell_w * 7)), bold=True, color_hex='FFFFFF',
+                 align='center', wrap=False)
+
+    # Rows
+    for ri, row_dom in enumerate(doms):
+        ry = tbl_y + hdr_h + ri * cell_h
+        # Row label
+        add_rect(slide, tbl_x, ry, lbl_w, cell_h, fill_hex='F1F5F9', line_hex='E2E8F0', line_w=0.3)
+        add_text(slide, row_dom, tbl_x + 0.06, ry + 0.02, lbl_w - 0.08, cell_h - 0.04,
+                 font_size=max(7.0, min(9.0, lbl_w * 5)), bold=True, color_hex='334155')
+        # Cells
+        for ci, col_dom in enumerate(doms):
+            cx = tbl_x + lbl_w + ci * cell_w
+            v = matrix[row_dom].get(col_dom, 0)
+            if row_dom == col_dom:
+                add_rect(slide, cx, ry, cell_w, cell_h, fill_hex='E2E8F0')
+            else:
+                intensity = int(v / max_v * 85) if v > 0 else 0
+                bg = f"{255 - intensity:02X}{255 - intensity // 3:02X}FF" if v > 0 else 'FAFAFA'
+                add_rect(slide, cx, ry, cell_w, cell_h, fill_hex=bg, line_hex='E2E8F0', line_w=0.3)
+                if v > 0:
+                    add_text(slide, str(v), cx, ry + 0.02, cell_w, cell_h - 0.04,
+                             font_size=max(7.0, min(10.0, cell_w * 8)), bold=True,
+                             color_hex=primary if v > 0 else '94A3B8', align='center')
+
+    # Legend
+    leg_y = tbl_y + hdr_h + n * cell_h + 0.15
+    add_text(slide, "Les chiffres indiquent le nombre de flux inter-domaines",
+             tbl_x, leg_y, CONTENT_W, 0.20, font_size=8, italic=True, color_hex='94A3B8')
+
+
+def add_hubs_slide(prs: Presentation, apps: List[Dict], flows: List[Dict], opts: Dict):
+    """Slide : top applications hub (les plus connectées)."""
+    if not flows:
+        return
+    primary = opts.get('clientPrimary', '2979FF')
+    layout = prs.slide_layouts[8]
+    slide = prs.slides.add_slide(layout)
+
+    # Connectivity per app
+    conn = {a['id']: 0 for a in apps}
+    flow_details = {a['id']: [] for a in apps}
+    app_by_id = {a['id']: a for a in apps}
+    for f in flows:
+        fid, tid = f.get('from', ''), f.get('to', '')
+        if fid in conn:
+            conn[fid] += 1
+            ta = app_by_id.get(tid, {})
+            flow_details[fid].append(ta.get('name', ''))
+        if tid in conn:
+            conn[tid] += 1
+            fa = app_by_id.get(fid, {})
+            flow_details[tid].append(fa.get('name', ''))
+
+    top_hubs = sorted([a for a in apps if conn.get(a['id'], 0) > 0],
+                      key=lambda a: -conn.get(a['id'], 0))[:12]
+
+    n_hubs = len(top_hubs)
+    set_placeholders(slide,
+        title="HUBS APPLICATIFS — APPLICATIONS LES PLUS CONNECTÉES",
+        breadcrumb="Cartographie Applicative",
+        subtitle=f"{n_hubs} applications · classement par nombre de connexions"
+    )
+
+    if not top_hubs:
+        add_text(slide, "Aucun flux défini", CONTENT_X, CONTENT_Y, CONTENT_W, 0.40,
+                 font_size=12, color_hex='94A3B8', align='center')
+        return
+
+    max_conn = conn.get(top_hubs[0]['id'], 1) or 1
+    row_h = min(0.36, CONTENT_H / n_hubs)
+    bar_max_w = CONTENT_W * 0.40
+    name_w = CONTENT_W * 0.22
+    dom_w = CONTENT_W * 0.16
+    bar_x = CONTENT_X + name_w + dom_w + 0.10
+    cnt_x = bar_x + bar_max_w + 0.08
+    cnt_w = 0.60
+    detail_x = cnt_x + cnt_w + 0.08
+    detail_w = CONTENT_W - (detail_x - CONTENT_X) - 0.10
+
+    # Header
+    hdr_h = 0.24
+    for lbl, x, w in [('Application', CONTENT_X, name_w), ('Domaine', CONTENT_X + name_w, dom_w),
+                       ('Connexions', bar_x, bar_max_w + cnt_w + 0.10),
+                       ('Applications connectées', detail_x, detail_w)]:
+        add_rect(slide, x, CONTENT_Y, w, hdr_h, fill_hex=primary)
+        add_text(slide, lbl, x + 0.04, CONTENT_Y + 0.03, w - 0.06, hdr_h - 0.04,
+                 font_size=8, bold=True, color_hex='FFFFFF')
+
+    for ri, app in enumerate(top_hubs):
+        ry = CONTENT_Y + hdr_h + ri * row_h
+        bg = 'F8FAFC' if ri % 2 == 0 else 'FFFFFF'
+        app_conn = conn.get(app['id'], 0)
+        bw = (app_conn / max_conn) * bar_max_w
+
+        # App name
+        add_rect(slide, CONTENT_X, ry, name_w, row_h, fill_hex=bg, line_hex='E2E8F0', line_w=0.3)
+        add_text(slide, app.get('name', ''), CONTENT_X + 0.06, ry + 0.02,
+                 name_w - 0.08, row_h - 0.04, font_size=8, bold=True, color_hex='1E293B')
+
+        # Domain
+        add_rect(slide, CONTENT_X + name_w, ry, dom_w, row_h, fill_hex=bg, line_hex='E2E8F0', line_w=0.3)
+        add_text(slide, app.get('domain', ''), CONTENT_X + name_w + 0.04, ry + 0.02,
+                 dom_w - 0.06, row_h - 0.04, font_size=7.5, color_hex='64748B')
+
+        # Bar
+        add_rect(slide, bar_x, ry, bar_max_w + cnt_w + 0.10, row_h, fill_hex=bg, line_hex='E2E8F0', line_w=0.3)
+        if bw > 0:
+            add_rect(slide, bar_x + 0.04, ry + (row_h - 0.14) / 2, bw, 0.14, fill_hex=primary)
+        add_text(slide, str(app_conn), bar_x + 0.08 + bw, ry + 0.02,
+                 cnt_w, row_h - 0.04, font_size=9, bold=True, color_hex=primary)
+
+        # Connected apps
+        add_rect(slide, detail_x, ry, detail_w, row_h, fill_hex=bg, line_hex='E2E8F0', line_w=0.3)
+        details = ', '.join(flow_details[app['id']][:6])
+        if len(flow_details[app['id']]) > 6:
+            details += f" +{len(flow_details[app['id']]) - 6}"
+        add_text(slide, details, detail_x + 0.04, ry + 0.02,
+                 detail_w - 0.06, row_h - 0.04, font_size=7, color_hex='475569')
+
+
+def add_env_applicatif_slides(prs: Presentation, apps: List[Dict], opts: Dict, field: str,
+                               title: str, color_map: Dict):
+    """Slides environnement applicatif — apps groupées par domaine avec statut coloré."""
+    primary = opts.get('clientPrimary', '2979FF')
+
+    doms = list(dict.fromkeys(a.get('domain', 'Autre') for a in apps))
+
+    chip_w, chip_h = 1.30, 0.28
+    chip_gap = 0.05
+    dom_label_w = 1.60
+    chips_area_w = CONTENT_W - dom_label_w - 0.10
+    chips_per_row = max(1, int((chips_area_w + chip_gap) / (chip_w + chip_gap)))
+    dom_pad = 0.08
+    dom_gap = 0.08
+
+    def make_slide():
+        layout = prs.slide_layouts[8]
+        sl = prs.slides.add_slide(layout)
+        set_placeholders(sl, title=title, breadcrumb="Cartographie Applicative")
+        # Legend
+        lx = CONTENT_X
+        ly = CONTENT_Y - 0.04
+        for st, col in list(color_map.items())[:5]:
+            add_rect(sl, lx, ly + 0.04, 0.14, 0.12, fill_hex=col)
+            add_text(sl, st, lx + 0.18, ly, 1.30, 0.22, font_size=8, color_hex='334155')
+            lx += 1.55
+        return sl
+
+    cur_slide = make_slide()
+    cur_y = CONTENT_Y + 0.26
+    max_y = SLIDE_H - 0.40
+
+    for dom in doms:
+        dom_apps = [a for a in apps if a.get('domain') == dom]
+        chip_rows = math.ceil(len(dom_apps) / chips_per_row) or 1
+        dom_h = dom_pad * 2 + chip_rows * chip_h + (chip_rows - 1) * chip_gap
+
+        if cur_y + dom_h > max_y:
+            cur_slide = make_slide()
+            cur_y = CONTENT_Y + 0.26
+
+        # Domain label box
+        add_rect(cur_slide, CONTENT_X, cur_y, dom_label_w, dom_h,
+                 fill_hex='EFF6FF', line_hex='BFDBFE', line_w=0.5)
+        add_text(cur_slide, dom, CONTENT_X + 0.08, cur_y + dom_pad,
+                 dom_label_w - 0.12, dom_h * 0.55, font_size=9, bold=True, color_hex='1D4ED8')
+        add_text(cur_slide, f"{len(dom_apps)} app{'s' if len(dom_apps)>1 else ''}",
+                 CONTENT_X + 0.08, cur_y + dom_h * 0.62,
+                 dom_label_w - 0.12, dom_h * 0.32, font_size=7, color_hex='64748B')
+
+        chip_x0 = CONTENT_X + dom_label_w + 0.10
+        for ai, app in enumerate(dom_apps):
+            row = ai // chips_per_row
+            col = ai % chips_per_row
+            cx = chip_x0 + col * (chip_w + chip_gap)
+            cy = cur_y + dom_pad + row * (chip_h + chip_gap)
+            st = app.get(field) or 'Non défini'
+            stc = color_map.get(st, '94A3B8')
+            add_rect(cur_slide, cx, cy, chip_w, chip_h,
+                     fill_hex=stc, transparency=80, line_hex=stc, line_w=0.5)
+            add_rect(cur_slide, cx, cy, 0.05, chip_h, fill_hex=stc)
+            add_text(cur_slide, app.get('name', ''), cx + 0.09, cy + 0.01,
+                     chip_w - 0.12, chip_h * 0.55, font_size=7, bold=True, color_hex='1a1a1a')
+            add_text(cur_slide, '—' if st == 'Non défini' else st,
+                     cx + 0.09, cy + chip_h * 0.55, chip_w - 0.12, chip_h * 0.42,
+                     font_size=6.5, color_hex=stc)
+
+        add_rect(cur_slide, CONTENT_X, cur_y + dom_h, CONTENT_W, 0.01, fill_hex='E2E8F0')
+        cur_y += dom_h + dom_gap
+
+
 def add_fin_slide(prs: Presentation):
     """Final slide."""
     layout = prs.slide_layouts[14]  # 6_Slide de fin
@@ -924,8 +1157,6 @@ def add_fin_slide(prs: Presentation):
         try:
             if 'date' in name:
                 ph.text = today
-            elif 'titre' in name or 'merci' in ph.text.lower():
-                pass  # keep default "Merci"
         except Exception:
             pass
 
@@ -943,14 +1174,26 @@ def generate_pptx(apps: List[Dict], flows: List[Dict], opts: Dict, template_path
     incl_paysage = opts.get('inclPaysage', True)
     incl_matrices = opts.get('inclMatrices', True)
     incl_domain_status = opts.get('inclDomainStatus', False)
+    incl_carto = opts.get('inclConsolidatedCarto', True)
 
     if incl_exec:
         add_cover_slide(prs, apps, flows, opts)
         add_synthese_messages_slide(prs, apps, flows, opts)
         add_executive_slide(prs, apps, opts)
 
+    if incl_carto and flows:
+        add_flux_matrix_slide(prs, apps, flows, opts)
+        add_hubs_slide(prs, apps, flows, opts)
+
     if incl_domain_status:
         add_domain_status_slides(prs, apps, opts)
+
+    # Environnement applicatif D1 & D2 (toujours inclus si apps)
+    if apps:
+        add_env_applicatif_slides(prs, apps, opts, 'statusD1',
+            "ENVIRONNEMENT APPLICATIF — DAY 1 (CLOSING)", D1_COLORS)
+        add_env_applicatif_slides(prs, apps, opts, 'statusD2',
+            "ENVIRONNEMENT APPLICATIF — DAY 2 (CIBLE)", D2_COLORS)
 
     if incl_paysage and apps:
         add_paysage_slide(prs, apps)
