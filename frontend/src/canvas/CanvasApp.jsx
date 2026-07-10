@@ -249,6 +249,163 @@ function pvBuildLayout(apps,w,h,fontSc){
 // ═══ APP CONTEXT ═══
 var AppCtx=React.createContext(null);
 
+function FullView({apps,flows,fullViewPos,setFullViewPos,flowCPs,setFlowCPs,fvOff,setFvOff,fvZm,setFvZm,fvPanRef,fvDragRef,domColors,T,onClose,onRecompute}){
+  var APP_W=150,APP_H=54;
+  var svgRef=React.useRef(null);
+  var appById=React.useMemo(function(){var m={};apps.forEach(function(a){m[a.id]=a;});return m;},[apps]);
+  function getDomColor(d){var dc=domColors[d]||domColors['Autre']||{ac:'#6366F1'};return dc.ac||'#6366F1';}
+  var domGroups=React.useMemo(function(){
+    var g={};
+    apps.forEach(function(a){
+      var pos=fullViewPos[a.id];if(!pos)return;
+      var d=a.domain||'Autre';
+      if(!g[d])g[d]={x1:Infinity,y1:Infinity,x2:-Infinity,y2:-Infinity,name:d};
+      g[d].x1=Math.min(g[d].x1,pos.x-12);
+      g[d].y1=Math.min(g[d].y1,pos.y-30);
+      g[d].x2=Math.max(g[d].x2,pos.x+APP_W+12);
+      g[d].y2=Math.max(g[d].y2,pos.y+APP_H+12);
+    });
+    return Object.values(g).filter(function(gg){return gg.x1!==Infinity;});
+  },[apps,fullViewPos]);
+  function getCP(flow){
+    var fp=fullViewPos[flow.from],tp=fullViewPos[flow.to];
+    if(!fp||!tp)return null;
+    var x1=fp.x+APP_W/2,y1=fp.y+APP_H/2;
+    var x2=tp.x+APP_W/2,y2=tp.y+APP_H/2;
+    var mx=(x1+x2)/2,my=(y1+y2)/2;
+    var cp=flowCPs[flow.id]||{dx:0,dy:0};
+    return{x1,y1,x2,y2,cpx:mx+cp.dx,cpy:my+cp.dy,mx,my};
+  }
+  function screenToSVG(sx,sy){
+    return{x:(sx-fvOff.x)/fvZm,y:(sy-fvOff.y)/fvZm};
+  }
+  function onWheel(e){
+    e.preventDefault();
+    var rect=svgRef.current.getBoundingClientRect();
+    var mx=e.clientX-rect.left,my=e.clientY-rect.top;
+    var factor=e.deltaY<0?1.12:1/1.12;
+    var nz=Math.max(0.1,Math.min(3,fvZm*factor));
+    setFvOff(function(o){return{x:mx-(mx-o.x)*(nz/fvZm),y:my-(my-o.y)*(nz/fvZm)};});
+    setFvZm(nz);
+  }
+  function onMouseDown(e){
+    if(e.button===1){e.preventDefault();fvPanRef.current={active:true,sx:e.clientX,sy:e.clientY,ox:fvOff.x,oy:fvOff.y};return;}
+    if(e.button===0){
+      var tgt=e.target;
+      var appId=tgt.dataset&&tgt.dataset.appid;
+      var cpId=tgt.dataset&&tgt.dataset.cpid;
+      if(appId){
+        var pos=fullViewPos[appId];if(!pos)return;
+        var svgPt=screenToSVG(e.clientX,e.clientY);
+        fvDragRef.current={type:'app',id:appId,ox:svgPt.x-pos.x,oy:svgPt.y-pos.y};
+        return;
+      }
+      if(cpId){
+        var flow=flows.find(function(f){return f.id===cpId;});
+        if(!flow)return;
+        var pts=getCP(flow);if(!pts)return;
+        var svgPt2=screenToSVG(e.clientX,e.clientY);
+        fvDragRef.current={type:'cp',id:cpId,mx:pts.mx,my:pts.my};
+        return;
+      }
+      fvPanRef.current={active:true,sx:e.clientX,sy:e.clientY,ox:fvOff.x,oy:fvOff.y};
+    }
+  }
+  function onMouseMove(e){
+    if(fvPanRef.current&&fvPanRef.current.active){
+      setFvOff({x:fvPanRef.current.ox+(e.clientX-fvPanRef.current.sx),y:fvPanRef.current.oy+(e.clientY-fvPanRef.current.sy)});
+      return;
+    }
+    if(fvDragRef.current){
+      var svgPt=screenToSVG(e.clientX,e.clientY);
+      if(fvDragRef.current.type==='app'){
+        var id=fvDragRef.current.id;
+        setFullViewPos(function(p){return Object.assign({},p,{[id]:{x:svgPt.x-fvDragRef.current.ox,y:svgPt.y-fvDragRef.current.oy}});});
+      } else if(fvDragRef.current.type==='cp'){
+        var fid=fvDragRef.current.id;
+        setFlowCPs(function(p){return Object.assign({},p,{[fid]:{dx:svgPt.x-fvDragRef.current.mx,dy:svgPt.y-fvDragRef.current.my}});});
+      }
+    }
+  }
+  function onMouseUp(){fvPanRef.current={active:false};fvDragRef.current=null;}
+  function onDblClickCP(fid,e){e.stopPropagation();setFlowCPs(function(p){var n=Object.assign({},p);delete n[fid];return n;});}
+  React.useEffect(function(){
+    var ids=Object.keys(fullViewPos);
+    if(ids.length===0||!svgRef.current)return;
+    var xs=ids.map(function(id){return fullViewPos[id].x;});
+    var ys=ids.map(function(id){return fullViewPos[id].y;});
+    var minX=Math.min.apply(null,xs)-80,minY=Math.min.apply(null,ys)-80;
+    var maxX=Math.max.apply(null,xs)+APP_W+80,maxY=Math.max.apply(null,ys)+APP_H+80;
+    var rect=svgRef.current.getBoundingClientRect();
+    if(!rect.width||!rect.height)return;
+    var scaleX=rect.width/(maxX-minX),scaleY=rect.height/(maxY-minY);
+    var nz=Math.min(0.95,Math.max(0.05,Math.min(scaleX,scaleY)));
+    setFvZm(nz);
+    setFvOff({x:-minX*nz+(rect.width-(maxX-minX)*nz)/2,y:-minY*nz+(rect.height-(maxY-minY)*nz)/2});
+  // eslint-disable-next-line
+  },[Object.keys(fullViewPos).join(',')]);
+  var flowsWithPos=flows.filter(function(f){return fullViewPos[f.from]&&fullViewPos[f.to];});
+  return <div style={{position:'absolute',inset:0,zIndex:500,background:T.bg,display:'flex',flexDirection:'column'}}>
+    <div style={{background:T.bgAlt,borderBottom:'1px solid '+T.border,padding:'8px 16px',display:'flex',alignItems:'center',gap:10,flexShrink:0,zIndex:10}}>
+      <span style={{fontSize:16}}>&#9705;</span>
+      <span style={{fontSize:13,fontWeight:700,color:T.fg}}>Vue compl&#232;te</span>
+      <span style={{fontSize:11,color:T.fgMuted}}>{apps.length} applications &middot; {flows.length} flux</span>
+      <div style={{flex:1}}/>
+      <button onMouseDown={function(e){e.stopPropagation();onRecompute();}} style={{background:'#7C3AED18',border:'1px solid #7C3AED40',color:'#7C3AED',borderRadius:6,padding:'4px 12px',fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>&#10227; Recalculer layout</button>
+      <button onMouseDown={function(e){e.stopPropagation();onClose();}} style={{background:'#EF444418',border:'1px solid #EF444440',color:'#EF4444',borderRadius:6,padding:'4px 12px',fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>&#10005; Fermer</button>
+    </div>
+    <div style={{background:T.bgAlt,borderBottom:'1px solid '+T.border,padding:'3px 16px',display:'flex',alignItems:'center',gap:16,flexShrink:0,fontSize:10,color:T.fgMuted}}>
+      <span>Scroll = zoom</span><span>Drag fond = pan</span><span>&#11044; Drag point bleu = courber flux</span><span>&#11044; Double-clic point = r&#233;initialiser</span><span>Drag app = repositionner</span>
+    </div>
+    <svg ref={svgRef} style={{flex:1,display:'block',userSelect:'none'}} onWheel={onWheel} onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseUp}>
+      <defs>
+        <marker id="fv-arr" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="#6366F1" opacity="0.65"/>
+        </marker>
+      </defs>
+      <g transform={'translate('+fvOff.x+','+fvOff.y+') scale('+fvZm+')'}>
+        {domGroups.map(function(gg){
+          var col=getDomColor(gg.name);
+          return <g key={gg.name}>
+            <rect x={gg.x1} y={gg.y1} width={gg.x2-gg.x1} height={gg.y2-gg.y1} rx={14} fill={col} fillOpacity={0.07} stroke={col} strokeOpacity={0.3} strokeWidth={1.5}/>
+            <rect x={gg.x1} y={gg.y1} width={gg.x2-gg.x1} height={24} rx={12} fill={col} fillOpacity={0.18}/>
+            <text x={gg.x1+12} y={gg.y1+16} fontSize={11} fontWeight={700} fill={col} fontFamily="Poppins,sans-serif" style={{pointerEvents:'none'}}>{gg.name}</text>
+          </g>;
+        })}
+        {flowsWithPos.map(function(flow){
+          var pts=getCP(flow);if(!pts)return null;
+          var pathD='M '+pts.x1+','+pts.y1+' Q '+pts.cpx+','+pts.cpy+' '+pts.x2+','+pts.y2;
+          return <g key={flow.id}>
+            <path d={pathD} fill="none" stroke="#6366F1" strokeWidth={1.4} strokeOpacity={0.5} markerEnd="url(#fv-arr)"/>
+            <path id={'fvp-'+flow.id} d={pathD} fill="none" stroke="none"/>
+            {flow.label&&<text fontSize={9} fill={T.fgMuted} fontFamily="Poppins,sans-serif" style={{pointerEvents:'none'}}><textPath href={'#fvp-'+flow.id} startOffset="40%">{flow.label}</textPath></text>}
+            <circle cx={pts.cpx} cy={pts.cpy} r={7} fill="#7C3AED" fillOpacity={0.8} stroke="#fff" strokeWidth={1.5} style={{cursor:'grab'}} data-cpid={flow.id} onDoubleClick={function(e){onDblClickCP(flow.id,e);}}/>
+          </g>;
+        })}
+        {apps.map(function(app){
+          var pos=fullViewPos[app.id];if(!pos)return null;
+          var col=getDomColor(app.domain);
+          var nbConn=flows.filter(function(f){return f.from===app.id||f.to===app.id;}).length;
+          return <g key={app.id}>
+            <rect x={pos.x} y={pos.y} width={APP_W} height={APP_H} rx={8} fill={T.bgCard} stroke={col} strokeWidth={1.8} style={{cursor:'move'}} data-appid={app.id}/>
+            <rect x={pos.x} y={pos.y} width={APP_W} height={5} rx={4} fill={col} fillOpacity={0.9} data-appid={app.id}/>
+            <text x={pos.x+8} y={pos.y+22} fontSize={10} fontWeight={700} fill={T.fg} fontFamily="Poppins,sans-serif" style={{pointerEvents:'none'}}>
+              {(app.name||'').length>19?(app.name||'').slice(0,18)+'\u2026':app.name||''}
+            </text>
+            <text x={pos.x+8} y={pos.y+36} fontSize={8.5} fill={T.fgMuted} fontFamily="Poppins,sans-serif" style={{pointerEvents:'none'}}>
+              {(app.domain||'').length>18?(app.domain||'').slice(0,17)+'\u2026':app.domain||''}
+            </text>
+            {nbConn>0&&<>
+              <circle cx={pos.x+APP_W-13} cy={pos.y+13} r={11} fill={col} fillOpacity={0.85}/>
+              <text x={pos.x+APP_W-13} y={pos.y+17} fontSize={9} fontWeight={700} fill="#fff" textAnchor="middle" fontFamily="Poppins,sans-serif" style={{pointerEvents:'none'}}>{nbConn}</text>
+            </>}
+          </g>;
+        })}
+      </g>
+    </svg>
+  </div>;
+}
+
 function App({ initialSnapshot, onSave, wsMessage, projectId, onThemeChange, topOffset = 0 }) {
   var _stateKey = projectId ? "carto_state_" + projectId : "carto_state";
   var snapshotApplied = useRef(false);
@@ -322,6 +479,17 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   const [loadStatus,setLoadStatus]=useState(null);
   const [rawFluxData,setRawFluxData]=useState(null); // null | {step, detail, stats}
   const [domColors,setDomColors]=useState({...DC_DEFAULT});
+  const [fullViewActive,setFullViewActive]=useState(false);
+  const [fullViewPos,setFullViewPos]=useState(function(){
+    try{var s=localStorage.getItem(_stateKey);if(s){var d=JSON.parse(s);if(d.fullViewPos)return d.fullViewPos;}}catch(e){}return{};
+  });
+  const [flowCPs,setFlowCPs]=useState(function(){
+    try{var s=localStorage.getItem(_stateKey);if(s){var d=JSON.parse(s);if(d.flowCPs)return d.flowCPs;}}catch(e){}return{};
+  });
+  const [fvOff,setFvOff]=useState({x:0,y:0});
+  const [fvZm,setFvZm]=useState(0.6);
+  const fvPanRef=useRef({active:false,sx:0,sy:0,ox:0,oy:0});
+  const fvDragRef=useRef(null);
 
   // ═══════════════════════════════════════════════════════════════
   // BRIDGE D'INTÉGRATION REACT (postMessage parent ↔ iframe)
@@ -382,10 +550,10 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     if(apps.length===0)return;
     try{
       localStorage.setItem(_stateKey,JSON.stringify({
-        apps,flows,off,zm,domColors,domPads,view,version:1
+        apps,flows,off,zm,domColors,domPads,view,fullViewPos,flowCPs,version:1
       }));
     }catch(e){}
-  },[apps,flows,off,zm,domColors,domPads,view]);
+  },[apps,flows,off,zm,domColors,domPads,view,fullViewPos,flowCPs]);
 
   useEffect(()=>{
     if(!toolbarRef.current)return;
@@ -925,6 +1093,83 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     setCatBounds(newCatBounds);
     setDomPads({});
     setTimeout(fitCanvas,50);
+  };
+
+  const computeFullViewLayout=()=>{
+    if(apps.length===0)return;
+    var APP_W=150,APP_H=54,APP_GAP_X=16,APP_GAP_Y=12,DOM_PAD=22,HDR_H=26,DOM_GAP=70;
+    var conn={};
+    apps.forEach(function(a){conn[a.id]=0;});
+    flows.forEach(function(f){
+      if(conn[f.from]!==undefined)conn[f.from]++;
+      if(conn[f.to]!==undefined)conn[f.to]++;
+    });
+    var domMap={};
+    apps.forEach(function(a){
+      var d=a.domain||'Autre';
+      if(!domMap[d])domMap[d]=[];
+      domMap[d].push(a);
+    });
+    Object.values(domMap).forEach(function(arr){
+      arr.sort(function(a,b){return(conn[b.id]||0)-(conn[a.id]||0)||(a.name||'').localeCompare(b.name||'');});
+    });
+    var domSizes={};
+    Object.entries(domMap).forEach(function(e2){
+      var d=e2[0],arr=e2[1];
+      var cols=Math.max(1,Math.ceil(Math.sqrt(arr.length)));
+      var rows=Math.ceil(arr.length/cols);
+      domSizes[d]={cols:cols,rows:rows,
+        w:cols*(APP_W+APP_GAP_X)-APP_GAP_X+DOM_PAD*2,
+        h:rows*(APP_H+APP_GAP_Y)-APP_GAP_Y+DOM_PAD*2+HDR_H};
+    });
+    var pairFlows={};
+    flows.forEach(function(f){
+      var fa=apps.find(function(a){return a.id===f.from;});
+      var ta=apps.find(function(a){return a.id===f.to;});
+      if(!fa||!ta||fa.domain===ta.domain)return;
+      var key=[fa.domain,ta.domain].sort().join('\x00');
+      pairFlows[key]=(pairFlows[key]||0)+1;
+    });
+    var domConn={};
+    Object.keys(domMap).forEach(function(d){domConn[d]=0;});
+    Object.entries(pairFlows).forEach(function(e2){
+      var parts=e2[0].split('\x00'),v=e2[1];
+      domConn[parts[0]]=(domConn[parts[0]]||0)+v;
+      domConn[parts[1]]=(domConn[parts[1]]||0)+v;
+    });
+    var remaining=Object.keys(domMap).slice().sort(function(a,b){return(domConn[b]||0)-(domConn[a]||0);});
+    var ordered=[];
+    if(remaining.length>0){
+      ordered.push(remaining.splice(0,1)[0]);
+      while(remaining.length>0){
+        var last=ordered[ordered.length-1];
+        remaining.sort(function(a,b){
+          var ka=[a,last].sort().join('\x00'),kb=[b,last].sort().join('\x00');
+          return(pairFlows[kb]||0)-(pairFlows[ka]||0);
+        });
+        ordered.push(remaining.splice(0,1)[0]);
+      }
+    }
+    var N=ordered.length;
+    var CX=1600,CY=1000;
+    var maxSz=Object.values(domSizes).reduce(function(m,s){return Math.max(m,s.w,s.h);},0);
+    var radius=N<=1?0:Math.max(550,N*(maxSz+DOM_GAP)/(2*Math.PI));
+    var domCenters={};
+    ordered.forEach(function(d,i){
+      var angle=(2*Math.PI*i/N)-Math.PI/2;
+      domCenters[d]={x:N<=1?CX:CX+radius*Math.cos(angle),y:N<=1?CY:CY+radius*Math.sin(angle)};
+    });
+    var newPos={};
+    ordered.forEach(function(d){
+      var arr=domMap[d],sz=domSizes[d],center=domCenters[d];
+      var startX=center.x-sz.w/2+DOM_PAD;
+      var startY=center.y-sz.h/2+HDR_H+DOM_PAD;
+      arr.forEach(function(app,i){
+        var col=i%sz.cols,row=Math.floor(i/sz.cols);
+        newPos[app.id]={x:startX+col*(APP_W+APP_GAP_X),y:startY+row*(APP_H+APP_GAP_Y)};
+      });
+    });
+    setFullViewPos(newPos);
   };
 
   const fitCanvas=()=>{
@@ -6394,6 +6639,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
       {activeFilters&&<button onMouseDown={e=>{e.stopPropagation();setSelDom([]);setSelCat([]);setSelCrit([]);}} style={{...B,padding:"4px 8px",fontSize:11,background:"#FF525220",color:"#FF5252",borderRadius:4}}>✕</button>}
       <div style={{flex:1}}/>
       <button onMouseDown={e=>{e.stopPropagation();applyStarLayout();}} title="Réagencement automatique en étoile — hub au centre, domaines connectés rayonnent autour" style={{...B,padding:"4px 10px",fontSize:11,background:"#2979FF18",color:"#2979FF",border:"1px solid #2979FF40",borderRadius:6,display:"flex",alignItems:"center",gap:5,fontWeight:600}}>&#10227; Réagencement auto</button>
+      <button onMouseDown={function(e){e.stopPropagation();if(!fullViewActive&&Object.keys(fullViewPos).length===0)computeFullViewLayout();setFullViewActive(function(v){return !v;});}} title="Vue complète — toutes les apps et tous les flux avec layout intelligent" style={{...B,padding:"4px 10px",fontSize:11,background:fullViewActive?"#7C3AED":"#7C3AED18",color:fullViewActive?"#fff":"#7C3AED",border:"1px solid #7C3AED40",borderRadius:6,display:"flex",alignItems:"center",gap:5,fontWeight:600}}>&#9705; Vue compl&#232;te</button>
       {/* ── Navigation menu (mouse icon) ── */}
       <div style={{position:"relative"}}>
         <button onClick={function(){setOpenMenu(openMenu==="modes"?null:"modes");}} style={{...B,background:openMenu==="modes"?T.bgHover:(!selMode&&!cMode?"#2979FF22":selMode?"#00BFA522":"transparent"),border:"1px solid "+(!selMode&&!cMode?"#2979FF":selMode?"#00BFA5":"transparent"),padding:"4px 10px",fontSize:11,borderRadius:4,display:"flex",alignItems:"center",gap:5}} title="Mode navigation">
@@ -7021,6 +7267,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
         <span style={{fontSize:14}}>&#128465;</span><span style={{fontSize:11,color:"#E06C75",fontWeight:600}}>Supprimer</span>
       </div>
     </div>}
+    {fullViewActive&&<FullView apps={apps} flows={flows} fullViewPos={fullViewPos} setFullViewPos={setFullViewPos} flowCPs={flowCPs} setFlowCPs={setFlowCPs} fvOff={fvOff} setFvOff={setFvOff} fvZm={fvZm} setFvZm={setFvZm} fvPanRef={fvPanRef} fvDragRef={fvDragRef} domColors={domColors} T={T} onClose={function(){setFullViewActive(false);}} onRecompute={computeFullViewLayout}/>}
   </div></div></AppCtx.Provider>;
 }
 
