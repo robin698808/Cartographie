@@ -4,12 +4,15 @@ from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 import io
 
+import os
 import auth
 from pptx_generator import generate_pptx
 
 router = APIRouter(prefix="/export")
 
-TEMPLATE_PATH = r"C:\Users\r.turlay\cartographe\Template pptx\template OP pour IA.pptx"
+# Chemin relatif au fichier — fonctionne en local ET sur Railway/Docker
+_HERE = os.path.dirname(os.path.abspath(__file__))
+TEMPLATE_PATH = os.path.join(_HERE, "..", "assets", "template.pptx")
 
 
 class ExportPptxRequest(BaseModel):
