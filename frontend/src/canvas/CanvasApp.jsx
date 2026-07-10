@@ -901,8 +901,28 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         a.y=dy+domPad+Math.floor(j/sz.cols)*(cH+cGy);
       });
     });
+    // Compute catBounds from new positions so drag/resize work immediately after layout
+    var newDomBounds={};
+    na.forEach(function(a){
+      var d=a.domain;
+      if(!newDomBounds[d])newDomBounds[d]={x1:Infinity,y1:Infinity,x2:-Infinity,y2:-Infinity};
+      newDomBounds[d].x1=Math.min(newDomBounds[d].x1,a.x);
+      newDomBounds[d].y1=Math.min(newDomBounds[d].y1,a.y);
+      newDomBounds[d].x2=Math.max(newDomBounds[d].x2,a.x+cW);
+      newDomBounds[d].y2=Math.max(newDomBounds[d].y2,a.y+cH);
+    });
+    var newCatBounds={};
+    na.forEach(function(a){
+      var cat=a.category;if(!cat)return;
+      if(!newCatBounds[cat])newCatBounds[cat]={x1:Infinity,y1:Infinity,x2:-Infinity,y2:-Infinity};
+      var db=newDomBounds[a.domain];if(!db)return;
+      newCatBounds[cat].x1=Math.min(newCatBounds[cat].x1,db.x1);
+      newCatBounds[cat].y1=Math.min(newCatBounds[cat].y1,db.y1);
+      newCatBounds[cat].x2=Math.max(newCatBounds[cat].x2,db.x2);
+      newCatBounds[cat].y2=Math.max(newCatBounds[cat].y2,db.y2);
+    });
     setApps(na);
-    setCatBounds({});
+    setCatBounds(newCatBounds);
     setDomPads({});
     setTimeout(fitCanvas,50);
   };
