@@ -644,7 +644,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
 
   const processImport=()=>{
     if(!cMap.name||!cMap.domain){alert("Mappez au minimum: Nom et Domaine");return;}
-    const na=rawData.map((r,i)=>({id:uid(),name:r[cMap.name]||"App_"+i,domain:r[cMap.domain]||"Autre",category:r[cMap.category]||"",description:r[cMap.description]||"",criticality:r[cMap.criticality]||"Moyenne",vendor:r[cMap.vendor]||"",version:r[cMap.version]||"",owner:r[cMap.owner]||"",users:parseInt(r[cMap.users])||0,statusD1:r[cMap.statusD1]||"",statusD2:r[cMap.statusD2]||"",x:0,y:0,_ft:r[cMap.flowTo]||"",_fp:r[cMap.flowProtocol]||"",_fl:r[cMap.flowLabel]||""}));
+    const na=rawData.map((r,i)=>({id:uid(),name:r[cMap.name]||"App_"+i,domain:r[cMap.domain]||"Autre",category:r[cMap.category]||"",description:r[cMap.description]||"",criticality:r[cMap.criticality]||"Moyenne",vendor:r[cMap.vendor]||"",version:r[cMap.version]||"",owner:r[cMap.owner]||"",users:parseInt(r[cMap.users])||0,statut:r[cMap.statut]||"",statusD1:r[cMap.statusD1]||"",statusD2:r[cMap.statusD2]||"",x:0,y:0,_ft:r[cMap.flowTo]||"",_fp:r[cMap.flowProtocol]||"",_fl:r[cMap.flowLabel]||""}));
     const nf=[];
     if(rawFluxData&&rawFluxData.length>0){
       var nrm=function(s){return(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim();};
