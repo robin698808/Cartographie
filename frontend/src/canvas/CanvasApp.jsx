@@ -26,6 +26,38 @@ const acToPalette=(ac)=>{
   const fg="#"+[r,g,b].map(v=>Math.min(255,Math.round(v*0.4+180)).toString(16).padStart(2,"0")).join("");
   return {bg,fg,ac};
 };
+// Texte lisible sur fond clair à partir d'une couleur d'accent quelconque (même très
+// claire/pastel) : on assombrit la teinte par recherche dichotomique jusqu'à atteindre une
+// luminance perçue cible (~0.15, ≈ contraste 5:1 sur fond blanc), en conservant teinte et
+// saturation. Une simple clarté HSL fixe ne suffit pas : à HSL identique, jaune/vert restent
+// perçus bien plus clairs que bleu/rouge — d'où la recherche par luminance réelle plutôt que HSL brut.
+const accentTextForLight=(hex)=>{
+  const r0=parseInt(hex.slice(1,3),16)/255,g0=parseInt(hex.slice(3,5),16)/255,b0=parseInt(hex.slice(5,7),16)/255;
+  const max=Math.max(r0,g0,b0),min=Math.min(r0,g0,b0);let h=0,s=0;const l0=(max+min)/2;
+  if(max!==min){
+    const d=max-min;
+    s=l0>0.5?d/(2-max-min):d/(max+min);
+    if(max===r0)h=(g0-b0)/d+(g0<b0?6:0);else if(max===g0)h=(b0-r0)/d+2;else h=(r0-g0)/d+4;
+    h/=6;
+  }
+  const hue2rgb=(p,q,t)=>{if(t<0)t+=1;if(t>1)t-=1;if(t<1/6)return p+(q-p)*6*t;if(t<1/2)return q;if(t<2/3)return p+(q-p)*(2/3-t)*6;return p;};
+  const hslToRgb=(l)=>{
+    if(s===0)return [l,l,l];
+    const q=l<0.5?l*(1+s):l+s-l*s;const p=2*l-q;
+    return [hue2rgb(p,q,h+1/3),hue2rgb(p,q,h),hue2rgb(p,q,h-1/3)];
+  };
+  const relLum=(rgb)=>{
+    const f=(v)=>v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4);
+    return 0.2126*f(rgb[0])+0.7152*f(rgb[1])+0.0722*f(rgb[2]);
+  };
+  let lo=0.02,hi=0.55,target=0.15;
+  for(let i=0;i<14;i++){
+    const mid=(lo+hi)/2;
+    if(relLum(hslToRgb(mid))>target)hi=mid;else lo=mid;
+  }
+  const rgb=hslToRgb((lo+hi)/2);
+  return "#"+rgb.map(v=>Math.round(v*255).toString(16).padStart(2,"0")).join("");
+};
 var THEMES={dark:{bg:"#08080F",bgAlt:"#0D0D1A",bgCard:"#13132A",bgInput:"#0D0D1A",bgHover:"#1C1C38",fg:"#F0F0FB",fgMuted:"#8080B0",fgDim:"#5A5A85",fgFaint:"#3A3A60",border:"#22224A",borderLight:"#1A1A3A",overlay:"#000000A8",grid:"#111128",shadow:"var(--shadow-md)",accent:"#6366F1",accentMuted:"#6366F118",pres:"#05050A"},light:{bg:"#F7F8FD",bgAlt:"#EEF0FA",bgCard:"#FFFFFF",bgInput:"#FFFFFF",bgHover:"#E8EAF8",fg:"#0F1030",fgMuted:"#3D3D70",fgDim:"#6868A0",fgFaint:"#7070AE",border:"#CDD0E8",borderLight:"#DDE0F0",overlay:"#00000030",grid:"#D8DAF0",shadow:"0 4px 24px #00000015",accent:"#6366F1",accentMuted:"#6366F115",pres:"#F0F2FC"}};
 const ALLDOM_DEFAULT = Object.keys(DC_DEFAULT);
 const CC = {Haute:"#FF5252",Moyenne:"#EF6C00",Basse:"#00C853"};
@@ -4336,9 +4368,10 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     const crC=CC[app.criticality]||"#999";
     // En mode jour, les tuiles ne réutilisent plus le fond sombre pensé pour le mode nuit —
     // fond pastel translucide de l'accent + texte de l'accent lui-même (meilleure cohérence visuelle).
-    const cardBg=isDark?c.bg:c.ac+"14";
-    const cardFg=isDark?c.fg:c.ac;
-    const cardFgSub=isDark?c.fg+"99":c.ac+"AA";
+    const cardBg=isDark?c.bg:c.ac+"20";
+    const cardFgLight=accentTextForLight(c.ac);
+    const cardFg=isDark?c.fg:cardFgLight;
+    const cardFgSub=isDark?c.fg+"99":cardFgLight+"B0";
     // D1-driven color: if D1 is set, use D1 color for border/bandeau; else domain color
     const d1C=app.statusD1?(SD1[app.statusD1]||"#888"):null;
     const statutC=app.statut?(STATUT_COLORS[app.statut]||"#888"):null;
