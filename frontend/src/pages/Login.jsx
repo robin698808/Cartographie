@@ -124,7 +124,7 @@ export default function Login() {
         </div>
 
         <div className="login-panel-footer">
-          <p>Cartographe © 2025 · Due diligence IT</p>
+          <p>Cartographe © 2026 · Due diligence IT</p>
         </div>
       </div>
 
