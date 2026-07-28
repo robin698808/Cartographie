@@ -566,7 +566,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       if(d1best){m.statusD1=d1best;used.add(d1best);}
       if(d2best){m.statusD2=d2best;used.add(d2best);}
     }
-    const P={name:["nom","application","app","name"],x:["x","pos x","position x"],y:["y","pos y","position y"],domain:["domaine","domain"],description:["description","desc"],status:["statut as-is","as-is","statut actuel","statut","status","état"],criticality:["criticité","criticite","criticality","importance"],vendor:["éditeur","editeur","vendor","fournisseur"],version:["version"],owner:["responsable","owner"],users:["utilisateur","users","nb util"],flowTo:["flux vers","flow to","interface vers","cible","target"],flowFrom:["source","emettrice","from"],flowProtocol:["protocole","protocol"],category:["catégorie","categorie","category","macro","zone","groupe","group","périmètre","perimetre"],flowLabel:["objet","object","libellé flux","donnée"]};
+    const P={name:["nom","application","app","name"],x:["x","pos x","position x"],y:["y","pos y","position y"],domain:["domaine","domain"],description:["description","desc"],statut:["statut as-is","as-is","statut actuel","statut","status","état"],criticality:["criticité","criticite","criticality","importance"],vendor:["éditeur","editeur","vendor","fournisseur"],version:["version"],owner:["responsable","owner"],users:["utilisateur","users","nb util"],flowTo:["flux vers","flow to","interface vers","cible","target"],flowFrom:["source","emettrice","from"],flowProtocol:["protocole","protocol"],category:["catégorie","categorie","category","macro","zone","groupe","group","périmètre","perimetre"],flowLabel:["objet","object","libellé flux","donnée"]};
     FIELDS.forEach(function(f){
       if(m[f.key])return;
       var best=hds.find(function(h){return!used.has(h)&&P[f.key]&&P[f.key].some(function(p){return n(h).indexOf(p)>=0;});});
@@ -4548,8 +4548,8 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     const clearTip=function(){setChartTip(null);};
     const hexToRgbCo=function(hex){var r=parseInt(hex.slice(1,3),16)||102,g=parseInt(hex.slice(3,5),16)||102,b=parseInt(hex.slice(5,7),16)||102;return r+","+g+","+b;};
     const toggleSection=(id)=>setHiddenSections(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
-    const ALL_WIDGETS=["chart_apps","chart_flux","chart_owner",...(projectType==='deal'?["carveout"]:[]),"flowreg"];
-    const DEFAULT_SIZES={chart_apps:"m",chart_flux:"m",chart_owner:"m",carveout:"l",flowreg:"l"};
+    const ALL_WIDGETS=["chart_apps","chart_flux","chart_owner",...(projectType==='deal'?["carveout"]:["chart_statut"]),"flowreg"];
+    const DEFAULT_SIZES={chart_apps:"m",chart_flux:"m",chart_owner:"m",carveout:"l",chart_statut:"m",flowreg:"l"};
     const [widgetSizes,setWidgetSizes]=useState(function(){try{var s=localStorage.getItem("dash_sizes_"+(projectId||"default"));if(s)return Object.assign({},DEFAULT_SIZES,JSON.parse(s));}catch(e){}return Object.assign({},DEFAULT_SIZES);});
     const saveWidgetSizes=(sz)=>{setWidgetSizes(sz);try{localStorage.setItem("dash_sizes_"+(projectId||"default"),JSON.stringify(sz));}catch(e){}};
     const [hovWid,setHovWid]=useState(null);
@@ -4636,7 +4636,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       };
     },[resizeInfo]);
     const [expandedWidget,setExpandedWidget]=useState(null);
-    const CHART_TYPES_DEF={chart_apps:"bar",chart_flux:"bar",chart_owner:"donut"};
+    const CHART_TYPES_DEF={chart_apps:"bar",chart_flux:"bar",chart_owner:"donut",chart_statut:"donut"};
     const [chartTypes,setChartTypes]=useState(Object.assign({},CHART_TYPES_DEF));
     const setChartType=function(id,t){setChartTypes(function(p){return Object.assign({},p,{[id]:t});});};
     const dm=[...new Set(apps.map(a=>a.domain))];
@@ -4691,7 +4691,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         {opts.map(function(o){return <option key={o.k} value={o.k} style={{background:"#1A1A35",color:"#fff"}}>{o.label}</option>;})}
       </select>;
     };
-    var ALL_WIDGETS_LIST=["chart_apps","chart_flux","chart_owner",...(projectType==='deal'?["carveout"]:[]),"flowreg"];
+    var ALL_WIDGETS_LIST=["chart_apps","chart_flux","chart_owner",...(projectType==='deal'?["carveout"]:["chart_statut"]),"flowreg"];
     var getDefaultPos=function(id){
       var idx=ALL_WIDGETS_LIST.indexOf(id);
       var col=idx%2; var row=Math.floor(idx/2);
@@ -5194,6 +5194,113 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
               <div style={{width:3,height:15,borderRadius:2,background:"#6366F1",flexShrink:0}}/>
               <span style={{fontSize:12,fontWeight:700,color:T.fg}}>Apps par responsable</span>
+            </div>
+            <div style={{flex:isExpanded?1:undefined,minHeight:0}}>
+              {ctype==="donut"?renderCircle(true):ctype==="pie"?renderCircle(false):ctype==="bar"?renderBarV():renderArea()}
+            </div>
+          </div>;
+        },mkChartSwitch(sid));
+        if(sid==="chart_statut")return wrapWidget(sid,"#06B6D4","Répartition par statut",null,function(isExpanded,ww,wh){
+          var stMap={};
+          apps.forEach(function(a){var s=a.statut&&a.statut.trim()?a.statut.trim():"Non défini";stMap[s]=(stMap[s]||0)+1;});
+          var allStatuts=STATUT_OPTS.filter(function(v){return v;}).map(function(v){return{statut:v,count:stMap[v]||0};}).filter(function(d){return d.count>0;});
+          var undef=stMap["Non défini"]||0;
+          var displaySlices=allStatuts.concat(undef>0?[{statut:"Non défini",count:undef,isNA:true}]:[]);
+          var total5=apps.length||1;
+          var definedN=total5-undef;var definedPct=Math.round(definedN/total5*100);
+          var statutCount=allStatuts.length;
+          var ctype=chartTypes[sid]||"donut";
+          var stSlices=displaySlices.map(function(d){
+            return{name:d.statut,value:d.count,color:d.isNA?"#455A64":(STATUT_COLORS[d.statut]||"#9CA3AF"),isNA:d.isNA||false};
+          });
+          var cw=ww||500;var isNarrow=!isExpanded&&cw<420;
+          var donutSz=isExpanded?320:Math.min(140,Math.max(96,cw/2.6));
+          var donutR=Math.round(donutSz*0.434);var donutIr=Math.round(donutSz*0.276);
+          var donutCx=Math.round(donutSz/2);var donutCy=Math.round(donutSz/2);
+          var renderCircle=function(useHole){
+            var arcs=buildArcs(stSlices,total5,donutCx,donutCy,donutR,useHole?donutIr:0);
+            var isHovSt=hovSlice&&hovSlice.id==="statut";
+            return <div style={{display:"flex",flexDirection:isNarrow?"column":"row",gap:isExpanded?28:(isNarrow?6:12),alignItems:isNarrow?"flex-start":"flex-start",flex:isExpanded?1:undefined,minHeight:0}}>
+              <svg width={donutSz} height={donutSz} viewBox={"0 0 "+(donutCx*2)+" "+(donutCy*2)} style={{flexShrink:0}} onMouseLeave={function(){setHovSlice(null);clearTip();}}>
+                {arcs.map(function(p,i){
+                  var sl=stSlices[i]||{};
+                  var h=isHovSt&&hovSlice.idx===p.idx;
+                  var tx=h?Math.cos(p.mid)*6:0;var ty=h?Math.sin(p.mid)*6:0;
+                  var op=isHovSt?(h?1:0.2):(sl.isNA?0.38:0.88);
+                  return <path key={p.idx} d={p.d} fill={p.color} opacity={op} stroke={T.bg} strokeWidth="2.5"
+                    transform={"translate("+tx.toFixed(1)+","+ty.toFixed(1)+")"}
+                    style={{cursor:"pointer",transition:"opacity 0.12s"}}
+                    onMouseMove={function(e){setHovSlice({id:"statut",idx:p.idx});setChartTip({x:e.clientX,y:e.clientY,label:p.name,val:p.value+" apps",pct:sl.isNA?null:p.pct});}}
+                    onMouseLeave={function(){setHovSlice(null);clearTip();}}
+                    onClick={function(){setSelStatut(function(prev){return prev===sl.name?"":sl.name;});}}/>;
+                })}
+                {useHole&&<text x={donutCx} y={donutCy-3} textAnchor="middle" fill={T.fg} fontSize={isExpanded?34:Math.round(donutSz*0.17)} fontWeight="800">{statutCount}</text>}
+                {useHole&&<text x={donutCx} y={donutCy+Math.round(donutSz*0.1)} textAnchor="middle" fill={T.fgMuted} fontSize={Math.max(5,Math.round(donutSz*0.048))} letterSpacing="0.06em">STATUTS</text>}
+              </svg>
+              <div style={{flex:1,minWidth:0,maxHeight:isExpanded?360:(isNarrow?110:150),overflowY:"auto",paddingRight:2}}>
+                {stSlices.map(function(p){return <div key={p.name} onClick={function(){setSelStatut(function(prev){return prev===p.name?"":prev===""?p.name:prev;});}} style={{display:"flex",alignItems:"center",gap:5,marginBottom:isNarrow?3:5,cursor:"pointer"}}>
+                  <div style={{width:6,height:6,borderRadius:"50%",background:p.color,flexShrink:0,opacity:p.isNA?0.5:1}}/>
+                  <span style={{fontSize:10,color:p.isNA?T.fgMuted:T.fg,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontStyle:p.isNA?"italic":"normal"}}>{p.name}</span>
+                  <span style={{fontSize:10,fontWeight:700,color:p.color,opacity:p.isNA?0.7:1}}>{p.value}</span>
+                </div>;})}
+              </div>
+            </div>;
+          };
+          var renderBarV=function(){
+            var sorted=[...stSlices].sort(function(a,b){return b.value-a.value;});
+            var mx5=Math.max.apply(null,sorted.map(function(s){return s.value;}))||1;
+            var W=isExpanded?560:Math.max(160,cw-56);var H=isExpanded?300:180;
+            var pad={l:40,r:10,t:30,b:50};var n=sorted.length;
+            var bW=Math.max(6,Math.floor((W-pad.l-pad.r)/n*0.55));
+            var gap=(W-pad.l-pad.r)/n;
+            return <div style={{overflowX:"auto"}}>
+              <svg width={W} height={H} style={{overflow:"visible"}}>
+                <line x1={pad.l} y1={pad.t} x2={pad.l} y2={H-pad.b} stroke={T.border} strokeWidth="1"/>
+                <line x1={pad.l} y1={H-pad.b} x2={W-pad.r} y2={H-pad.b} stroke={T.border} strokeWidth="1"/>
+                {sorted.map(function(sl,i){
+                  var bh=Math.max(2,(sl.value/mx5)*(H-pad.t-pad.b));
+                  var x=pad.l+i*gap+gap/2-bW/2;var y=H-pad.b-bh;
+                  var label=sl.name;
+                  return <g key={sl.name} style={{cursor:"pointer"}}
+                    onMouseMove={function(e){setChartTip({x:e.clientX,y:e.clientY,label:sl.name,val:sl.value+" apps",pct:Math.round(sl.value/total5*100)});}}
+                    onMouseLeave={clearTip}
+                    onClick={function(){setSelStatut(function(prev){return prev===sl.name?"":sl.name;});}}>
+                    <rect x={x} y={y} width={bW} height={bh} fill={sl.color} rx="3" opacity={sl.isNA?0.38:0.85}/>
+                    <text x={x+bW/2} y={y-5} textAnchor="middle" fill={sl.color} fontSize="10" fontWeight="700">{sl.value}</text>
+                    <text x={x+bW/2} y={H-pad.b+14} textAnchor="middle" fill={T.fgMuted} fontSize="7" transform={"rotate(-30,"+(x+bW/2)+","+(H-pad.b+14)+")"}>{label.length>9?label.slice(0,8)+"…":label}</text>
+                  </g>;
+                })}
+              </svg>
+            </div>;
+          };
+          var renderArea=function(){
+            var sorted=[...stSlices].sort(function(a,b){return b.value-a.value;});
+            var W=isExpanded?560:280;var H=isExpanded?280:150;var n=sorted.length;var maxV=Math.max.apply(null,sorted.map(function(s){return s.value;}))||1;
+            if(n<2)return renderBarV();
+            var pts=sorted.map(function(sl,i){return{x:40+i*(W-80)/(n-1),y:(1-sl.value/maxV)*(H-60)+20,sl:sl};});
+            var areaD="M"+pts[0].x+" "+(H-30)+" L"+pts.map(function(p){return p.x+" "+p.y;}).join(" L ")+" L"+pts[pts.length-1].x+" "+(H-30)+" Z";
+            var lineD="M"+pts.map(function(p){return p.x+" "+p.y;}).join(" L ");
+            var gradId="stg_"+sid;
+            return <div style={{flex:isExpanded?1:undefined,minHeight:0}}>
+              <svg width={W} height={H} style={{overflow:"visible"}}>
+                <defs><linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#06B6D4" stopOpacity="0.5"/><stop offset="100%" stopColor="#06B6D4" stopOpacity="0.04"/></linearGradient></defs>
+                <path d={areaD} fill={"url(#"+gradId+")"} />
+                <path d={lineD} fill="none" stroke="#06B6D4" strokeWidth="2"/>
+                {pts.map(function(p,i){return <g key={i}>
+                  <circle cx={p.x} cy={p.y} r="4" fill={p.sl.color} stroke={T.bg} strokeWidth="2"
+                    onMouseMove={function(e){setChartTip({x:e.clientX,y:e.clientY,label:p.sl.name,val:p.sl.value+" apps",pct:Math.round(p.sl.value/total5*100)});}}
+                    onMouseLeave={clearTip}/>
+                  <text x={p.x} y={p.y-10} textAnchor="middle" fill={p.sl.color} fontSize="10" fontWeight="700">{p.sl.value}</text>
+                  <text x={p.x} y={H-14} textAnchor="middle" fill={T.fgMuted} fontSize="8">{p.sl.name.length>6?p.sl.name.slice(0,5)+"…":p.sl.name}</text>
+                </g>;})}
+              </svg>
+            </div>;
+          };
+          return <div style={{background:T.bgCard,borderRadius:12,padding:18,boxShadow:"0 1px 4px rgba(0,0,0,0.14), 0 0 0 1px "+T.border,height:(isExpanded||wh)?"100%":undefined,display:(isExpanded||wh)?"flex":undefined,flexDirection:(isExpanded||wh)?"column":undefined}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
+              <div style={{width:3,height:15,borderRadius:2,background:"#06B6D4",flexShrink:0}}/>
+              <span style={{fontSize:12,fontWeight:700,color:T.fg}}>Répartition par statut</span>
+              <span style={{fontSize:9,color:T.fgMuted,marginLeft:"auto"}}>{definedN}/{total5} définies ({definedPct}%)</span>
             </div>
             <div style={{flex:isExpanded?1:undefined,minHeight:0}}>
               {ctype==="donut"?renderCircle(true):ctype==="pie"?renderCircle(false):ctype==="bar"?renderBarV():renderArea()}
