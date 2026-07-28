@@ -6732,7 +6732,10 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
         </div>:(selApp.statut&&<div style={{marginBottom:14,padding:"10px 12px",borderRadius:8,background:T.bgCard,border:"1px solid "+T.borderLight}}>
           <div style={{fontSize:10,color:T.fgDim,marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>Statut</div>
           <div style={{display:"flex",gap:8}}>
-            <span style={{background:STATUT_COLORS[selApp.statut]||"#888"}} className="text-xs px-2 py-0.5 rounded-full text-white">{selApp.statut}</span>
+            <span style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:11,fontWeight:700,letterSpacing:0.3,padding:"4px 11px",borderRadius:999,background:(STATUT_COLORS[selApp.statut]||"#888")+"1E",color:STATUT_COLORS[selApp.statut]||"#888",border:"1px solid "+(STATUT_COLORS[selApp.statut]||"#888")+"45"}}>
+              <span style={{width:6,height:6,borderRadius:"50%",background:STATUT_COLORS[selApp.statut]||"#888",boxShadow:"0 0 6px "+(STATUT_COLORS[selApp.statut]||"#888")+"A0",flexShrink:0}}/>
+              {selApp.statut}
+            </span>
           </div>
         </div>)}
         <div style={{paddingTop:14,borderTop:"1px solid "+T.borderLight}}>
