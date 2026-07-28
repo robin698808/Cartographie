@@ -6463,7 +6463,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
             </div>
             {flt.items.map(it=>{
               const on=flt.sel.includes(it.v);
-              const appCount=apps.filter(a=>flt.id==="domain"?a.domain===it.v:flt.id==="category"?a.category===it.v:flt.id==="d1"?a.statusD1===it.v:flt.id==="d2"?a.statusD2===it.v:a.criticality===it.v).length;
+              const appCount=apps.filter(a=>flt.id==="domain"?a.domain===it.v:flt.id==="category"?a.category===it.v:flt.id==="d1"?a.statusD1===it.v:flt.id==="d2"?a.statusD2===it.v:flt.id==="statut"?a.statut===it.v:a.criticality===it.v).length;
               return <div key={it.v} onMouseDown={e=>{e.stopPropagation();flt.setSel(p=>on?p.filter(x=>x!==it.v):[...p,it.v]);}} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",borderRadius:4,cursor:"pointer",background:on?it.color+"18":"transparent",transition:"background 0.1s"}}
                 onMouseEnter={e=>{if(!on)e.currentTarget.style.background="#ffffff08";}} onMouseLeave={e=>{e.currentTarget.style.background=on?it.color+"18":"transparent";}}>
                 <div style={{width:14,height:14,borderRadius:4,border:`2px solid ${on?it.color:"#444"}`,background:on?it.color:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{on&&<span style={{color:"#fff",fontSize:9}}>✓</span>}</div>
