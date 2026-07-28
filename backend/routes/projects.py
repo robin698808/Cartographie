@@ -89,6 +89,8 @@ def create_project(
         color=project_in.color or "#6366F1",
         icon=project_in.icon or "Network",
         logo=project_in.logo,
+        project_type=project_in.project_type or "deal",
+        project_subtype=project_in.project_subtype,
         owner_id=current_user.id,
     )
     db.add(project)
