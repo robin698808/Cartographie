@@ -57,11 +57,33 @@ const parseCSV = (text) => {
   });
 };
 
-const downloadTemplate = async () => {
+const STATUT_DEFS = [
+  ["Actif","Application en production, utilisée activement et maintenue. Aucune anomalie bloquante connue."],
+  ["Actif dégradé","En production mais avec une dette technique importante, des anomalies connues non résolues ou sans maintenance active."],
+  ["Legacy","Technologie obsolète, non maintenable techniquement, mais toujours critique pour le fonctionnement métier."],
+  ["En décommissionnement","Décision d'arrêt formellement prise. Le processus de retrait et de migration est en cours."],
+  ["Décommissionné","Application définitivement arrêtée. Conservée dans le référentiel pour traçabilité et mémoire du patrimoine."],
+  ["En maintenance","Temporairement indisponible dans le cadre d'une maintenance planifiée (patch, upgrade, migration infra)."],
+  ["Suspendu","Arrêt temporaire sans décision définitive prise à ce stade. La reprise ou l'arrêt reste à décider."],
+  ["Inconnu","Statut non encore déterminé. À investiguer en priorité — fréquent lors d'une phase de découverte du patrimoine."],
+  ["Cible","Application retenue dans l'architecture future. À maintenir, fiabiliser ou faire évoluer à l'horizon cible."],
+  ["À refondre","Les fonctions sont conservées mais une refonte technique et/ou fonctionnelle profonde est nécessaire."],
+  ["À migrer","Les fonctions seront transférées vers une autre application cible identifiée dans la cartographie."],
+  ["À consolider","Fusion planifiée avec une ou plusieurs autres applications pour réduire la redondance du patrimoine."],
+  ["À décommissionner","Sortie définitive du patrimoine planifiée à l'horizon cible. Aucune reprise fonctionnelle prévue."],
+  ["À remplacer","Remplacement par un nouvel outil : progiciel (COTS), solution SaaS ou développement spécifique."],
+  ["À créer","Nouvelle application inexistante dans le As-Is, identifiée comme nécessaire pour couvrir un besoin cible."],
+  ["En étude","Décision non encore arrêtée. En cours d'analyse (build vs buy, périmètre fonctionnel, opportunité)."],
+];
+
+const downloadTemplate = async (projectType = "deal") => {
   await ensureXLSX();
+  const isDeal = projectType === "deal";
   const wb = XLSX.utils.book_new();
-  const hdr = ["Nom Application","Catégorie","Domaine","Description","Criticité","Éditeur / Fournisseur","Version","Responsable","Nb Utilisateurs","Statut Day 1","Statut Day 2","Flux vers (séparés par |)","Protocole flux","Objet du flux (séparés par |)","Commentaires"];
-  const ex = [
+  const hdr = isDeal
+    ? ["Nom Application","Catégorie","Domaine","Description","Criticité","Éditeur / Fournisseur","Version","Responsable","Nb Utilisateurs","Statut Day 1","Statut Day 2","Flux vers (séparés par |)","Protocole flux","Objet du flux (séparés par |)","Commentaires"]
+    : ["Nom Application","Catégorie","Domaine","Description","Criticité","Éditeur / Fournisseur","Version","Responsable","Nb Utilisateurs","Statut","Flux vers (séparés par |)","Protocole flux","Objet du flux (séparés par |)","Commentaires"];
+  const ex = isDeal ? [
     ["SAP S/4HANA","Opérations Cœur","Finance","ERP central","Haute","SAP SE","S/4HANA 2023","J. Dupont",250,"Transfert TSA","Clone & Clean","Salesforce|Power BI","API|API","Données clients|Reporting financier","Système central"],
     ["Salesforce","Commercial","CRM","Haute","Salesforce Inc.","Enterprise","M. Martin",120,"Transfert TSA","Transfert","SAP S/4HANA|Mailchimp","API|REST","Commandes|Contacts marketing",""],
     ["Power BI","IT","Business Intelligence","Moyenne","Microsoft","Pro","A. Bernard",80,"Transfert TSA","Clone & Clean","","","",""],
@@ -72,9 +94,22 @@ const downloadTemplate = async () => {
     ["DocuSign","Juridique","Signature électronique","Moyenne","DocuSign","Enterprise","N. Blanc",30,"Transfert TSA","Transfert","Salesforce","API","Contrats signés",""],
     ["MES Wonderware","Production","Pilotage atelier","Haute","AVEVA","2023","F. Garcia",40,"Abandon","Clone & Clean","SAP S/4HANA|WMS Reflex","API|MQ","Ordres de fabrication|Bons de sortie",""],
     ["Workday","RH","Gestion des talents","Moyenne","Workday","2024R1","L. Petit",0,"Transfert TSA","Transfert","ADP","API","Données collaborateurs","Déploiement S2 2025"],
+  ] : [
+    ["SAP S/4HANA","Opérations Cœur","Finance","ERP central","Haute","SAP SE","S/4HANA 2023","J. Dupont",250,"Actif","Salesforce|Power BI","API|API","Données clients|Reporting financier","Système central"],
+    ["Salesforce","Commercial","CRM","Haute","Salesforce Inc.","Enterprise","M. Martin",120,"Actif","SAP S/4HANA|Mailchimp","API|REST","Commandes|Contacts marketing",""],
+    ["Power BI","IT","Business Intelligence","Moyenne","Microsoft","Pro","A. Bernard",80,"Cible","","","",""],
+    ["ADP","RH","Paie et gestion RH","Haute","ADP","v12","L. Petit",15,"Legacy","SAP S/4HANA","SFTP","Écritures de paie",""],
+    ["Mailchimp","Marketing","Emailing marketing","Basse","Intuit","Premium","S. Moreau",10,"Actif dégradé","","","",""],
+    ["Jira","IT","Gestion de projet IT","Moyenne","Atlassian","Cloud","P. Durand",45,"Actif","Confluence","REST","Documentation technique",""],
+    ["WMS Reflex","Logistique","Gestion d'entrepôt","Haute","Hardis Group","v6.2","C. Roux",35,"À refondre","SAP S/4HANA","API","Mouvements de stock",""],
+    ["DocuSign","Juridique","Signature électronique","Moyenne","DocuSign","Enterprise","N. Blanc",30,"Actif","Salesforce","API","Contrats signés",""],
+    ["MES Wonderware","Production","Pilotage atelier","Haute","AVEVA","2023","F. Garcia",40,"À migrer","SAP S/4HANA|WMS Reflex","API|MQ","Ordres de fabrication|Bons de sortie",""],
+    ["Workday","RH","Gestion des talents","Moyenne","Workday","2024R1","L. Petit",0,"À créer","ADP","API","Données collaborateurs","Déploiement S2 2025"],
   ];
   const ws1 = XLSX.utils.aoa_to_sheet([hdr,...ex]);
-  ws1["!cols"]=[{wch:22},{wch:20},{wch:16},{wch:35},{wch:12},{wch:12},{wch:22},{wch:12},{wch:18},{wch:14},{wch:18},{wch:18},{wch:28},{wch:16},{wch:30},{wch:28}];
+  ws1["!cols"]= isDeal
+    ? [{wch:22},{wch:20},{wch:16},{wch:35},{wch:12},{wch:12},{wch:22},{wch:12},{wch:18},{wch:14},{wch:18},{wch:18},{wch:28},{wch:16},{wch:30},{wch:28}]
+    : [{wch:22},{wch:20},{wch:16},{wch:35},{wch:12},{wch:12},{wch:22},{wch:12},{wch:18},{wch:18},{wch:28},{wch:16},{wch:30},{wch:28}];
   XLSX.utils.book_append_sheet(wb,ws1,"Applications");
   var fluxHdr=["N° Ordre","Application Émettrice","Application Réceptrice","Nom du Flux Métier","Protocole","Fréquence","Description"];
   var fluxEx=[[1,"SAP S/4HANA","Salesforce","Synchronisation clients","API","Temps réel","Envoi fiches clients"],[2,"SAP S/4HANA","Salesforce","Tarifs catalogue","API","Journalier","MAJ prix"],[3,"SAP S/4HANA","Power BI","Reporting financier","API","Journalier","Données comptables"],[4,"Salesforce","SAP S/4HANA","Commandes validées","REST","Temps réel","Retour commandes"],[5,"ADP","SAP S/4HANA","Écritures de paie","SFTP","Mensuel","Intégration paie"],[6,"MES Wonderware","SAP S/4HANA","Ordres de fabrication","API","Temps réel","Retour production"]];
@@ -82,7 +117,13 @@ const downloadTemplate = async () => {
   XLSX.utils.book_append_sheet(wb,wsFlux,"Flux Métier");
   const ref=[["Domaine","Description","Couleur"],["Finance","Comptabilité, controlling","#52B788"],["RH","Paie, talents, formation","#9D4EDD"],["IT","Infra, dev, BI","#548CA8"],["Commercial","CRM, ventes","#E06C75"],["Production","MES, qualité","#D4A017"],["Logistique","WMS, supply chain","#40A578"],["Marketing","Emailing, CMS","#D63384"],["Juridique","Contrats, conformité","#57A0A0"],["Direction","Reporting, stratégie","#7B78FF"],["Autre","Non classifié","#9E9E9E"]];
   const ws2=XLSX.utils.aoa_to_sheet(ref); ws2["!cols"]=[{wch:16},{wch:40},{wch:12}]; XLSX.utils.book_append_sheet(wb,ws2,"Référentiel Domaines");
-  const ins=[["TEMPLATE CARTOGRAPHIE APPLICATIVE",""],["",""],["COLONNES OBLIGATOIRES",""],["Nom Application","Nom unique de l'application"],["Domaine","Finance, RH, IT, Commercial, Production, Logistique, Marketing, Juridique, Direction, Autre"],["",""],["COLONNES OPTIONNELLES",""],["Criticité","Haute / Moyenne / Basse"],["Statut Day 1","Stratégie de closing : Transfert TSA / Maintien / Rebuild / Abandon"],["Statut Day 2","Stratégie cible : Clone & Clean / Transfert / Rebuild / Abandon"],["Flux vers","Noms des applications cibles séparés par |"],["Protocole","API, REST, SFTP, ETL… séparés par |"],["Objet du flux","Libellé de la donnée échangée. Séparés par | si multiples"],["",""],["CONSEILS",""],["1.","Les noms dans 'Flux vers' = noms exacts de la colonne A"],["2.","Day 1 = statut de closing (J1) · Day 2 = vision cible à terme"],["3.","Voir onglet 'Référentiel Domaines' pour les couleurs"]];
+  if(!isDeal){
+    const wsStatuts=XLSX.utils.aoa_to_sheet([["Statut","Définition"],...STATUT_DEFS]);
+    wsStatuts["!cols"]=[{wch:22},{wch:90}];
+    XLSX.utils.book_append_sheet(wb,wsStatuts,"Référentiel Statuts");
+  }
+  const ins = isDeal ? [["TEMPLATE CARTOGRAPHIE APPLICATIVE",""],["",""],["COLONNES OBLIGATOIRES",""],["Nom Application","Nom unique de l'application"],["Domaine","Finance, RH, IT, Commercial, Production, Logistique, Marketing, Juridique, Direction, Autre"],["",""],["COLONNES OPTIONNELLES",""],["Criticité","Haute / Moyenne / Basse"],["Statut Day 1","Stratégie de closing : Transfert TSA / Maintien / Rebuild / Abandon"],["Statut Day 2","Stratégie cible : Clone & Clean / Transfert / Rebuild / Abandon"],["Flux vers","Noms des applications cibles séparés par |"],["Protocole","API, REST, SFTP, ETL… séparés par |"],["Objet du flux","Libellé de la donnée échangée. Séparés par | si multiples"],["",""],["CONSEILS",""],["1.","Les noms dans 'Flux vers' = noms exacts de la colonne A"],["2.","Day 1 = statut de closing (J1) · Day 2 = vision cible à terme"],["3.","Voir onglet 'Référentiel Domaines' pour les couleurs"]]
+  : [["TEMPLATE CARTOGRAPHIE APPLICATIVE",""],["",""],["COLONNES OBLIGATOIRES",""],["Nom Application","Nom unique de l'application"],["Domaine","Finance, RH, IT, Commercial, Production, Logistique, Marketing, Juridique, Direction, Autre"],["",""],["COLONNES OPTIONNELLES",""],["Criticité","Haute / Moyenne / Basse"],["Statut","Voir l'onglet 'Référentiel Statuts' pour la liste complète et les définitions"],["Flux vers","Noms des applications cibles séparés par |"],["Protocole","API, REST, SFTP, ETL… séparés par |"],["Objet du flux","Libellé de la donnée échangée. Séparés par | si multiples"],["",""],["CONSEILS",""],["1.","Les noms dans 'Flux vers' = noms exacts de la colonne A"],["2.","Voir onglet 'Référentiel Statuts' pour la liste des statuts d'application"],["3.","Voir onglet 'Référentiel Domaines' pour les couleurs"]];
   const ws3=XLSX.utils.aoa_to_sheet(ins); ws3["!cols"]=[{wch:30},{wch:70}]; XLSX.utils.book_append_sheet(wb,ws3,"Instructions");
   XLSX.writeFile(wb,"template_cartographie.xlsx");
 };
@@ -92,14 +133,14 @@ const downloadTemplate = async () => {
 function Sidebar(){
   var ref=React.useContext(AppCtx);
   if(!ref)return null;
-  var view=ref.view,setView=ref.setView,isDark=ref.isDark,T=ref.T,apps=ref.apps,flows=ref.flows,sidebarOpen=ref.sidebarOpen,setSidebarOpen=ref.setSidebarOpen;
+  var view=ref.view,setView=ref.setView,isDark=ref.isDark,T=ref.T,apps=ref.apps,flows=ref.flows,sidebarOpen=ref.sidebarOpen,setSidebarOpen=ref.setSidebarOpen,projectType=ref.projectType;
   var W=sidebarOpen?200:56;
   var NAV=[
     {id:"mapping",icon:"Map",label:"Cartographie",color:"#6366F1"},
     {id:"urbanisme",icon:"Grid",label:"Urbanisme",color:"#F59E0B"},
     {id:"paysage",icon:"Boxes",label:"Paysage",color:"#0EA5E9"},
     {id:"dashboard",icon:"BarChart",label:"Dashboard",color:"#8B5CF6"},
-    {id:"decisions",icon:"Target",label:"Decisions D1/D2",color:"#EF4444"},
+    ...(projectType==='deal'?[{id:"decisions",icon:"Target",label:"Decisions D1/D2",color:"#EF4444"}]:[]),
   ];
   return <div className="sidebar" style={{width:W,height:"100vh",background:T.bgAlt,borderRight:"1px solid "+T.border,display:"flex",flexDirection:"column",flexShrink:0,overflow:"hidden",zIndex:200}}>
     <div style={{padding:"14px 10px",display:"flex",alignItems:"center",gap:8,borderBottom:"1px solid "+T.border,flexShrink:0}}>
@@ -519,10 +560,12 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     const m={};
     const n=s=>s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
     const used=new Set();
-    var d1best=hds.find(function(h){return["day 1","statut day 1","d1"].some(function(p){return n(h).indexOf(p)>=0;});});
-    var d2best=hds.find(function(h){return h!==d1best&&["day 2","statut day 2","d2"].some(function(p){return n(h).indexOf(p)>=0;});});
-    if(d1best){m.statusD1=d1best;used.add(d1best);}
-    if(d2best){m.statusD2=d2best;used.add(d2best);}
+    if(projectType==='deal'){
+      var d1best=hds.find(function(h){return["day 1","statut day 1","d1"].some(function(p){return n(h).indexOf(p)>=0;});});
+      var d2best=hds.find(function(h){return h!==d1best&&["day 2","statut day 2","d2"].some(function(p){return n(h).indexOf(p)>=0;});});
+      if(d1best){m.statusD1=d1best;used.add(d1best);}
+      if(d2best){m.statusD2=d2best;used.add(d2best);}
+    }
     const P={name:["nom","application","app","name"],x:["x","pos x","position x"],y:["y","pos y","position y"],domain:["domaine","domain"],description:["description","desc"],status:["statut as-is","as-is","statut actuel","statut","status","état"],criticality:["criticité","criticite","criticality","importance"],vendor:["éditeur","editeur","vendor","fournisseur"],version:["version"],owner:["responsable","owner"],users:["utilisateur","users","nb util"],flowTo:["flux vers","flow to","interface vers","cible","target"],flowFrom:["source","emettrice","from"],flowProtocol:["protocole","protocol"],category:["catégorie","categorie","category","macro","zone","groupe","group","périmètre","perimetre"],flowLabel:["objet","object","libellé flux","donnée"]};
     FIELDS.forEach(function(f){
       if(m[f.key])return;
@@ -539,7 +582,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       const cr=r[mapping.criticality]||"Moyenne"; critCount[cr]=(critCount[cr]||0)+1;
       if(mapping.flowTo&&r[mapping.flowTo]) r[mapping.flowTo].split("|").forEach(t=>{if(t.trim())flowCount++;});
     });
-    return {apps:data.length, domains:domSet.size, domainList:[...domSet], flows:flowCount, critCount, mappedFields:Object.keys(mapping).filter(k=>mapping[k]).length, totalFields:FIELDS.length};
+    return {apps:data.length, domains:domSet.size, domainList:[...domSet], flows:flowCount, critCount, mappedFields:Object.keys(mapping).filter(k=>mapping[k]).length, totalFields:(projectType==='deal'?FIELDS:FIELDS.filter(f=>f.key!=="statusD1"&&f.key!=="statusD2")).length};
   };
 
   const loadSheet=useCallback((wb,nm)=>{
@@ -833,7 +876,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     else{setOff(o=>({x:o.x-e.deltaX*0.8,y:o.y-e.deltaY*0.8}));}
   };
 
-  var ctxValue={view,setView,isDark,T,apps,flows,sidebarOpen,setSidebarOpen};
+  var ctxValue={view,setView,isDark,T,apps,flows,sidebarOpen,setSidebarOpen,projectType};
   const applyStarLayout=()=>{
     if(apps.length===0)return;
     const cW=Math.round(AW_BASE*globalScale*Math.max(0.7,fontScale));
@@ -1351,6 +1394,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         lY+=rowH;
       });
     };
+    if(projectType==='deal'){
     // Bloc Day 1
     const d1Stats2=[
       {l:"Transfert TSA",v:apps.filter(function(a){return a.statusD1==="Transfert TSA";}).length,c:"F59E0B"},
@@ -1379,6 +1423,19 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     sSX.addText("VISION CIBLE — DAY 2",{x:d2bx+0.14,y:d2by+0.05,w:3.2,h:0.20,fontSize:9,bold:true,color:"7C3AED",fontFace:"Calibri",charSpacing:1,margin:0});
     sSX.addText(sxD2Def+" / "+apps.length+" définies",{x:d2bx+d2bw-1.55,y:d2by+0.05,w:1.45,h:0.18,fontSize:8,color:"94A3B8",fontFace:"Calibri",align:"right",margin:0});
     sxDrawDonut(d2bx,d2by,d2bw,d2bh,d2Stats2,apps.length,sxD2Def);
+    } else {
+    // Bloc Statut (remplace Day 1 / Day 2 pour les projets Cartographie SI)
+    const stStats2=STATUT_OPTS.filter(function(v){return v;}).map(function(v){
+      return {l:v,v:apps.filter(function(a){return a.statut===v;}).length,c:(STATUT_COLORS[v]||"#94A3B8").replace("#","")};
+    });
+    const stDef=apps.filter(function(a){return a.statut;}).length;
+    const stbx=0.25,stby=1.80,stbw=9.50,stbh=2.30;
+    sSX.addShape(pres.shapes.RECTANGLE,{x:stbx,y:stby,w:stbw,h:stbh,fill:{color:"FFFFFF"},line:{color:"E2E8F0",width:0.5},shadow:{type:"outer",blur:3,offset:1,color:"000000",opacity:0.06,angle:135}});
+    sSX.addShape(pres.shapes.RECTANGLE,{x:stbx,y:stby,w:stbw,h:0.28,fill:{color:"DBEAFE"},line:{type:"none"}});
+    sSX.addText("RÉPARTITION PAR STATUT",{x:stbx+0.14,y:stby+0.05,w:3.2,h:0.20,fontSize:9,bold:true,color:"1D4ED8",fontFace:"Calibri",charSpacing:1,margin:0});
+    sSX.addText(stDef+" / "+apps.length+" définies",{x:stbx+stbw-1.55,y:stby+0.05,w:1.45,h:0.18,fontSize:8,color:"94A3B8",fontFace:"Calibri",align:"right",margin:0});
+    sxDrawDonut(stbx,stby,stbw,stbh,stStats2,apps.length,stDef);
+    }
     // Bloc responsables (bas)
     const sxOwners={};
     apps.forEach(function(a){const o=a.owner&&a.owner.trim()?a.owner.trim():"Non renseigné";sxOwners[o]=(sxOwners[o]||0)+1;});
@@ -1477,12 +1534,12 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
 
     // ─── Slides: Environnement applicatif Day 1 & Day 2 ───
     // Style : grandes zones Catégorie (tirets + fond teinté) > Domaines (boîtes) > Chips applicatifs
-    [
+    (projectType==='deal'?[
       {title:"ENVIRONNEMENT APPLICATIF — DAY 1",subtitle:"STATUT DE CLOSING",field:"statusD1",
        colorMap:_opts.statusColorsD1||{"Transfert TSA":"F59E0B","Maintien":"10B981","Rebuild":"6366F1","Abandon":"EF4444","Non défini":"94A3B8"}},
       {title:"ENVIRONNEMENT APPLICATIF — DAY 2",subtitle:"VISION CIBLE",field:"statusD2",
        colorMap:_opts.statusColorsD2||{"Clone & Clean":"3B82F6","Transfert":"10B981","Rebuild":"8B5CF6","Abandon":"EF4444","Non défini":"94A3B8"}},
-    ].forEach(function(cfg){
+    ]:[]).forEach(function(cfg){
       if(!apps.length)return;
 
       // ── Dimensions fixes du slide (no SS proxy) ──
@@ -3091,23 +3148,30 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         sT.addText("RÉCAPITULATIF DES FLUX"+suffix,{x:0.3,y:0.10,w:12,h:0.35,fontSize:14,bold:true,color:"FFFFFF",fontFace:"Trebuchet MS",margin:0});
         const pageRows=rows.slice(page*ROWS_PER_SLIDE,(page+1)*ROWS_PER_SLIDE);
         const hdrOpts=function(txt){return {text:txt,options:{bold:true,fill:{color:"1E293B"},color:"FFFFFF",fontSize:8,fontFace:"Calibri",valign:"middle"}};};
-        const header=[[hdrOpts("Domaine"),hdrOpts("App. Source"),hdrOpts("App. Cible"),hdrOpts("Flux / Protocole"),hdrOpts("Statut Day 1"),hdrOpts("Statut Day 2")]];
+        const header=projectType==='deal'
+          ?[[hdrOpts("Domaine"),hdrOpts("App. Source"),hdrOpts("App. Cible"),hdrOpts("Flux / Protocole"),hdrOpts("Statut Day 1"),hdrOpts("Statut Day 2")]]
+          :[[hdrOpts("Domaine"),hdrOpts("App. Source"),hdrOpts("App. Cible"),hdrOpts("Flux / Protocole"),hdrOpts("Statut")]];
         const tblRows=pageRows.map(function(r,ri){
           const d1c=SD1C[r.fa.statusD1]||null;
           const d2c=SD2C[r.fa.statusD2]||null;
+          const statC=STATUT_COLORS[r.fa.statut]||null;
           const rowBg=ri%2===0?"FFFFFF":"F8FAFC";
           const cell=function(txt,extra){return {text:txt,options:Object.assign({fontSize:8,fontFace:"Calibri",valign:"middle",fill:{color:rowBg},color:"1E293B"},extra||{})};};
           const fluxTxt=[...r.protocols].join(", ")+(r.labels.filter(Boolean).length?" · "+r.labels.filter(Boolean).slice(0,3).join(", ")+(r.labels.filter(Boolean).length>3?" …":""):"");
-          return [
+          const baseCells=[
             cell(r.fa.domain,{color:"6B7280",italic:true}),
             cell(r.fa.name,{bold:true}),
             cell(r.ta.name),
             cell(fluxTxt,{color:"475569",shrinkText:true}),
-            cell(r.fa.statusD1||"—",d1c?{bold:true,color:d1c}:{color:"9CA3AF"}),
-            cell(r.fa.statusD2||"—",d2c?{bold:true,color:d2c}:{color:"9CA3AF"}),
           ];
+          return projectType==='deal'
+            ?[...baseCells,
+              cell(r.fa.statusD1||"—",d1c?{bold:true,color:d1c}:{color:"9CA3AF"}),
+              cell(r.fa.statusD2||"—",d2c?{bold:true,color:d2c}:{color:"9CA3AF"})]
+            :[...baseCells,
+              cell(r.fa.statut||"—",statC?{bold:true,color:statC.replace("#","")}:{color:"9CA3AF"})];
         });
-        sT.addTable([...header,...tblRows],{x:0.25,y:0.65,w:12.83,colW:[2.0,2.60,2.60,3.00,1.30,1.33],border:{pt:0.4,color:"E2E8F0"},rowH:0.35});
+        sT.addTable([...header,...tblRows],{x:0.25,y:0.65,w:12.83,colW:projectType==='deal'?[2.0,2.60,2.60,3.00,1.30,1.33]:[2.2,2.85,2.85,3.30,1.63],border:{pt:0.4,color:"E2E8F0"},rowH:0.35});
         sT.addText("Données : "+rows.length+" paires d'applications · "+flows.length+" flux total",{x:0.25,y:7.30,w:12.83,h:0.18,fontSize:7,color:"94A3B8",fontFace:"Calibri",margin:0,italic:true,align:"center"});
       }
     };
@@ -4182,21 +4246,26 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
           sA.addText("RÉCAPITULATIF DES APPLICATIONS"+suffix,{x:0.3,y:0.10,w:12,h:0.35,fontSize:14,bold:true,color:"FFFFFF",fontFace:"Trebuchet MS",margin:0});
           var pageApps=sortedApps.slice(page*ROWS_PER_SLIDE,(page+1)*ROWS_PER_SLIDE);
           var hdr=function(txt){return {text:txt,options:{bold:true,fill:{color:"1E293B"},color:"FFFFFF",fontSize:9,fontFace:"Calibri",valign:"middle"}};};
-          var header=[[hdr("Domaine"),hdr("Application"),hdr("Statut Day 1"),hdr("Statut Day 2")]];
+          var header=projectType==='deal'
+            ?[[hdr("Domaine"),hdr("Application"),hdr("Statut Day 1"),hdr("Statut Day 2")]]
+            :[[hdr("Domaine"),hdr("Application"),hdr("Statut")]];
           var tblRows=pageApps.map(function(app,ri){
             var d1c=SD1C[app.statusD1]||null;
             var d2c=SD2C[app.statusD2]||null;
+            var statC=STATUT_COLORS[app.statut]||null;
             var rowBg=ri%2===0?"FFFFFF":"F8FAFC";
             var domColor=(_pDC[app.domain]||_pDC.Autre).ac.replace("#","");
             var cell=function(txt,extra){return {text:txt,options:Object.assign({fontSize:9,fontFace:"Calibri",valign:"middle",fill:{color:rowBg},color:"1E293B"},extra||{})};};
-            return [
-              cell(app.domain,{color:domColor,bold:true}),
-              cell(app.name,{bold:true}),
-              cell(app.statusD1||"—",d1c?{bold:true,color:d1c}:{color:"9CA3AF"}),
-              cell(app.statusD2||"—",d2c?{bold:true,color:d2c}:{color:"9CA3AF"}),
-            ];
+            return projectType==='deal'
+              ?[cell(app.domain,{color:domColor,bold:true}),
+                cell(app.name,{bold:true}),
+                cell(app.statusD1||"—",d1c?{bold:true,color:d1c}:{color:"9CA3AF"}),
+                cell(app.statusD2||"—",d2c?{bold:true,color:d2c}:{color:"9CA3AF"})]
+              :[cell(app.domain,{color:domColor,bold:true}),
+                cell(app.name,{bold:true}),
+                cell(app.statut||"—",statC?{bold:true,color:statC.replace("#","")}:{color:"9CA3AF"})];
           });
-          sA.addTable([...header,...tblRows],{x:0.25,y:0.65,w:12.83,colW:[2.80,6.10,1.97,1.96],border:{pt:0.4,color:"E2E8F0"},rowH:0.32});
+          sA.addTable([...header,...tblRows],{x:0.25,y:0.65,w:12.83,colW:projectType==='deal'?[2.80,6.10,1.97,1.96]:[3.30,7.20,2.33],border:{pt:0.4,color:"E2E8F0"},rowH:0.32});
           sA.addText(sortedApps.length+" applications · "+doms.length+" domaines",{x:0.25,y:7.30,w:12.83,h:0.18,fontSize:7,color:"94A3B8",fontFace:"Calibri",margin:0,italic:true,align:"center"});
         }
       })();
@@ -4479,7 +4548,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     const clearTip=function(){setChartTip(null);};
     const hexToRgbCo=function(hex){var r=parseInt(hex.slice(1,3),16)||102,g=parseInt(hex.slice(3,5),16)||102,b=parseInt(hex.slice(5,7),16)||102;return r+","+g+","+b;};
     const toggleSection=(id)=>setHiddenSections(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
-    const ALL_WIDGETS=["chart_apps","chart_flux","chart_owner","carveout","flowreg"];
+    const ALL_WIDGETS=["chart_apps","chart_flux","chart_owner",...(projectType==='deal'?["carveout"]:[]),"flowreg"];
     const DEFAULT_SIZES={chart_apps:"m",chart_flux:"m",chart_owner:"m",carveout:"l",flowreg:"l"};
     const [widgetSizes,setWidgetSizes]=useState(function(){try{var s=localStorage.getItem("dash_sizes_"+(projectId||"default"));if(s)return Object.assign({},DEFAULT_SIZES,JSON.parse(s));}catch(e){}return Object.assign({},DEFAULT_SIZES);});
     const saveWidgetSizes=(sz)=>{setWidgetSizes(sz);try{localStorage.setItem("dash_sizes_"+(projectId||"default"),JSON.stringify(sz));}catch(e){}};
@@ -4622,7 +4691,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         {opts.map(function(o){return <option key={o.k} value={o.k} style={{background:"#1A1A35",color:"#fff"}}>{o.label}</option>;})}
       </select>;
     };
-    var ALL_WIDGETS_LIST=["chart_apps","chart_flux","chart_owner","carveout","flowreg"];
+    var ALL_WIDGETS_LIST=["chart_apps","chart_flux","chart_owner",...(projectType==='deal'?["carveout"]:[]),"flowreg"];
     var getDefaultPos=function(id){
       var idx=ALL_WIDGETS_LIST.indexOf(id);
       var col=idx%2; var row=Math.floor(idx/2);
@@ -5532,7 +5601,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         <div style={{fontSize:12,fontWeight:700,color:"#52B788",marginBottom:3}}>📋 Template Excel</div>
         <div style={{fontSize:11,color:T.fgMuted}}>Pré-formaté avec exemples &amp; instructions</div>
       </div>
-      <button onClick={downloadTemplate} style={{...B,background:"#52B788",padding:"8px 14px",whiteSpace:"nowrap",fontSize:11,flexShrink:0}}>⬇ .xlsx</button>
+      <button onClick={()=>downloadTemplate(projectType)} style={{...B,background:"#52B788",padding:"8px 14px",whiteSpace:"nowrap",fontSize:11,flexShrink:0}}>⬇ .xlsx</button>
     </div>
 
     {/* ── Bouton thème ── */}
@@ -5563,7 +5632,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     </div>}
     <h2 style={{fontSize:20,fontWeight:700,marginBottom:4}}>Mapping des colonnes</h2>
     <p style={{color:T.fgMuted,fontSize:12,marginBottom:24}}>{fName&&<><strong style={{color:"#548CA8"}}>{fName}</strong> · </>}{rawData?.length} lignes · Vérifiez ou ajustez le mapping</p>
-    <div style={{background:T.bgCard,borderRadius:8,padding:24}}>{FIELDS.map(({key,label,req})=><div key={key} style={{display:"flex",alignItems:"center",marginBottom:12,gap:16}}><div style={{width:200,fontSize:12,color:req?"#E8E8E8":"#888"}}>{label}{req&&<span style={{color:"#E06C75"}}> *</span>}</div><select value={cMap[key]||""} onChange={e=>setCMap(p=>({...p,[key]:e.target.value}))} style={{...I,flex:1,borderColor:cMap[key]?"#52B78860":"#333"}}><option value="">— Ignorer —</option>{rawHdr.map(h=><option key={h} value={h}>{h}</option>)}</select>{cMap[key]&&<span style={{color:"#52B788",fontSize:12}}>✓</span>}</div>)}</div>
+    <div style={{background:T.bgCard,borderRadius:8,padding:24}}>{(projectType==='deal'?FIELDS:FIELDS.filter(f=>f.key!=="statusD1"&&f.key!=="statusD2")).map(({key,label,req})=><div key={key} style={{display:"flex",alignItems:"center",marginBottom:12,gap:16}}><div style={{width:200,fontSize:12,color:req?"#E8E8E8":"#888"}}>{label}{req&&<span style={{color:"#E06C75"}}> *</span>}</div><select value={cMap[key]||""} onChange={e=>setCMap(p=>({...p,[key]:e.target.value}))} style={{...I,flex:1,borderColor:cMap[key]?"#52B78860":"#333"}}><option value="">— Ignorer —</option>{rawHdr.map(h=><option key={h} value={h}>{h}</option>)}</select>{cMap[key]&&<span style={{color:"#52B788",fontSize:12}}>✓</span>}</div>)}</div>
     <div style={{marginTop:24,background:T.bgCard,borderRadius:8,padding:16,overflowX:"auto"}}>
       <div style={{fontSize:11,fontWeight:700,color:"#548CA8",marginBottom:8}}>APERÇU (5 premières lignes)</div>
       <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}><thead><tr>{rawHdr.map(h=><th key={h} style={{padding:"4px 8px",textAlign:"left",color:T.fgMuted,borderBottom:"1px solid "+T.border}}>{h}</th>)}</tr></thead>
@@ -6229,7 +6298,7 @@ if(view==="urbanisme"){
   }
 
 
-  if(view==="decisions"){
+  if(view==="decisions"&&projectType==='deal'){
     var doms_dec=[...new Set(apps.map(function(a){return a.domain;}))].sort();
     var sd1c={"Transfert TSA":"#F59E0B","Maintien":"#10B981","Rebuild":"#6366F1","Abandon":"#EF4444"};
     var sd2c={"Clone & Clean":"#3B82F6","Transfert":"#10B981","Abandon":"#EF4444","Rebuild":"#8B5CF6"};
@@ -6652,15 +6721,12 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
       slideCount+=nCarto;
       var set=function(k,v){setExportOpts(function(p){var n=Object.assign({},p);n[k]=v;return n;});};
       var applyPreset=function(p){
-        var base={inclExecSlides:false,inclPaysage:true,inclMatrices:false,inclConsolidatedCarto:false,inclDomainStatus:false,cartoMode:"none"};
-        if(p==="cartographie")set("__preset__",Object.assign(base,{inclExecSlides:true,inclConsolidatedCarto:true,cartoMode:"byDomain"}));
-        else if(p==="decision")set("__preset__",Object.assign(base,{inclExecSlides:true,inclMatrices:true,inclDomainStatus:true,cartoMode:"byDomain",inclConsolidatedCarto:true}));
-        else if(val==="complet")set("__preset__",Object.assign(base,{inclExecSlides:true,inclMatrices:true,inclConsolidatedCarto:true,inclDomainStatus:true,cartoMode:"byDomain"}));
+        var allowD1D2=projectType==='deal';
         setExportOpts(function(prev){
           var base2={inclExecSlides:false,inclPaysage:true,inclMatrices:false,inclConsolidatedCarto:false,inclDomainStatus:false,cartoMode:"none"};
           if(p==="cartographie")return Object.assign({},prev,base2,{inclExecSlides:true,inclConsolidatedCarto:true,cartoMode:"byDomain"});
-          if(p==="decision")return Object.assign({},prev,base2,{inclExecSlides:true,inclMatrices:true,inclDomainStatus:true,cartoMode:"byDomain",inclConsolidatedCarto:true});
-          return Object.assign({},prev,base2,{inclExecSlides:true,inclMatrices:true,inclConsolidatedCarto:true,inclDomainStatus:true,cartoMode:"byDomain"});
+          if(p==="decision")return Object.assign({},prev,base2,{inclExecSlides:true,inclMatrices:true,inclDomainStatus:allowD1D2,cartoMode:"byDomain",inclConsolidatedCarto:true});
+          return Object.assign({},prev,base2,{inclExecSlides:true,inclMatrices:true,inclConsolidatedCarto:true,inclDomainStatus:allowD1D2,cartoMode:"byDomain"});
         });
       };
       var Chk=function(k,label,desc,n){
@@ -6700,8 +6766,8 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
               <div style={{display:"flex",gap:8}}>
                 {[
                   {id:"cartographie",icon:"🗺",label:"Cartographie",desc:"Slides exécutives + carto consolidée et détaillée par domaine",color:"#2979FF"},
-                  {id:"decision",icon:"📊",label:"Aide à la décision",desc:"Carto + matrices de flux + vision Day 1 & Day 2",color:"#8B5CF6"},
-                  {id:"complet",icon:"📦",label:"Livrable complet",desc:"Toutes les sections — cartographie, flux et trajectoires",color:"#EF6C00"},
+                  {id:"decision",icon:"📊",label:"Aide à la décision",desc:projectType==='deal'?"Carto + matrices de flux + vision Day 1 & Day 2":"Carto + matrices de flux + statuts applicatifs",color:"#8B5CF6"},
+                  {id:"complet",icon:"📦",label:"Livrable complet",desc:projectType==='deal'?"Toutes les sections — cartographie, flux et trajectoires":"Toutes les sections — cartographie, flux et statuts",color:"#EF6C00"},
                 ].map(function(pr){
                   return <button key={pr.id} onMouseDown={function(e){e.preventDefault();applyPreset(pr.id);}} style={{flex:1,background:pr.color+"10",border:"1px solid "+pr.color+"35",borderRadius:9,padding:"10px 8px",cursor:"pointer",textAlign:"left",transition:"background .12s"}}>
                     <div style={{fontSize:14,marginBottom:4}}>{pr.icon}</div>
@@ -6744,7 +6810,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
               <div style={{fontSize:11,fontWeight:700,color:T.fg,marginBottom:10}}>Contenu du livrable</div>
               {Chk("inclExecSlides","Slides exécutives","Page de titre + Synthèse & Messages clés",2)}
               {Chk("inclPaysage","Paysage applicatif","Treemap hiérarchique domaines → catégories → applications",1)}
-              {Chk("inclMatrices","Matrices de flux","Récap applications (Domaine / App / D1 / D2) + récap flux + vue agrégée par domaine",2+(Math.ceil(flows.length/18)||1)+(Math.ceil(apps.length/22)||1))}
+              {Chk("inclMatrices","Matrices de flux",projectType==='deal'?"Récap applications (Domaine / App / D1 / D2) + récap flux + vue agrégée par domaine":"Récap applications (Domaine / App / Statut) + récap flux + vue agrégée par domaine",2+(Math.ceil(flows.length/18)||1)+(Math.ceil(apps.length/22)||1))}
               {Chk("inclConsolidatedCarto","Vues de cartographie consolidée","Clusters par domaine + vue domaine pivot",2)}
               {projectType==='deal' && Chk("inclDomainStatus","Vision Day 1 & Day 2","Applications colorées par stratégie de closing et cible (Transfert TSA, Maintien, Rebuild, Abandon)",2)}
             </div>
@@ -6809,7 +6875,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
           </div>
 
             {/* ── Couleurs des statuts Day 1 & Day 2 ── */}
-            {(function(){
+            {projectType==='deal' && (function(){
               var D1_KEYS=["Transfert TSA","Maintien","Rebuild","Abandon","Non défini"];
               var D2_KEYS=["Clone & Clean","Transfert","Rebuild","Abandon","Non défini"];
               var colD1=exportOpts.statusColorsD1||{};
