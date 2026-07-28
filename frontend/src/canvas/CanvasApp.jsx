@@ -26,7 +26,7 @@ const acToPalette=(ac)=>{
   const fg="#"+[r,g,b].map(v=>Math.min(255,Math.round(v*0.4+180)).toString(16).padStart(2,"0")).join("");
   return {bg,fg,ac};
 };
-var THEMES={dark:{bg:"#08080F",bgAlt:"#0D0D1A",bgCard:"#13132A",bgInput:"#0D0D1A",bgHover:"#1C1C38",fg:"#F0F0FB",fgMuted:"#8080B0",fgDim:"#5A5A85",fgFaint:"#3A3A60",border:"#22224A",borderLight:"#1A1A3A",overlay:"#000000A8",grid:"#111128",shadow:"var(--shadow-md)",accent:"#6366F1",accentMuted:"#6366F118",pres:"#05050A"},light:{bg:"#F7F8FD",bgAlt:"#EEF0FA",bgCard:"#FFFFFF",bgInput:"#FFFFFF",bgHover:"#E8EAF8",fg:"#0F1030",fgMuted:"#3D3D70",fgDim:"#6868A0",fgFaint:"#9090C0",border:"#CDD0E8",borderLight:"#DDE0F0",overlay:"#00000030",grid:"#D8DAF0",shadow:"0 4px 24px #00000015",accent:"#6366F1",accentMuted:"#6366F115",pres:"#F0F2FC"}};
+var THEMES={dark:{bg:"#08080F",bgAlt:"#0D0D1A",bgCard:"#13132A",bgInput:"#0D0D1A",bgHover:"#1C1C38",fg:"#F0F0FB",fgMuted:"#8080B0",fgDim:"#5A5A85",fgFaint:"#3A3A60",border:"#22224A",borderLight:"#1A1A3A",overlay:"#000000A8",grid:"#111128",shadow:"var(--shadow-md)",accent:"#6366F1",accentMuted:"#6366F118",pres:"#05050A"},light:{bg:"#F7F8FD",bgAlt:"#EEF0FA",bgCard:"#FFFFFF",bgInput:"#FFFFFF",bgHover:"#E8EAF8",fg:"#0F1030",fgMuted:"#3D3D70",fgDim:"#6868A0",fgFaint:"#7070AE",border:"#CDD0E8",borderLight:"#DDE0F0",overlay:"#00000030",grid:"#D8DAF0",shadow:"0 4px 24px #00000015",accent:"#6366F1",accentMuted:"#6366F115",pres:"#F0F2FC"}};
 const ALLDOM_DEFAULT = Object.keys(DC_DEFAULT);
 const CC = {Haute:"#FF5252",Moyenne:"#EF6C00",Basse:"#00C853"};
 const SD1={"Transfert TSA":"#F59E0B","Abandon":"#EF4444","Maintien":"#10B981","Rebuild":"#6366F1"};
@@ -4334,6 +4334,11 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   const AppNode=({app})=>{const c=DC[app.domain]||DC.Autre;const sel=selApp?.id===app.id;
     const msel=multiSel.includes(app.id);
     const crC=CC[app.criticality]||"#999";
+    // En mode jour, les tuiles ne réutilisent plus le fond sombre pensé pour le mode nuit —
+    // fond pastel translucide de l'accent + texte de l'accent lui-même (meilleure cohérence visuelle).
+    const cardBg=isDark?c.bg:c.ac+"14";
+    const cardFg=isDark?c.fg:c.ac;
+    const cardFgSub=isDark?c.fg+"99":c.ac+"AA";
     // D1-driven color: if D1 is set, use D1 color for border/bandeau; else domain color
     const d1C=app.statusD1?(SD1[app.statusD1]||"#888"):null;
     const statutC=app.statut?(STATUT_COLORS[app.statut]||"#888"):null;
@@ -4349,7 +4354,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     // D1 tint overlay on card background
     var d1BgTint=app.statusD1==="Abandon"?"#EF444412":app.statusD1==="Transfert TSA"?"#F59E0B0E":null;
     var crLabel=app.criticality==="Haute"?"●":app.criticality==="Basse"?"○":"◐";
-    return <div style={{position:"absolute",left:app.x,top:app.y,width:aw,height:ah,background:c.bg,border:`${msel?"2.5px":"1.5px"} solid ${msel?"#4ECDC4":sel?"#fff":cardColor}`,borderRadius:4,cursor:cMode?"crosshair":selMode?"pointer":msel?"move":"grab",boxShadow:msel?"0 0 12px #4ECDC480":sel?`0 0 14px ${cardColor}80`:"0 1px 4px #00000040",userSelect:"none",zIndex:sel?10:1,overflow:"hidden",opacity:appOpacity,transition:"opacity 0.15s"}}
+    return <div style={{position:"absolute",left:app.x,top:app.y,width:aw,height:ah,background:cardBg,border:`${msel?"2.5px":"1.5px"} solid ${msel?"#4ECDC4":sel?T.accent:cardColor}`,borderRadius:4,cursor:cMode?"crosshair":selMode?"pointer":msel?"move":"grab",boxShadow:msel?"0 0 12px #4ECDC480":sel?`0 0 14px ${cardColor}80`:(isDark?"0 1px 4px #00000040":"0 1px 4px #00000018, 0 0 0 1px "+T.border),userSelect:"none",zIndex:sel?10:1,overflow:"hidden",opacity:appOpacity,transition:"opacity 0.15s"}}
       data-app="1" className="app-card"
       onContextMenu={function(e){e.preventDefault();e.stopPropagation();setCtxMenu({x:e.clientX,y:e.clientY,type:"app",target:app.id});}}
       onMouseEnter={function(){if(!drag&&!cMode&&!selMode)setFocusApp(app.id);}}
@@ -4376,8 +4381,8 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       {/* Content */}
       <div style={{display:"flex",alignItems:"center",gap:4,padding:"0 6px",height:"100%",position:"relative",zIndex:1}}>
         <div style={{overflow:"hidden",flex:1,minWidth:0}}>
-          <div style={{color:c.fg,fontSize:Math.round(10*fsD),fontWeight:700,lineHeight:1.3,letterSpacing:"-0.015em",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textDecoration:isNeg?"line-through":"none"}}>{app.name}</div>
-          <div style={{color:c.fg+"99",fontSize:Math.round(8*fsD),lineHeight:1.2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{app.vendor||""}</div>
+          <div style={{color:cardFg,fontSize:Math.round(10*fsD),fontWeight:700,lineHeight:1.3,letterSpacing:"-0.015em",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textDecoration:isNeg?"line-through":"none"}}>{app.name}</div>
+          <div style={{color:cardFgSub,fontSize:Math.round(8*fsD),lineHeight:1.2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{app.vendor||""}</div>
           {projectType==='deal'?(app.statusD1||app.statusD2)&&<div style={{display:"flex",gap:3,marginTop:2,overflow:"hidden"}}>
             {app.statusD2&&<span style={{fontSize:Math.round(7*fsD),background:(SD2[app.statusD2]||"#3B82F6")+"28",color:SD2[app.statusD2]||"#3B82F6",border:"1px solid "+((SD2[app.statusD2]||"#3B82F6")+"66"),borderRadius:2,padding:"0 3px",fontWeight:700,lineHeight:1.5,flexShrink:0,whiteSpace:"nowrap"}}>{"D2:"+(app.statusD2==="Clone & Clean"?"Clone":app.statusD2)}</span>}
           </div>:null}
@@ -4415,7 +4420,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
             onClick={function(e){e.stopPropagation();setSelFlow(selFlow===f.id?null:f.id);setFlowCtx(null);}}
             onDoubleClick={function(e){e.stopPropagation();setEFlow(Object.assign({},f));setShowFM(true);setSelFlow(null);}}
             onContextMenu={function(e){e.preventDefault();e.stopPropagation();setFlowCtx({flow:f,x:e.clientX,y:e.clientY});setSelFlow(f.id);}}/>
-          <path d={"M"+ep.x+" "+ep.y+" Q"+mx+" "+my+" "+en.x+" "+en.y} stroke={selFlow===f.id?"#fff":lineCol} strokeWidth={selFlow===f.id?flowThickness+1:flowThickness} strokeOpacity={selFlow===f.id?0.95:0.65} strokeDasharray={dashVal} fill="none" markerEnd="url(#ah)" style={{pointerEvents:"stroke",cursor:"pointer"}}
+          <path d={"M"+ep.x+" "+ep.y+" Q"+mx+" "+my+" "+en.x+" "+en.y} stroke={selFlow===f.id?T.accent:lineCol} strokeWidth={selFlow===f.id?flowThickness+1:flowThickness} strokeOpacity={selFlow===f.id?0.95:0.65} strokeDasharray={dashVal} fill="none" markerEnd="url(#ah)" style={{pointerEvents:"stroke",cursor:"pointer"}}
             onClick={function(e){e.stopPropagation();setSelFlow(selFlow===f.id?null:f.id);setFlowCtx(null);}}
             onDoubleClick={function(e){e.stopPropagation();setEFlow(Object.assign({},f));setShowFM(true);setSelFlow(null);}}
             onContextMenu={function(e){e.preventDefault();e.stopPropagation();setFlowCtx({flow:f,x:e.clientX,y:e.clientY});setSelFlow(f.id);}}/>
@@ -6900,7 +6905,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
                   </div>
                   <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
                     {["0B2545","1B3A5C","2979FF","10B981","6366F1","EF6C00","E06C75","2D6A4F"].map(function(c){
-                      return <div key={c} onMouseDown={function(e){e.preventDefault();set("clientPrimary",c);}} style={{width:22,height:22,borderRadius:5,background:"#"+c,cursor:"pointer",border:exportOpts.clientPrimary===c?"2px solid #fff":"2px solid transparent",boxShadow:exportOpts.clientPrimary===c?"0 0 0 2px #"+c:"none"}}/>;
+                      return <div key={c} onMouseDown={function(e){e.preventDefault();set("clientPrimary",c);}} style={{width:22,height:22,borderRadius:5,background:"#"+c,cursor:"pointer",border:exportOpts.clientPrimary===c?"2px solid "+T.bgCard:"2px solid transparent",boxShadow:exportOpts.clientPrimary===c?"0 0 0 2px #"+c:"none"}}/>;
                     })}
                   </div>
                 </div>
@@ -7049,7 +7054,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
         {["#52B788","#9D4EDD","#548CA8","#E06C75","#D4A017","#40A578","#D63384","#57A0A0","#7B78FF","#FF6B35","#4ECDC4","#C44536","#2EC4B6","#E71D36","#FF9F1C","#6A0572","#00B4D8","#E9C46A","#264653","#F4845F","#2D6A4F","#B5179E","#7209B7","#4361EE"].map(c=>{
           const isActive=(domColors[showDomEdit]||{ac:""}).ac===c;
           return <div key={c} onMouseDown={e=>{e.stopPropagation();e.preventDefault();setDomColors(prev=>{const n={...prev};n[showDomEdit]=acToPalette(c);return n;});}}
-            style={{width:32,height:32,borderRadius:8,background:c,cursor:"pointer",border:isActive?"3px solid #fff":"3px solid transparent",boxShadow:isActive?"0 0 8px "+c+"80":"none",transition:"all 0.15s",display:"flex",alignItems:"center",justifyContent:"center"}}>
+            style={{width:32,height:32,borderRadius:8,background:c,cursor:"pointer",border:isActive?"3px solid "+T.bgCard:"3px solid transparent",boxShadow:isActive?"0 0 8px "+c+"80":"none",transition:"all 0.15s",display:"flex",alignItems:"center",justifyContent:"center"}}>
             {isActive&&<span style={{color:"#fff",fontSize:13,fontWeight:700}}>✓</span>}
           </div>;})}
       </div>
@@ -7077,7 +7082,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
           {["#548CA8","#D4A017","#E06C75","#52B788","#9D4EDD","#D63384","#7B78FF","#40A578","#FF6B35","#4ECDC4","#C44536","#2EC4B6","#E71D36","#FF9F1C","#6A0572","#00B4D8","#E9C46A","#264653","#F4845F","#2D6A4F","#B5179E","#7209B7","#4361EE","#F72585"].map(c=>{
             const isActive=(catColors[showCatColorEdit]||CAT_COLORS[0])===c;
             return <div key={c} onMouseDown={e=>{e.stopPropagation();e.preventDefault();setCatColors(p=>({...p,[showCatColorEdit]:c}));}}
-              style={{width:32,height:32,borderRadius:8,background:c,cursor:"pointer",border:isActive?"3px solid #fff":"3px solid transparent",boxShadow:isActive?"0 0 8px "+c+"80":"none",transition:"all 0.15s",display:"flex",alignItems:"center",justifyContent:"center"}}>
+              style={{width:32,height:32,borderRadius:8,background:c,cursor:"pointer",border:isActive?"3px solid "+T.bgCard:"3px solid transparent",boxShadow:isActive?"0 0 8px "+c+"80":"none",transition:"all 0.15s",display:"flex",alignItems:"center",justifyContent:"center"}}>
               {isActive&&<span style={{color:"#fff",fontSize:13,fontWeight:700}}>✓</span>}
             </div>;
           })}
