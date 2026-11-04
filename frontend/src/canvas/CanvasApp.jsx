@@ -173,7 +173,7 @@ const accentTextForLight=(hex)=>{
   const rgb=hslToRgb((lo+hi)/2);
   return "#"+rgb.map(v=>Math.round(v*255).toString(16).padStart(2,"0")).join("");
 };
-var THEMES={dark:{bg:"#08080F",bgAlt:"#0D0D1A",bgCard:"#13132A",bgInput:"#0D0D1A",bgHover:"#1C1C38",fg:"#F0F0FB",fgMuted:"#8080B0",fgDim:"#5A5A85",fgFaint:"#3A3A60",border:"#22224A",borderLight:"#1A1A3A",overlay:"#000000A8",grid:"#111128",shadow:"var(--shadow-md)",accent:"#6366F1",accentMuted:"#6366F118",pres:"#05050A"},light:{bg:"#F7F8FD",bgAlt:"#EEF0FA",bgCard:"#FFFFFF",bgInput:"#FFFFFF",bgHover:"#E8EAF8",fg:"#0F1030",fgMuted:"#3D3D70",fgDim:"#6868A0",fgFaint:"#7070AE",border:"#CDD0E8",borderLight:"#DDE0F0",overlay:"#00000030",grid:"#D8DAF0",shadow:"0 4px 24px #00000015",accent:"#6366F1",accentMuted:"#6366F115",pres:"#F0F2FC"}};
+var THEMES={dark:{bg:"#08080F",bgAlt:"#0D0D1A",bgCard:"#13132A",bgInput:"#0D0D1A",bgHover:"#1C1C38",fg:"#F0F0FB",fgMuted:"#8080B0",fgDim:"#5A5A85",fgFaint:"#3A3A60",border:"#22224A",borderLight:"#1A1A3A",overlay:"#000000A8",grid:"#111128",shadow:"var(--shadow-md)",accent:"#6366F1",accentMuted:"#6366F118",pres:"#05050A"},light:{bg:"#F2F4F9",bgAlt:"#E8ECF4",bgCard:"#FBFCFF",bgInput:"#FFFFFF",bgHover:"#E1E7F1",fg:"#182033",fgMuted:"#536078",fgDim:"#69758D",fgFaint:"#8792A7",border:"#CBD4E2",borderLight:"#DEE4ED",overlay:"#11182738",grid:"#D5DDE9",shadow:"0 8px 26px rgba(30,41,59,.08)",accent:"#5965D8",accentMuted:"#5965D815",pres:"#F6F8FC"}};
 const ALLDOM_DEFAULT = Object.keys(DC_DEFAULT);
 const CC = {Haute:"#FF5252",Moyenne:"#EF6C00",Basse:"#00C853"};
 const SD1={"Transfert TSA":"#F59E0B","Abandon":"#EF4444","Maintien":"#10B981","Rebuild":"#6366F1"};
@@ -288,7 +288,7 @@ function Sidebar(){
     {id:"dashboard",icon:"BarChart",label:"Dashboard",color:"#8B5CF6"},
     ...(projectType==='deal'?[{id:"decisions",icon:"Target",label:"Decisions D1/D2",color:"#EF4444"}]:[]),
   ];
-  return <div className="sidebar" style={{width:W,height:"100vh",background:T.bgAlt,borderRight:"1px solid "+T.border,display:"flex",flexDirection:"column",flexShrink:0,overflow:"hidden",zIndex:200}}>
+  return <div className="sidebar" style={{width:W,height:"100%",background:T.bgAlt,borderRight:"1px solid "+T.border,display:"flex",flexDirection:"column",flexShrink:0,overflow:"hidden",zIndex:200}}>
     <div style={{padding:"14px 10px",display:"flex",alignItems:"center",gap:8,borderBottom:"1px solid "+T.border,flexShrink:0}}>
       <div onClick={function(){setSidebarOpen(function(p){return !p;});}} title={sidebarOpen?"Réduire":"Agrandir"} style={{width:32,height:32,background:"linear-gradient(135deg,#6366F1,#8B5CF6)",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:"0 0 12px #6366F140",cursor:"pointer",transition:"opacity 0.15s"}} onMouseEnter={function(e){e.currentTarget.style.opacity="0.8";}} onMouseLeave={function(e){e.currentTarget.style.opacity="1";}}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -435,6 +435,17 @@ function pvBuildLayout(apps,w,h,fontSc){
   });
 }
 
+function UrbFlowArrow({ color = "#38bdf8", width = 28 }){
+  return <svg width={width} height="18" viewBox="0 0 42 20" fill="none" aria-hidden="true" style={{display:"block",flexShrink:0,overflow:"visible"}}>
+    <path d="M4 10h30m-7-7 7 7-7 7" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="4 3">
+      <animate attributeName="stroke-dashoffset" from="0" to="-14" dur="0.7s" repeatCount="indefinite"/>
+    </path>
+    <circle r="2" fill={color}>
+      <animateMotion path="M5 10H29" dur="1.1s" repeatCount="indefinite"/>
+    </circle>
+  </svg>;
+}
+
 // ═══ APP CONTEXT ═══
 var AppCtx=React.createContext(null);
 
@@ -549,7 +560,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   // ── Auto-save : exposer l'état au parent via callback ──
   useEffect(function(){
     if(onSave) onSave({ apps, flows, domColors });
-  }, []); // appelé au montage pour signaler CANVAS_READY
+  }, [apps,flows,domColors,onSave]);
 
   var DC=domColors;
   var DC_DARK=domColors;
@@ -631,10 +642,10 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   const [flowThickness,setFlowThickness]=useState(2);
   const [flowFontSize,setFlowFontSize]=useState(9);
   const [flowDisplayMode,setFlowDisplayMode]=useState("dynamic"); // dynamic: au survol, static: tous les flux
-  const [appSpacing,setAppSpacing]=useState(0);
-  const [domainSpacing,setDomainSpacing]=useState(132);
-  const [categorySpacing,setCategorySpacing]=useState(180);
-  const [domainPadding,setDomainPadding]=useState(30);
+  const [appSpacing,setAppSpacing]=useState(2);
+  const [domainSpacing,setDomainSpacing]=useState(44);
+  const [categorySpacing,setCategorySpacing]=useState(30);
+  const [domainPadding,setDomainPadding]=useState(18);
   const [categoryScale,setCategoryScale]=useState(1);
   const [categoryBorderW,setCategoryBorderW]=useState(2.5);
   const [highlightApps,setHighlightApps]=useState(true);
@@ -1038,46 +1049,38 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   };
 
   var ctxValue={view,setView,isDark,T,apps,flows,sidebarOpen,setSidebarOpen,projectType};
-  const applyStarLayout=()=>{
-    if(apps.length===0)return;
+  const applyStarLayout=(sourceApps)=>{
+    var layoutApps=sourceApps||apps;
+    if(layoutApps.length===0)return;
     const cW=Math.round(AW_BASE*globalScale*Math.max(0.7,fontScale));
     const cH=Math.round(AH_BASE*globalScale*Math.max(0.7,fontScale));
-    const cGx=28+appSpacing,cGy=22+appSpacing,domPad=58,domSide=28,domGap=flowDisplayMode==="static"?Math.max(domainSpacing,320):domainSpacing;
+    const cGx=18+appSpacing,cGy=14+appSpacing,domPad=44,domSide=22,domGap=flowDisplayMode==="static"?Math.max(domainSpacing,220):domainSpacing;
     // 1. Compter les flux inter-domaines
     const domFlows={};
     const pairFlows={};
     const appConn={};
     flows.forEach(function(f){
-      var fa=apps.find(function(a){return a.id===f.from;});
-      var ta=apps.find(function(a){return a.id===f.to;});
+      var fa=layoutApps.find(function(a){return a.id===f.from;});
+      var ta=layoutApps.find(function(a){return a.id===f.to;});
       if(!fa||!ta)return;
       appConn[fa.id]=(appConn[fa.id]||0)+1;
       appConn[ta.id]=(appConn[ta.id]||0)+1;
       domFlows[fa.domain]=(domFlows[fa.domain]||0)+1;
       domFlows[ta.domain]=(domFlows[ta.domain]||0)+1;
-      if(fa.domain!==ta.domain){
-        var key=[fa.domain,ta.domain].sort().join('\x00');
-        pairFlows[key]=(pairFlows[key]||0)+1;
-      }
+      if(fa.domain!==ta.domain){var pairKey=[fa.domain,ta.domain].sort().join("\x00");pairFlows[pairKey]=(pairFlows[pairKey]||0)+1;}
     });
-    const doms=[...new Set(apps.map(function(a){return a.domain;}))];
+    const doms=[...new Set(layoutApps.map(function(a){return a.domain;}))];
     if(doms.length===0)return;
-    // 2. Hub = domaine avec le plus de flux inter-domaines (ex æquo: le plus d'apps)
+    // 2. Compter les applications par domaine.
     const domAppCnt={};
-    apps.forEach(function(a){domAppCnt[a.domain]=(domAppCnt[a.domain]||0)+1;});
-    const hub=doms.reduce(function(best,d){
-      var fc=domFlows[d]||0,bc=domFlows[best]||0;
-      if(fc>bc)return d;
-      if(fc===bc&&(domAppCnt[d]||0)>(domAppCnt[best]||0))return d;
-      return best;
-    },doms[0]);
+    layoutApps.forEach(function(a){domAppCnt[a.domain]=(domAppCnt[a.domain]||0)+1;});
     // 3. Taille de chaque domaine (grille compacte)
     var getDomSize=function(dom){
       var scale=domScales[dom]||1;
       var appW=Math.round(cW*scale),appH=Math.round(cH*scale);
       var groups={};
-      apps.filter(function(a){return a.domain===dom;}).forEach(function(a){var cat=a.category||"";(groups[cat]=groups[cat]||[]).push(a);});
-      var categoryGapX=categorySpacing+appSpacing,categoryGapY=categorySpacing+40+appSpacing;
+      layoutApps.filter(function(a){return a.domain===dom;}).forEach(function(a){var cat=a.category||"";(groups[cat]=groups[cat]||[]).push(a);});
+      var categoryGapX=categorySpacing+appSpacing,categoryGapY=categorySpacing+28+appSpacing;
       var layouts=Object.keys(groups).map(function(category){
         var groupApps=groups[category].slice().sort(function(a,b){return(appConn[b.id]||0)-(appConn[a.id]||0);});
         var cols=Math.max(1,Math.min(3,Math.ceil(Math.sqrt(groupApps.length))));
@@ -1097,41 +1100,37 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       layouts.forEach(function(layout,i){layout.x=xOffsets[i%categoryCols];layout.y=yOffsets[Math.floor(i/categoryCols)];});
       return{w:contentW+domSide*2,h:contentH+domPad+26,layouts:layouts,appW:appW,appH:appH};
     };
-    // 4. Placer le hub au centre
-    var hubSz=getDomSize(hub);
-    var cx=1000,cy=800;
-    var hubX=cx-hubSz.w/2,hubY=cy-hubSz.h/2;
-    // 5. Satellites triés par connectivité avec le hub
-    var others=doms.filter(function(d){return d!==hub;});
-    others.sort(function(a,b){
-      var ka=[a,hub].sort().join('\x00'),kb=[b,hub].sort().join('\x00');
-      return(pairFlows[kb]||0)-(pairFlows[ka]||0);
-    });
-    // 6. Rayon = assez grand pour ne pas chevaucher le hub
-    var maxSatR=others.reduce(function(m,d){var sz=getDomSize(d);return Math.max(m,Math.hypot(sz.w,sz.h)/2);},0);
-    var ringCircumference=others.reduce(function(total,d){var sz=getDomSize(d);return total+Math.max(sz.w,sz.h)+domGap;},0);
-    var peerClearance=others.length>1?maxSatR/Math.sin(Math.PI/others.length):0;
-    var radius=Math.max(Math.hypot(hubSz.w,hubSz.h)/2+maxSatR+domGap,peerClearance+domGap/2,ringCircumference/(2*Math.PI)*1.25,320);
-    // 7. Positionner les apps
-    var na=apps.map(function(a){return Object.assign({},a);});
-    // Hub
-    var hubSize=getDomSize(hub);
-    hubSize.layouts.forEach(function(group){group.apps.forEach(function(a,i){
-      a.x=hubX+domSide+group.x+(i%group.cols)*(hubSize.appW+cGx);
-      a.y=hubY+domPad+group.y+Math.floor(i/group.cols)*(hubSize.appH+cGy);
-    });});
-    // Satellites
-    others.forEach(function(dom,i){
-      var angle=(i/others.length)*2*Math.PI-(Math.PI/2);
-      var sz=getDomSize(dom);
-      var dx=cx+radius*Math.cos(angle)-sz.w/2;
-      var dy=cy+radius*Math.sin(angle)-sz.h/2;
-      sz.layouts.forEach(function(group){group.apps.forEach(function(app){
-        var a=na.find(function(item){return item.id===app.id;});
-        if(!a)return;
-        var j=group.apps.findIndex(function(item){return item.id===app.id;});
-        a.x=dx+domSide+group.x+(j%group.cols)*(sz.appW+cGx);
-        a.y=dy+domPad+group.y+Math.floor(j/group.cols)*(sz.appH+cGy);
+    // 4. Ordonner les domaines par proximité réelle des flux, puis les placer en grille compacte.
+    var pendingDomains=doms.slice();
+    var firstDomain=pendingDomains.slice().sort(function(a,b){return(domFlows[b]||0)-(domFlows[a]||0)||(domAppCnt[b]||0)-(domAppCnt[a]||0)||a.localeCompare(b);})[0];
+    var domainOrder=firstDomain?[firstDomain]:[];
+    pendingDomains=pendingDomains.filter(function(dom){return dom!==firstDomain;});
+    while(pendingDomains.length){
+      pendingDomains.sort(function(a,b){
+        var affinity=function(dom){return domainOrder.reduce(function(total,placed){var key=[dom,placed].sort().join("\x00");return total+(pairFlows[key]||0);},0);};
+        return affinity(b)-affinity(a)||(domFlows[b]||0)-(domFlows[a]||0)||(domAppCnt[b]||0)-(domAppCnt[a]||0)||a.localeCompare(b);
+      });
+      domainOrder.push(pendingDomains.shift());
+    }
+    var domainLayouts=domainOrder.map(function(dom){return{domain:dom,size:getDomSize(dom),apps:domAppCnt[dom]||0,flows:domFlows[dom]||0};});
+    var domainCols=Math.min(3,Math.max(1,Math.ceil(Math.sqrt(domainLayouts.length/2))));
+    var domainRows=Math.ceil(domainLayouts.length/domainCols);
+    var colWidths=new Array(domainCols).fill(0),rowHeights=new Array(domainRows).fill(0);
+    domainLayouts.forEach(function(item,index){var col=index%domainCols,row=Math.floor(index/domainCols);colWidths[col]=Math.max(colWidths[col],item.size.w);rowHeights[row]=Math.max(rowHeights[row],item.size.h);});
+    var domainGap=Math.max(34,Math.min(domGap,96));
+    var colOffsets=[],rowOffsets=[],offset=0;
+    colWidths.forEach(function(width,index){colOffsets[index]=offset;offset+=width+(index<colWidths.length-1?domainGap:0);});
+    offset=0;
+    rowHeights.forEach(function(height,index){rowOffsets[index]=offset;offset+=height+(index<rowHeights.length-1?domainGap:0);});
+    // 5. Positionner les applications par domaine, puis par catégorie.
+    var na=layoutApps.map(function(a){return Object.assign({},a);});
+    domainLayouts.forEach(function(item,index){
+      var col=index%domainCols,row=Math.floor(index/domainCols),domainX=colOffsets[col]+domSide,domainY=rowOffsets[row]+domPad;
+      item.size.layouts.forEach(function(group){group.apps.forEach(function(app,indexInGroup){
+        var target=na.find(function(candidate){return candidate.id===app.id;});
+        if(!target)return;
+        target.x=domainX+group.x+(indexInGroup%group.cols)*(item.size.appW+cGx);
+        target.y=domainY+group.y+Math.floor(indexInGroup/group.cols)*(item.size.appH+cGy);
       });});
     });
     // Compute category bounds from their own applications so groups stay distinct.
@@ -1162,22 +1161,30 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     if(apps.length>0)applyStarLayout();
   },[fontScale,globalScale,appSpacing,domainSpacing,categorySpacing,flowDisplayMode]);
 
-  const fitCanvas=(layoutApps=apps)=>{
+  const fitCanvas=(layoutApps=filtered)=>{
     if(!layoutApps.length)return;
     const appWidth=(a)=>AW_BASE*globalScale*(domScales[a.domain]||1)*Math.max(0.7,fontScale);
     const appHeight=(a)=>AH_BASE*globalScale*(domScales[a.domain]||1)*Math.max(0.7,fontScale);
     const minX=Math.min(...layoutApps.map(a=>a.x)),minY=Math.min(...layoutApps.map(a=>a.y));
     const maxX=Math.max(...layoutApps.map(a=>a.x+appWidth(a))),maxY=Math.max(...layoutApps.map(a=>a.y+appHeight(a)));
-    const framePad=180;
+    const framePad=72;
     const boundsW=Math.max(1,maxX-minX+framePad*2),boundsH=Math.max(1,maxY-minY+framePad*2);
     const rect=cvRef.current?.getBoundingClientRect();
     const vw=rect?.width||window.innerWidth||1400;
     const vh=rect?.height||((window.innerHeight||800)-100);
-    const fitZm=Math.min((vw-48)/boundsW,(vh-48)/boundsH,1.2);
-    const finalZm=Math.max(0.08,Math.min(fitZm,1.2));
+    const fitZm=Math.min((vw-40)/boundsW,(vh-40)/boundsH,1.5);
+    const finalZm=Math.max(0.08,Math.min(fitZm,1.5));
     setZm(finalZm);
     setOff({x:(vw-boundsW*finalZm)/2-(minX-framePad)*finalZm,y:(vh-boundsH*finalZm)/2-(minY-framePad)*finalZm});
   };
+
+  useEffect(function(){
+    if(!initialSnapshot||!initialSnapshot.apps||!initialSnapshot.apps.length)return;
+    var migrationKey=_stateKey+"_dense_layout_v6";
+    try{if(localStorage.getItem(migrationKey)==="done")return;}catch(e){}
+    try{localStorage.setItem(migrationKey,"done");}catch(e){}
+    applyStarLayout(initialSnapshot.apps);
+  },[apps,initialSnapshot]);
 
 
   const exportXLSX=async()=>{
@@ -4522,7 +4529,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   const doms=[...new Set(apps.map(a=>a.domain))];
 
   /* ── Components ── */
-  const AW_BASE=130,AH_BASE=46;
+  const AW_BASE=220,AH_BASE=84;
   const fs=fontScale;
   const AW=Math.round(AW_BASE*globalScale*Math.max(0.7,fs)),AH=Math.round(AH_BASE*globalScale*Math.max(0.7,fs));
   const domSc=(d)=>(domScales[d]||1)*globalScale;
@@ -4531,7 +4538,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     const crC=CC[app.criticality]||"#999";
     // En mode jour, les tuiles ne réutilisent plus le fond sombre pensé pour le mode nuit —
     // fond pastel translucide de l'accent + texte de l'accent lui-même (meilleure cohérence visuelle).
-    const cardBg=isDark?c.bg:c.ac+"20";
+    const cardBg=isDark?"linear-gradient(135deg,"+c.bg+", "+T.bgCard+" 170%)":sel?"linear-gradient(135deg,#FFFFFF,"+c.ac+"1C 165%)":"linear-gradient(145deg,#FBFCFF,"+c.ac+"12 72%, #F6F8FC)";
     const cardFgLight=accentTextForLight(c.ac);
     const cardFg=isDark?c.fg:cardFgLight;
     const cardFgSub=isDark?c.fg+"99":cardFgLight+"B0";
@@ -4546,47 +4553,48 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     const aw=Math.round(AW_BASE*globalScale*ds*Math.max(0.7,fs)),ah=Math.round(AH_BASE*globalScale*ds*Math.max(0.7,fs));
     var isFocusTarget=flowDisplayMode==="static"||!focusApp||focusApp===app.id||flows.some(function(f){return(f.from===focusApp&&f.to===app.id)||(f.to===focusApp&&f.from===app.id);});
     var dimmed=flowDisplayMode!=="static"&&focusApp&&!isFocusTarget;
-    var appOpacity=dimmed?0.18:isNeg?0.72:1;
+    var appOpacity=dimmed?(isDark?0.48:0.70):isNeg?0.72:1;
     // D1 tint overlay on card background
     var d1BgTint=app.statusD1==="Abandon"?"#EF444412":app.statusD1==="Transfert TSA"?"#F59E0B0E":null;
     var crLabel=app.criticality==="Haute"?"●":app.criticality==="Basse"?"○":"◐";
     var appGlow=highlightApps?Math.round(highlightStrength*0.55):0;
-    return <div style={{position:"absolute",left:app.x,top:app.y,width:aw,height:ah,background:cardBg,border:`${msel?"2.5px":"1.5px"} solid ${msel?"#4ECDC4":sel?T.accent:cardColor}`,borderRadius:4,cursor:cMode?"crosshair":selMode?"pointer":msel?"move":"grab",boxShadow:msel?"0 0 12px #4ECDC480":sel?`0 0 14px ${cardColor}80`:appGlow?`0 2px 8px ${cardColor}${Math.min(99,Math.round(appGlow*0.45)).toString(16).padStart(2,"0")}, 0 0 ${appGlow}px ${cardColor}${Math.min(99,Math.round(appGlow*0.25)).toString(16).padStart(2,"0")}`:"none",userSelect:"none",zIndex:sel?10:1,overflow:"hidden",opacity:appOpacity,transition:"opacity 0.15s, box-shadow 0.2s"}}
+    return <div style={{position:"absolute",left:app.x,top:app.y,width:aw,height:ah,background:cardBg,border:`${msel?"2.5px":"1.5px"} solid ${msel?"#4ECDC4":sel?T.accent:cardColor+"88"}`,borderRadius:10,cursor:cMode?"crosshair":selMode?"pointer":msel?"move":"grab",boxShadow:msel?"0 0 16px #4ECDC480":sel?`0 0 18px ${cardColor}80`:appGlow?`0 3px 10px ${cardColor}${Math.min(99,Math.round(appGlow*0.45)).toString(16).padStart(2,"0")}, 0 0 ${appGlow}px ${cardColor}${Math.min(99,Math.round(appGlow*0.25)).toString(16).padStart(2,"0")}`:isDark?"0 9px 22px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.045)":"0 7px 18px rgba(15,23,42,0.12)",userSelect:"none",zIndex:sel?10:1,overflow:"hidden",opacity:appOpacity,transform:"translateZ(0)",transition:"opacity 0.15s, box-shadow 0.2s, border-color 0.2s, transform 0.16s cubic-bezier(.2,.8,.2,1)"}}
       data-app="1" className="app-card"
       onContextMenu={function(e){e.preventDefault();e.stopPropagation();setCtxMenu({x:e.clientX,y:e.clientY,type:"app",target:app.id});}}
-      onMouseEnter={function(){setFlowSuppressed(false);if(flowDisplayMode==="dynamic"&&!drag&&!cMode&&!selMode){setFocusApp(app.id);if(selFlow)setSelFlow(null);}}}
-      onMouseLeave={function(){if(flowDisplayMode==="dynamic"&&focusApp===app.id&&selApp?.id!==app.id)setFocusApp(null);}}
+      onMouseEnter={function(e){e.currentTarget.style.transform="translateY(-2px) scale(1.025)";e.currentTarget.style.zIndex="20";e.currentTarget.style.boxShadow="0 12px 28px "+cardColor+"55, 0 0 0 1px "+cardColor+"55";setFlowSuppressed(false);if(flowDisplayMode==="dynamic"&&!drag&&!cMode&&!selMode){setFocusApp(app.id);if(selFlow)setSelFlow(null);}}}
+      onMouseLeave={function(e){e.currentTarget.style.transform="translateZ(0)";e.currentTarget.style.zIndex=sel?"10":"1";if(!sel&&!msel)e.currentTarget.style.boxShadow=isDark?"0 9px 22px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.045)":"0 7px 18px rgba(15,23,42,0.12)";if(flowDisplayMode==="dynamic"&&focusApp===app.id&&selApp?.id!==app.id)setFocusApp(null);}}
       onMouseDown={e=>{e.stopPropagation();if(cMode){if(!fFrom)setFFrom(app.id);else if(fFrom!==app.id){const nf={id:uid(),from:fFrom,to:app.id,protocol:"API",label:"",description:"",frequency:""};setFlows(p=>[...p,nf]);setEFlow({...nf});setShowFM(true);setFFrom(null);setCMode(false);}return;}if(e.shiftKey){setMultiSel(p=>p.includes(app.id)?p.filter(x=>x!==app.id):[...p,app.id]);return;}
         setMultiSel([]);setSelApp(app);setFocusApp(app.id);setSelFlow(null);setFlowSuppressed(false);const rect=e.currentTarget.getBoundingClientRect();startDrag({id:app.id,ox:e.clientX-rect.left,oy:e.clientY-rect.top});}}
       onDoubleClick={()=>{setEApp({...app});setShowAM(true);}}>
 
       {/* D1 tint overlay */}
       {d1BgTint&&<div style={{position:"absolute",inset:0,background:d1BgTint,pointerEvents:"none",zIndex:0}}/>}
+      <div aria-hidden="true" style={{position:"absolute",left:0,top:0,bottom:app.statusD1||app.statut?Math.max(7,Math.round(7*fsD)):0,width:4,background:cardColor,opacity:0.92,pointerEvents:"none",zIndex:1}}/>
 
       {/* D1/Statut bandeau bas */}
       {projectType==='deal'?
-        (app.statusD1&&<div style={{position:"absolute",bottom:0,left:0,right:0,height:Math.max(7,Math.round(7*fsD)),background:d1C,display:"flex",alignItems:"center",justifyContent:"center",zIndex:2}}>
-          <span style={{fontSize:Math.max(5,Math.round(5*fsD)),color:"#fff",fontWeight:700,letterSpacing:0.5,textTransform:"uppercase",opacity:0.97}}>{app.statusD1==="Transfert TSA"?"TSA":app.statusD1}</span>
+        (app.statusD1&&<div style={{position:"absolute",bottom:0,left:0,right:0,height:Math.max(10,Math.round(9*fsD)),background:d1C,display:"flex",alignItems:"center",justifyContent:"center",zIndex:2}}>
+          <span style={{fontSize:Math.max(7,Math.round(6*fsD*appFontScale)),color:"#fff",fontWeight:800,letterSpacing:0.5,textTransform:"uppercase",opacity:0.97}}>{app.statusD1==="Transfert TSA"?"TSA":app.statusD1}</span>
         </div>)
-        :(app.statut&&<div style={{position:"absolute",bottom:0,left:0,right:0,height:Math.max(7,Math.round(7*fsD)),background:statutC,display:"flex",alignItems:"center",justifyContent:"center",zIndex:2}}>
-          <span style={{fontSize:Math.max(5,Math.round(5*fsD)),color:"#fff",fontWeight:700,letterSpacing:0.5,textTransform:"uppercase",opacity:0.97}}>{app.statut}</span>
+        :(app.statut&&<div style={{position:"absolute",bottom:0,left:0,right:0,height:Math.max(10,Math.round(9*fsD)),background:statutC,display:"flex",alignItems:"center",justifyContent:"center",zIndex:2}}>
+          <span style={{fontSize:Math.max(7,Math.round(6*fsD*appFontScale)),color:"#fff",fontWeight:800,letterSpacing:0.5,textTransform:"uppercase",opacity:0.97}}>{app.statut}</span>
         </div>)
       }
 
 
 
       {/* Content */}
-      <div style={{display:"flex",alignItems:"center",gap:4,padding:"0 6px",height:"100%",position:"relative",zIndex:1}}>
+      <div style={{display:"flex",alignItems:"center",gap:6,padding:"0 8px 0 12px",height:"100%",position:"relative",zIndex:1}}>
         <div style={{overflow:"hidden",flex:1,minWidth:0}}>
-          <div style={{color:cardFg,fontSize:Math.round(12*fsD*appFontScale),fontWeight:800,lineHeight:1.2,letterSpacing:"-0.015em",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textDecoration:isNeg?"line-through":"none"}}>{app.name}</div>
-          <div style={{color:cardFgSub,fontSize:Math.round(9*fsD*appFontScale),lineHeight:1.2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{app.vendor||""}</div>
+          <div style={{color:cardFg,fontSize:Math.round(15*fsD*appFontScale),fontWeight:900,lineHeight:1.12,letterSpacing:"-0.025em",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textDecoration:isNeg?"line-through":"none"}}>{app.name}</div>
+          <div style={{color:cardFgSub,fontSize:Math.round(11*fsD*appFontScale),fontWeight:600,lineHeight:1.2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{app.vendor||app.category||""}</div>
           {projectType==='deal'?(app.statusD1||app.statusD2)&&<div style={{display:"flex",gap:3,marginTop:2,overflow:"hidden"}}>
-            {app.statusD2&&<span style={{fontSize:Math.round(7*fsD*appFontScale),background:(SD2[app.statusD2]||"#3B82F6")+"28",color:SD2[app.statusD2]||"#3B82F6",border:"1px solid "+((SD2[app.statusD2]||"#3B82F6")+"66"),borderRadius:2,padding:"0 3px",fontWeight:700,lineHeight:1.5,flexShrink:0,whiteSpace:"nowrap"}}>{"D2:"+(app.statusD2==="Clone & Clean"?"Clone":app.statusD2)}</span>}
+            {app.statusD2&&<span style={{fontSize:Math.round(8*fsD*appFontScale),background:(SD2[app.statusD2]||"#3B82F6")+"28",color:SD2[app.statusD2]||"#3B82F6",border:"1px solid "+((SD2[app.statusD2]||"#3B82F6")+"66"),borderRadius:4,padding:"1px 5px",fontWeight:800,lineHeight:1.35,flexShrink:0,whiteSpace:"nowrap"}}>{"D2 · "+(app.statusD2==="Clone & Clean"?"Clone":app.statusD2)}</span>}
           </div>:null}
         </div>
         <div style={{flexShrink:0,display:"flex",flexDirection:"column",alignItems:"center",gap:1}}>
-          <span style={{color:crC,fontSize:Math.round(12*fsD*appFontScale),lineHeight:1}}>{crLabel}</span>
-          <span style={{fontSize:Math.round(7*fsD*appFontScale),color:crC,fontWeight:700,lineHeight:1,whiteSpace:"nowrap"}}>{app.criticality==="Standalone temporaire"?"Stand.":app.criticality}</span>
+          <span style={{color:crC,fontSize:Math.round(15*fsD*appFontScale),lineHeight:1}}>{crLabel}</span>
+          <span style={{fontSize:Math.round(9*fsD*appFontScale),color:crC,fontWeight:850,lineHeight:1,whiteSpace:"nowrap"}}>{app.criticality==="Standalone temporaire"?"Stand.":app.criticality}</span>
         </div>
       </div>
     </div>;
@@ -4611,8 +4619,8 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     var laneById={};
     Object.values(laneGroups).forEach(function(group){group.forEach(function(f,i){laneById[f.id]=i-(group.length-1)/2;});});
     var clip=function(cx2,cy2,w,h,tx,ty){var ddx=tx-cx2,ddy=ty-cy2;if(Math.abs(ddx)<0.5&&Math.abs(ddy)<0.5)return{x:cx2,y:cy2};var sx2=Math.abs(ddx)>0.5?(w/2)/Math.abs(ddx):9999;var sy2=Math.abs(ddy)>0.5?(h/2)/Math.abs(ddy):9999;var s=Math.min(sx2,sy2);return{x:cx2+ddx*s,y:cy2+ddy*s};};
-    return <svg className="flow-layer" style={{position:"absolute",top:0,left:0,width:"100%",height:"100%",pointerEvents:"none",overflow:"visible"}}>
-          {visFlows.map(function(f){var fa=apps.find(function(a){return a.id===f.from;}),ta=apps.find(function(a){return a.id===f.to;});if(!fa||!ta)return null;
+        return <svg className="flow-layer" style={{position:"absolute",top:0,left:0,width:"100%",height:"100%",pointerEvents:"none",overflow:"visible"}}>
+          {visFlows.map(function(f,flowIndex){var fa=apps.find(function(a){return a.id===f.from;}),ta=apps.find(function(a){return a.id===f.to;});if(!fa||!ta)return null;
             var flowColor=focusApp===f.from?"#34D399":focusApp===f.to?"#38BDF8":lineCol;
             var flowIsSelected=selFlow===f.id;
             var flowOpacity=selFlow?(flowIsSelected?1:0.07):staticMode?0.82:0.65;
@@ -4626,6 +4634,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         var dx=en.x-ep.x,dy=en.y-ep.y,len=Math.max(1,Math.hypot(dx,dy));
         var lane=staticMode?(laneById[f.id]||0)*Math.max(18,flowFontSize*2.1)/Math.max(0.08,zm):0;
         var mx=(ep.x+en.x)/2-(dy/len)*lane,my=(ep.y+en.y)/2+(dx/len)*lane-(staticMode?28:20);
+        var pathD="M"+ep.x+" "+ep.y+" Q"+mx+" "+my+" "+en.x+" "+en.y;
         var labelT=staticMode&&fa.domain!==ta.domain?(fa.domain===hubDomain?0.72:ta.domain===hubDomain?0.28:0.5):0.5;
         var labelX=ep.x+dx*labelT-(dy/len)*lane,labelY=ep.y+dy*labelT+(dx/len)*lane-(staticMode?14:0);
         var txt=[f.label,f.protocol].filter(Boolean).join(" · ")||(staticMode?"Flux":"");
@@ -4633,15 +4642,16 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         var lblW=Math.max(60,txt.length*labelFont*0.55+16);
         return <g key={f.id}>
           <defs><marker id={arrowId} markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto" fill={flowColor}><polygon points="0 0,10 3.5,0 7"/></marker></defs>
-          <path d={"M"+ep.x+" "+ep.y+" Q"+mx+" "+my+" "+en.x+" "+en.y} stroke="transparent" strokeWidth={Math.max(16,flowThickness*4)} fill="none" style={{cursor:"pointer",pointerEvents:"stroke"}}
+          <path d={pathD} stroke="transparent" strokeWidth={Math.max(16,flowThickness*4)} fill="none" style={{cursor:"pointer",pointerEvents:"stroke"}}
             onClick={function(e){e.stopPropagation();setFlowSuppressed(false);setSelFlow(selFlow===f.id?null:f.id);setFocusApp(f.from===focusApp?focusApp:f.to===focusApp?focusApp:selApp?.id||f.from);setFlowCtx(null);}}
             onDoubleClick={function(e){e.stopPropagation();setEFlow(Object.assign({},f));setShowFM(true);setSelFlow(null);}}
             onContextMenu={function(e){e.preventDefault();e.stopPropagation();setFlowCtx({flow:f,x:e.clientX,y:e.clientY});setSelFlow(f.id);}}/>
-          <path d={"M"+ep.x+" "+ep.y+" Q"+mx+" "+my+" "+en.x+" "+en.y} stroke={flowColor} strokeWidth={flowIsSelected?flowThickness+2:flowThickness} strokeOpacity={flowOpacity} strokeDasharray={dashVal} fill="none" markerEnd={"url(#"+arrowId+")"} style={{pointerEvents:"stroke",cursor:"pointer"}}
+          <path d={pathD} stroke={flowColor} strokeWidth={flowIsSelected?flowThickness+2:flowThickness} strokeOpacity={flowOpacity} strokeDasharray={dashVal} fill="none" markerEnd={"url(#"+arrowId+")"} style={{pointerEvents:"stroke",cursor:"pointer"}}
             onClick={function(e){e.stopPropagation();setFlowSuppressed(false);setSelFlow(selFlow===f.id?null:f.id);setFocusApp(f.from===focusApp?focusApp:f.to===focusApp?focusApp:selApp?.id||f.from);setFlowCtx(null);}}
             onDoubleClick={function(e){e.stopPropagation();setEFlow(Object.assign({},f));setShowFM(true);setSelFlow(null);}}
             onContextMenu={function(e){e.preventDefault();e.stopPropagation();setFlowCtx({flow:f,x:e.clientX,y:e.clientY});setSelFlow(f.id);}}/>
           <circle cx={ep.x} cy={ep.y} r={Math.max(3,flowThickness+1)} fill={flowColor} fillOpacity={flowOpacity}/>
+          {!staticMode&&flowIndex<16&&<circle r="3.2" fill={flowColor} opacity={flowOpacity} style={{filter:"drop-shadow(0 0 4px "+flowColor+")",pointerEvents:"none"}}><animateMotion path={pathD} dur={(1.5+(flowIndex%4)*0.22)+"s"} begin={(flowIndex%8)*0.13+"s"} repeatCount="indefinite"/></circle>}
           {txt&&<g opacity={flowLabelOpacity} transform={"translate("+labelX+" "+labelY+") scale("+(1/Math.max(0.08,zm))+") translate("+(-labelX)+" "+(-labelY)+")"}>
             <rect x={labelX-lblW/2} y={labelY-labelFont*0.8} width={lblW} height={labelFont*1.5} rx="4" fill={T.bgCard} fillOpacity="0.96" stroke={flowColor} strokeWidth="0.8" strokeOpacity="0.55"/>
             <text x={labelX} y={labelY+labelFont*0.25} fill={flowColor} fontSize={labelFont} textAnchor="middle" fontFamily="inherit" fontWeight="600" style={{pointerEvents:"none"}}>{txt}</text>
@@ -4675,7 +4685,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       // Jamais l'union avec les bornes naturelles — la zone reste stable
       const fb=catBounds[cat]||b;
       const bx1=fb.x1, bx2=fb.x2, by1=fb.y1, by2=fb.y2;
-      const sidePad=Math.round(76*categoryScale), bottomPad=Math.round(76*categoryScale);
+      const sidePad=Math.round(30*categoryScale), bottomPad=Math.round(32*categoryScale);
       const barH=Math.max(Math.round(38*fontScale*categoryScale*categoryFontScale),Math.round(34/zm));
       const domLabelSpace=38+Math.round(28*fontScale)+24;
       const topPad=Math.max(sidePad,domLabelSpace);
@@ -4683,7 +4693,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       const fzSub=Math.max(Math.round(9*fontScale*categoryScale*categoryFontScale),Math.round(10/zm));
       const rzSz=Math.max(20,Math.round(20/zm));
       const catShadow=highlightCategories?Math.round(highlightStrength*0.35):0;
-      return <div key={cat} style={{position:"absolute",left:bx1-sidePad,top:by1-topPad-barH,width:bx2-bx1+sidePad*2,height:by2-by1+topPad+bottomPad+barH,border:`${categoryBorderW}px solid ${cc}B0`,borderRadius:18,background:`${cc}${isDark?"16":"10"}`,boxShadow:catShadow?`${isDark?"0 12px 32px rgba(0,0,0,0.38)":"0 12px 30px rgba(15,23,42,0.10)"}, 0 0 ${catShadow}px ${cc}35, inset 0 0 0 1px ${cc}20`:"none",pointerEvents:"none"}}>
+      return <div key={cat} style={{position:"absolute",left:bx1-sidePad,top:by1-topPad-barH,width:bx2-bx1+sidePad*2,height:by2-by1+topPad+bottomPad+barH,border:`${categoryBorderW}px solid ${cc}${isDark?"B0":"88"}`,borderRadius:18,background:isDark?cc+"16":"linear-gradient(145deg,#F8FAFD,"+cc+"0D 78%)",boxShadow:catShadow?`${isDark?"0 12px 32px rgba(0,0,0,0.38)":"0 10px 24px rgba(51,65,85,0.08)"}, 0 0 ${catShadow}px ${cc}28, inset 0 0 0 1px ${cc}${isDark?"20":"12"}`:"none",pointerEvents:"none"}}>
         {/* Bandeau titre */}
         <div style={{position:"absolute",top:-1,left:-1,right:-1,height:barH,background:headerColor,borderRadius:"16px 16px 0 0",borderBottom:`1px solid ${cc}90`,boxShadow:"0 3px 10px "+cc+"30",display:"flex",alignItems:"center",padding:"0 12px",gap:6,pointerEvents:"auto",userSelect:"none"}}
           onContextMenu={e=>{e.preventDefault();e.stopPropagation();setCtxMenu({x:e.clientX,y:e.clientY,type:"category",target:cat});}}>
@@ -4723,12 +4733,15 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       const isDropTarget=draggingApp&&d!==(apps.find(a=>a.id===drag.id)||{}).domain;
           var _domBrd=isDropTarget?"2px dashed "+c.ac:Math.max(1.5,domBorderW)+"px solid "+c.ac+"A0";
           var domainGlow=highlightDomains?Math.round(highlightStrength*0.35):0;
-          var domainShadow=domainGlow?isDark?"0 10px 28px rgba(0,0,0,0.38), 0 0 "+domainGlow+"px "+c.ac+"35, inset 0 0 0 1px "+c.ac+"30":"0 10px 26px rgba(15,23,42,0.12), 0 0 "+domainGlow+"px "+c.ac+"30, inset 0 0 0 1px "+c.ac+"20":"none";
-          return <div key={d} style={{position:"absolute",left:b.x1-p,top:b.y1-p-domainHeaderH,width:zw,height:zh,border:_domBrd,borderRadius:14,background:isDropTarget?c.ac+"20":c.ac+(isDark?"20":"14"),boxShadow:isDropTarget?"0 0 0 4px "+c.ac+"35, 0 12px 28px rgba(0,0,0,0.24)":domainShadow,pointerEvents:"none",transition:"border 0.2s, background 0.2s, box-shadow 0.2s"}}>
-        <div style={{padding:"5px 12px",fontSize:Math.round(12*fontScale*domainFontScale),fontWeight:800,color:c.ac,letterSpacing:1.1,textTransform:"uppercase",pointerEvents:"auto",cursor:"grab",userSelect:"none",display:"inline-block",borderRadius:"6px 6px 0 0",background:`${c.ac}15`}}
+          var domainShadow=domainGlow?isDark?"0 10px 28px rgba(0,0,0,0.38), 0 0 "+domainGlow+"px "+c.ac+"35, inset 0 0 0 1px "+c.ac+"30":"0 10px 24px rgba(51,65,85,0.08), 0 0 "+domainGlow+"px "+c.ac+"24, inset 0 0 0 1px "+c.ac+"14":isDark?"inset 0 1px 0 rgba(255,255,255,.045)":"0 4px 14px rgba(51,65,85,.05), inset 0 1px 0 rgba(255,255,255,.92)";
+          return <div key={d} style={{position:"absolute",left:b.x1-p,top:b.y1-p-domainHeaderH,width:zw,height:zh,border:_domBrd,borderRadius:20,background:isDropTarget?c.ac+"20":isDark?"radial-gradient(ellipse at 12% 0%, "+c.ac+"24, transparent 62%), linear-gradient(145deg, "+c.ac+"17, rgba(15,23,42,.16))":"radial-gradient(ellipse at 12% 0%, "+c.ac+"14, transparent 62%), linear-gradient(145deg, "+c.ac+"0E, #F6F8FC 76%)",boxShadow:isDropTarget?"0 0 0 4px "+c.ac+"35, 0 12px 28px rgba(0,0,0,0.24)":domainShadow,pointerEvents:"none",transition:"border 0.2s, background 0.2s, box-shadow 0.2s"}}>
+        <div style={{padding:"6px 13px",fontSize:Math.round(13*fontScale*domainFontScale),fontWeight:850,color:isDark?c.ac:accentTextForLight(c.ac),letterSpacing:1,textTransform:"uppercase",pointerEvents:"auto",cursor:"grab",userSelect:"none",display:"flex",alignItems:"center",gap:8,maxWidth:"100%",borderRadius:"10px 10px 0 0",background:isDark?c.ac+"20":c.ac+"24",border:"1px solid "+c.ac+(isDark?"35":"55"),boxShadow:isDark?"0 5px 14px rgba(0,0,0,.12)":"0 5px 14px rgba(30,41,59,.08)"}}
           data-app="1" onMouseDown={e=>{e.stopPropagation();startDrag({domain:d,appIds:b.ids,lastX:e.clientX,lastY:e.clientY});}}
-          onContextMenu={e=>{e.preventDefault();e.stopPropagation();setCtxMenu({x:e.clientX,y:e.clientY,type:"domain",target:d});}}>{d} <span style={{fontSize:Math.round(9*fontScale*domainFontScale),opacity:0.6}}>⠿</span>
-          <span style={{marginLeft:6,cursor:"pointer",fontSize:Math.round(10*fontScale*domainFontScale)}} onMouseDown={e=>{e.stopPropagation();e.preventDefault();setShowDomEdit(d);}} title="Changer couleur">🎨</span></div>
+          onContextMenu={e=>{e.preventDefault();e.stopPropagation();setCtxMenu({x:e.clientX,y:e.clientY,type:"domain",target:d});}}>
+          <span style={{width:8,height:8,flexShrink:0,borderRadius:99,background:c.ac,boxShadow:"0 0 10px "+c.ac+"88"}}/>
+          <span style={{minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>{d}</span>
+          <span style={{fontSize:Math.max(10,Math.round(10/zm)),opacity:0.65}}>⠿</span>
+          <span style={{cursor:"pointer",fontSize:Math.max(10,Math.round(10/zm)),flexShrink:0}} onMouseDown={e=>{e.stopPropagation();e.preventDefault();setShowDomEdit(d);}} title="Changer couleur">🎨</span></div>
         {/* Resize handle (coin) */}
         <div style={{position:"absolute",bottom:0,right:0,width:16,height:16,cursor:"nwse-resize",pointerEvents:"auto",display:"flex",alignItems:"center",justifyContent:"center"}}
           data-app="1" onMouseDown={e=>{e.stopPropagation();e.preventDefault();startDrag({resize:d,lx:e.clientX,ly:e.clientY});}}>
@@ -6286,9 +6299,9 @@ if(view==="urbanisme"){
     var dayOneCritical=connectedCritical.filter(function(a){return !!a.statusD1;});
     var dayTwoCritical=dayOneCritical.filter(function(a){return !!a.statusD2;});
     var urbDark=!!isDark;
-    var urbMuted=urbDark?"#9298ac":"#687187";
-    var urbLine=urbDark?"rgba(148,163,184,0.14)":"rgba(71,85,105,0.14)";
-    var urbPanel={background:urbDark?"#10131f":"#fff",border:"1px solid "+urbLine,borderRadius:18,boxShadow:urbDark?"0 18px 50px rgba(0,0,0,0.2)":"0 16px 42px rgba(15,23,42,0.06)"};
+    var urbMuted=urbDark?"#9298ac":"#64748B";
+    var urbLine=urbDark?"rgba(148,163,184,0.14)":"rgba(71,85,105,0.15)";
+    var urbPanel={background:urbDark?"#10131f":"#FBFCFF",border:"1px solid "+urbLine,borderRadius:18,boxShadow:urbDark?"0 18px 50px rgba(0,0,0,0.2)":"0 14px 34px rgba(51,65,85,0.08)"};
     var urbStages=[
       {label:"Applications du périmètre",value:apps.length,color:"#6366F1",hint:"Inventaire complet"},
       {label:"Applications critiques",value:criticalApps.length,color:"#F97316",hint:"Criticité haute"},
@@ -6301,11 +6314,9 @@ if(view==="urbanisme"){
       var df=flows.filter(function(f){var fa=apps.find(function(a){return a.id===f.from;});var ta=apps.find(function(a){return a.id===f.to;});return (fa&&fa.domain===dom)||(ta&&ta.domain===dom);}).length;
       return {name:dom,apps:da.length,flows:df,critical:da.filter(function(a){return a.criticality==="Haute";}).length,d2:da.filter(function(a){return !!a.statusD2;}).length,color:(DC[dom]||DC.Autre).ac};
     }).sort(function(a,b){return b.apps-a.apps;});
-    var urbMaxApps=Math.max.apply(null,urbDomains.map(function(d){return d.apps;}).concat([1]));
-
     return <AppCtx.Provider value={ctxValue}><div style={{height:"100vh",display:"flex",overflow:"hidden"}}><Sidebar/><div className="view-container" style={{flex:1,display:"flex",flexDirection:"column",background:T.bg,minWidth:0}}>
       <UrbTopbar/>
-      <div style={{flex:1,overflow:"auto",padding:"clamp(20px,3vw,42px) clamp(18px,4vw,56px) 48px",background:urbDark?"radial-gradient(ellipse at 75% -10%, rgba(99,102,241,0.12), transparent 45%), "+T.bg:"radial-gradient(ellipse at 75% -10%, rgba(99,102,241,0.08), transparent 45%), "+T.bg}}>
+      <div style={{flex:1,overflow:"auto",padding:"clamp(20px,3vw,42px) clamp(18px,4vw,56px) 48px",background:urbDark?"radial-gradient(ellipse at 75% -10%, rgba(99,102,241,0.12), transparent 45%), "+T.bg:"radial-gradient(ellipse at 10% 0%, rgba(99,102,241,0.075), transparent 38%), radial-gradient(ellipse at 94% 82%, rgba(14,165,233,0.045), transparent 35%), "+T.bg}}>
         <div style={{maxWidth:1320,margin:"0 auto"}}>
           <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",gap:24,flexWrap:"wrap",marginBottom:28}}>
             <div><div style={{fontSize:10,fontWeight:800,letterSpacing:".14em",textTransform:"uppercase",color:"#818cf8",marginBottom:12}}>Architecture · Explorer le paysage</div><h1 style={{fontSize:"clamp(28px,3.8vw,46px)",lineHeight:1.04,letterSpacing:"-.05em",fontWeight:850,color:T.fg,margin:0}}>Du domaine au flux,<br/><span style={{background:"linear-gradient(90deg,#818cf8,#22d3ee)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>explorez votre SI.</span></h1><p style={{fontSize:13,color:urbMuted,margin:"14px 0 0",maxWidth:600,lineHeight:1.7}}>Choisissez un domaine métier pour entrer dans son portefeuille applicatif, puis suivez chaque échange jusqu’au détail du flux.</p></div>
@@ -6314,20 +6325,27 @@ if(view==="urbanisme"){
           <div style={{display:"flex",alignItems:"center",gap:12,margin:"0 0 14px"}}><div style={{width:30,height:30,borderRadius:10,display:"grid",placeItems:"center",background:"rgba(99,102,241,.14)",color:"#a5b4fc",fontSize:14}}>01</div><div><div style={{fontSize:14,fontWeight:800,color:T.fg}}>Domaines métiers</div><div style={{fontSize:10,color:urbMuted,marginTop:3}}>Sélectionnez un domaine pour révéler ses applications et ses flux</div></div></div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,270px),1fr))",gap:13}}>
             {urbDomains.map(function(dom,di){
-              var dc=(DC[dom.name]||DC.Autre);var pct=Math.round(dom.apps/urbMaxApps*100);var domApps=apps.filter(function(a){return a.domain===dom.name;});
+              var dc=(DC[dom.name]||DC.Autre);var domApps=apps.filter(function(a){return a.domain===dom.name;});
+              var rankedApps=domApps.map(function(app){return{app:app,flowCount:flows.filter(function(f){return f.from===app.id||f.to===app.id;}).length};}).sort(function(a,b){var rank={Haute:3,Moyenne:2,Basse:1};return (rank[b.app.criticality]||0)-(rank[a.app.criticality]||0)||b.flowCount-a.flowCount;});
+              var featuredApp=rankedApps[0]||null;
               var hot=domApps.filter(function(a){return a.criticality==="Haute";}).length;
               var out=allDoms2.reduce(function(n,d){return n+(domFlowCounts[dom.name+">>"+d]||0);},0);
               var into=allDoms2.reduce(function(n,d){return n+(domFlowCounts[d+">>"+dom.name]||0);},0);
+              var local=intraCounts[dom.name]||0;
+              var flowTotal=out+into+local;
+              var topPartner=interDomLinks.filter(function(link){return link.d1===dom.name||link.d2===dom.name;}).sort(function(a,b){return b.cnt-a.cnt;})[0]||null;
+              var partnerName=topPartner?(topPartner.d1===dom.name?topPartner.d2:topPartner.d1):"";
               return <div key={dom.name} role="button" tabIndex={0} onClick={function(){setUrbZone(dom.name);setUrbSelApp(null);setUrbFlowPair(null);setUrbExpanded(false);}} onKeyDown={function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();setUrbZone(dom.name);setUrbSelApp(null);setUrbFlowPair(null);setUrbExpanded(false);}}}
                 style={{...urbPanel,position:"relative",overflow:"hidden",padding:18,cursor:"pointer",transition:"transform .22s cubic-bezier(.2,.8,.2,1),border-color .2s,box-shadow .2s",animation:"cardIn .3s cubic-bezier(.16,1,.3,1) both",animationDelay:(di*.035)+"s"}}
                 onMouseEnter={function(e){e.currentTarget.style.transform="translateY(-4px)";e.currentTarget.style.borderColor=dc.ac+"90";e.currentTarget.style.boxShadow="0 18px 38px "+dc.ac+"22";}}
                 onMouseLeave={function(e){e.currentTarget.style.transform="";e.currentTarget.style.borderColor=urbLine;e.currentTarget.style.boxShadow=urbPanel.boxShadow;}}>
                 <div style={{position:"absolute",width:170,height:170,right:-82,top:-90,borderRadius:"50%",background:"radial-gradient(circle,"+dc.ac+"30, transparent 70%)",pointerEvents:"none"}}/>
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,position:"relative"}}><div style={{display:"flex",alignItems:"center",gap:10,minWidth:0}}><span style={{width:34,height:34,borderRadius:11,display:"grid",placeItems:"center",background:dc.ac+"22",color:dc.ac,fontSize:16,fontWeight:800}}>◈</span><div style={{fontSize:16,fontWeight:800,color:T.fg,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{dom.name}</div></div><span style={{width:28,height:28,borderRadius:99,display:"grid",placeItems:"center",border:"1px solid "+dc.ac+"35",color:dc.ac,fontSize:15,transition:"transform .2s"}}>↗</span></div>
-                <div style={{display:"flex",alignItems:"baseline",gap:7,marginTop:21}}><span style={{fontSize:34,lineHeight:1,fontWeight:850,letterSpacing:"-.06em",color:T.fg,fontVariantNumeric:"tabular-nums"}}>{dom.apps}</span><span style={{fontSize:11,color:urbMuted}}>applications</span><span style={{marginLeft:"auto",fontSize:10,color:hot?"#fb7185":urbMuted,background:hot?"rgba(244,63,94,.1)":(urbDark?"rgba(148,163,184,.08)":"#f1f5f9"),padding:"5px 8px",borderRadius:8}}>{hot} critiques</span></div>
-                <div style={{height:5,borderRadius:99,background:urbDark?"rgba(148,163,184,.12)":"#e9edf5",marginTop:12,overflow:"hidden"}}><div style={{width:pct+"%",height:"100%",borderRadius:99,background:"linear-gradient(90deg,"+dc.ac+","+dc.ac+"88)",transition:"width .5s"}}/></div>
-                <div style={{display:"flex",justifyContent:"space-between",gap:8,marginTop:15,color:urbMuted,fontSize:10}}><span>↗ {out} sortants</span><span>↙ {into} entrants</span><span>⤳ {dom.flows} flux</span></div>
-                <div style={{display:"flex",gap:5,marginTop:16,minHeight:22,overflow:"hidden"}}>{domApps.slice(0,4).map(function(a){return <span key={a.id} title={a.name} style={{maxWidth:94,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:9,color:T.fgMuted,border:"1px solid "+urbLine,background:urbDark?"rgba(15,23,42,.55)":"#f8fafc",borderRadius:6,padding:"4px 6px"}}>{a.name}</span>;})}{domApps.length>4&&<span style={{fontSize:9,color:urbMuted,padding:"4px 5px"}}>+{domApps.length-4}</span>}</div>
+                <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",gap:8,marginTop:17}}><div style={{display:"flex",alignItems:"baseline",gap:7}}><span style={{fontSize:34,lineHeight:1,fontWeight:850,letterSpacing:"-.06em",color:T.fg,fontVariantNumeric:"tabular-nums"}}>{dom.apps}</span><span style={{fontSize:11,color:urbMuted}}>applications</span></div><span style={{fontSize:10,color:hot?"#fb7185":urbMuted,background:hot?"rgba(244,63,94,.1)":(urbDark?"rgba(148,163,184,.08)":"#f1f5f9"),padding:"5px 8px",borderRadius:8}}><b style={{fontWeight:850}}>{hot}</b> critiques</span></div>
+                {featuredApp&&<div style={{marginTop:13,padding:"10px 11px",borderRadius:11,background:"linear-gradient(110deg,"+dc.ac+(urbDark?"20":"12")+", "+(urbDark?"rgba(15,23,42,.58)":"#f8fafc")+")",border:"1px solid "+dc.ac+"35"}}><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:7}}><span style={{fontSize:8,fontWeight:850,letterSpacing:".1em",color:urbMuted,textTransform:"uppercase"}}>{featuredApp.app.criticality==="Haute"?"Application critique":"Application prioritaire"}</span><span style={{fontSize:8,fontWeight:800,color:CC[featuredApp.app.criticality]||urbMuted,background:(CC[featuredApp.app.criticality]||urbMuted)+"18",padding:"3px 6px",borderRadius:6}}>{featuredApp.app.criticality||"Criticité n.d."}</span></div><div style={{fontSize:12,fontWeight:800,color:T.fg,marginTop:5,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={featuredApp.app.name}>{featuredApp.app.name}</div><div style={{fontSize:9,color:urbMuted,marginTop:3}}>{featuredApp.flowCount} flux associés{featuredApp.app.vendor?" · "+featuredApp.app.vendor:""}</div></div>}
+                <div style={{marginTop:13}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:9,color:urbMuted,marginBottom:6}}><span style={{fontWeight:750,letterSpacing:".04em",textTransform:"uppercase"}}>Circulation des flux</span><span style={{fontVariantNumeric:"tabular-nums"}}>{flowTotal} au total</span></div><div style={{height:7,display:"flex",overflow:"hidden",borderRadius:99,background:urbDark?"rgba(148,163,184,.12)":"#e9edf5"}}><div title={out+" sortants"} style={{width:(flowTotal?out/flowTotal*100:0)+"%",background:"#34d399",transition:"width .45s ease"}}/><div title={into+" entrants"} style={{width:(flowTotal?into/flowTotal*100:0)+"%",background:"#818cf8",transition:"width .45s ease"}}/><div title={local+" internes"} style={{width:(flowTotal?local/flowTotal*100:0)+"%",background:dc.ac,transition:"width .45s ease"}}/></div><div style={{display:"flex",justifyContent:"space-between",gap:5,marginTop:7,fontSize:8,color:urbMuted}}><span><i style={{display:"inline-block",width:6,height:6,borderRadius:9,background:"#34d399",marginRight:4}}/>{out} sortants</span><span><i style={{display:"inline-block",width:6,height:6,borderRadius:9,background:"#818cf8",marginRight:4}}/>{into} entrants</span><span><i style={{display:"inline-block",width:6,height:6,borderRadius:9,background:dc.ac,marginRight:4}}/>{local} internes</span></div></div>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:7,marginTop:12,paddingTop:10,borderTop:"1px solid "+urbLine}}>{topPartner?<><span style={{fontSize:9,color:urbMuted}}>Partenaire principal</span><span style={{minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:10,fontWeight:750,color:(DC[partnerName]||DC.Autre).ac}}>{partnerName}</span><span style={{flexShrink:0,fontSize:9,color:T.fg,background:urbDark?"rgba(148,163,184,.1)":"#f1f5f9",padding:"3px 6px",borderRadius:6}}>{topPartner.cnt} flux</span></>:<span style={{fontSize:9,color:urbMuted}}>Aucune connexion inter-domaine</span>}</div>
+                {rankedApps.length>1&&<div style={{display:"flex",gap:5,marginTop:9,overflow:"hidden"}}>{rankedApps.slice(1,3).map(function(item){return <span key={item.app.id} title={item.app.name+" · "+item.flowCount+" flux"} style={{minWidth:0,maxWidth:"50%",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:8,color:T.fgMuted,border:"1px solid "+urbLine,background:urbDark?"rgba(15,23,42,.55)":"#f8fafc",borderRadius:6,padding:"4px 6px"}}>{item.app.name}</span>;})}</div>}
                 <div style={{height:2,position:"absolute",left:0,right:0,bottom:0,background:"linear-gradient(90deg,transparent,"+dc.ac+",transparent)",opacity:.8}}/>
               </div>;
             })}
@@ -6470,7 +6488,7 @@ if(view==="urbanisme"){
     var fa=apps.find(function(a){return a.id===f.from;});
     var ta=apps.find(function(a){return a.id===f.to;});
     if(!fa||!ta)return;
-    var k=fa.name+">>"+ta.name;
+    var k=fa.id+">>"+ta.id;
     if(!pairFlows[k])pairFlows[k]={from:fa,to:ta,flows:[],count:0};
     pairFlows[k].flows.push(f);pairFlows[k].count++;
   });
@@ -6478,8 +6496,8 @@ if(view==="urbanisme"){
   var filteredPairList=urbSelApp?pairList.filter(function(p){return p.from.id===urbSelApp.id||p.to.id===urbSelApp.id;}):pairList;
   var detailFlows=urbFlowPair?pairFlows[urbFlowPair]:null;
   var urbDark=!!isDark;
-  var urbMuted=urbDark?"#a0a7ba":"#687187";
-  var urbLine=urbDark?"rgba(148,163,184,0.14)":"rgba(71,85,105,0.14)";
+  var urbMuted=urbDark?"#a0a7ba":"#59657B";
+  var urbLine=urbDark?"rgba(148,163,184,0.14)":"rgba(71,85,105,0.17)";
   var selectedAppFlows=urbSelApp?flows.filter(function(f){return f.from===urbSelApp.id||f.to===urbSelApp.id;}):[];
   var selectedAppOut=selectedAppFlows.filter(function(f){return f.from===urbSelApp.id;}).length;
   var selectedAppIn=selectedAppFlows.length-selectedAppOut;
@@ -6489,11 +6507,11 @@ if(view==="urbanisme"){
 
   return <AppCtx.Provider value={ctxValue}><div style={{height:"100vh",display:"flex",overflow:"hidden"}}><Sidebar/><div className="view-container" style={{flex:1,display:"flex",flexDirection:"column",background:T.bg,minWidth:0}}>
     <UrbTopbar/>
-    <div style={{flex:1,overflowY:"auto",padding:"clamp(18px,3vw,34px) clamp(16px,3vw,42px) 48px",background:urbDark?"radial-gradient(ellipse at 82% 0%, rgba(99,102,241,.09), transparent 38%), "+T.bg:"radial-gradient(ellipse at 82% 0%, rgba(99,102,241,.06), transparent 38%), "+T.bg}}>
+    <div style={{flex:1,overflowY:"auto",padding:"clamp(18px,3vw,34px) clamp(16px,3vw,42px) 48px",background:urbDark?"radial-gradient(ellipse at 82% 0%, rgba(99,102,241,.09), transparent 38%), "+T.bg:"radial-gradient(ellipse at 12% 0%, rgba(99,102,241,.075), transparent 38%), radial-gradient(ellipse at 92% 78%, rgba(14,165,233,.045), transparent 34%), "+T.bg}}>
       <div style={{maxWidth:urbExpanded?1500:1240,margin:"0 auto",transition:"max-width 0.25s ease"}}>
 
         {/* Zone header */}
-        <div style={{position:"relative",overflow:"hidden",borderRadius:18,marginBottom:17,padding:"23px clamp(18px,3vw,30px)",background:"linear-gradient(112deg,"+zoneCC.ac+"35, "+(urbDark?"#10131f":"#fff")+" 70%)",border:"1px solid "+zoneCC.ac+"45",boxShadow:"0 18px 46px "+zoneCC.ac+"12",animation:"cardIn .25s cubic-bezier(.16,1,.3,1)"}}>
+        <div style={{position:"relative",overflow:"hidden",borderRadius:18,marginBottom:17,padding:"23px clamp(18px,3vw,30px)",background:urbDark?"linear-gradient(112deg,"+zoneCC.ac+"35, #10131f 70%)":"linear-gradient(112deg,"+zoneCC.ac+"22, #FBFCFF 72%)",border:"1px solid "+zoneCC.ac+(urbDark?"45":"55"),boxShadow:urbDark?"0 18px 46px "+zoneCC.ac+"12":"0 16px 38px rgba(30,41,59,.08), 0 0 0 1px "+zoneCC.ac+"0A",animation:"cardIn .25s cubic-bezier(.16,1,.3,1)"}}>
           <div style={{position:"absolute",width:220,height:220,right:-85,top:-118,borderRadius:"50%",background:"radial-gradient(circle,"+zoneCC.ac+"35,transparent 70%)",pointerEvents:"none"}}/>
           <div style={{position:"relative",display:"flex",alignItems:"center",justifyContent:"space-between",gap:20,flexWrap:"wrap"}}>
             <div><div style={{fontSize:10,fontWeight:800,letterSpacing:".14em",textTransform:"uppercase",color:zoneCC.ac,marginBottom:8}}>02 · Domaine métier</div><div style={{fontSize:"clamp(24px,3vw,34px)",fontWeight:850,letterSpacing:"-.04em",color:T.fg,lineHeight:1.05}}>{urbZone}</div><div style={{display:"flex",gap:7,alignItems:"center",marginTop:12,flexWrap:"wrap"}}><span style={{fontSize:10,color:urbMuted}}>{zoneApps.length} applications</span><span style={{color:urbLine}}>·</span><span style={{fontSize:10,color:urbMuted}}>{zoneFlowsOut.length+zoneFlowsIn.length} flux associés</span><span style={{color:urbLine}}>·</span><span style={{fontSize:10,color:urbMuted}}>{pairList.length} connexions</span></div></div>
@@ -6510,22 +6528,23 @@ if(view==="urbanisme"){
           </div>
         </div>
 
-        {/* Main 2-col layout: quartiers left, flux right */}
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,320px),1fr))",gap:14,alignItems:"start",transition:"grid-template-columns .25s ease"}}>
+        {/* Workspace à trois étapes : application → connexion → détail du flux */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,270px),1fr))",gap:14,alignItems:"start",transition:"grid-template-columns .25s ease"}}>
 
           {/* Left: quartiers */}
           <div style={{...urbPanel,padding:16,minWidth:0}}>
-            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}><span style={{width:28,height:28,borderRadius:9,display:"grid",placeItems:"center",background:zoneCC.ac+"20",color:zoneCC.ac,fontSize:11,fontWeight:850}}>03</span><div><div style={{fontSize:13,fontWeight:800,color:T.fg}}>Applications</div><div style={{fontSize:10,color:urbMuted,marginTop:3}}>Par quartier · sélectionnez une application</div></div></div>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}><span style={{width:28,height:28,borderRadius:9,display:"grid",placeItems:"center",background:zoneCC.ac+"20",color:zoneCC.ac,fontSize:11,fontWeight:850}}>01</span><div><div style={{fontSize:13,fontWeight:800,color:T.fg}}>Applications</div><div style={{fontSize:10,color:urbMuted,marginTop:3}}>{urbSelApp?"Point de départ sélectionné":"Choisissez une application"}</div></div><span style={{marginLeft:"auto",fontSize:9,color:urbMuted,background:urbDark?"rgba(148,163,184,.08)":"#f1f5f9",padding:"5px 7px",borderRadius:7}}>{zoneApps.length}</span></div>
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
               {quartierList.map(function(entry,qi){
                 var cat=entry[0];var catApps=entry[1];
-                return <div key={cat} style={{background:urbDark?"rgba(148,163,184,.045)":"#f8fafc",borderRadius:12,padding:"11px 12px",border:"1px solid "+urbLine,animation:"cardIn .2s cubic-bezier(.16,1,.3,1) both",animationDelay:(qi*.04)+"s"}}>
-                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",fontSize:9,fontWeight:800,color:zoneCC.ac,textTransform:"uppercase",letterSpacing:".1em",marginBottom:9}}>{cat}<span style={{color:urbMuted,fontWeight:600,letterSpacing:0}}>{catApps.length} apps</span></div>
+                var isOtherCategory=cat==="Autre";
+                return <div key={cat} style={isOtherCategory?{animation:"cardIn .2s cubic-bezier(.16,1,.3,1) both",animationDelay:(qi*.04)+"s"}:{background:urbDark?"rgba(148,163,184,.045)":"#F5F7FC",borderRadius:12,padding:"11px 12px",border:"1px solid "+urbLine,animation:"cardIn .2s cubic-bezier(.16,1,.3,1) both",animationDelay:(qi*.04)+"s"}}>
+                  {!isOtherCategory&&<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",fontSize:9,fontWeight:800,color:zoneCC.ac,textTransform:"uppercase",letterSpacing:".1em",marginBottom:9}}>{cat}<span style={{color:urbMuted,fontWeight:600,letterSpacing:0}}>{catApps.length} apps</span></div>}
                   <div style={{display:"flex",flexDirection:"column",gap:6}}>
                     {catApps.map(function(app){
                       var nFlux=flows.filter(function(f){return f.from===app.id||f.to===app.id;}).length;
                       var isSelApp=urbSelApp&&urbSelApp.id===app.id;
-                      return <div key={app.id} title={app.name+(nFlux>0?" · "+nFlux+" flux":"")} onClick={function(){setUrbSelApp(isSelApp?null:app);setUrbFlowPair(null);}}
+                      return <div key={app.id} role="button" tabIndex={0} title={app.name+(nFlux>0?" · "+nFlux+" flux":"")} onClick={function(){setUrbSelApp(isSelApp?null:app);setUrbFlowPair(null);}} onKeyDown={function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();setUrbSelApp(isSelApp?null:app);setUrbFlowPair(null);}}}
                         style={{display:"flex",alignItems:"center",gap:9,background:isSelApp?zoneCC.ac+(urbDark?"20":"12"):(urbDark?"rgba(15,23,42,.52)":"#fff"),border:"1px solid "+(isSelApp?zoneCC.ac+"90":urbLine),borderRadius:10,padding:"9px 10px",fontSize:11,color:T.fg,fontWeight:650,position:"relative",cursor:"pointer",transition:"transform .16s ease, box-shadow .16s ease, border-color .16s ease",userSelect:"none"}}
                         onMouseEnter={function(e){e.currentTarget.style.transform="translateX(2px)";e.currentTarget.style.boxShadow="0 5px 16px rgba(0,0,0,.13)";e.currentTarget.style.borderColor=zoneCC.ac+"90";}}
                         onMouseLeave={function(e){e.currentTarget.style.transform="";e.currentTarget.style.boxShadow="";e.currentTarget.style.borderColor=isSelApp?zoneCC.ac+"90":urbLine;}}>
@@ -6545,21 +6564,21 @@ if(view==="urbanisme"){
           <div style={{...urbPanel,padding:16,minWidth:0}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
               <div style={{display:"flex",alignItems:"center",gap:10}}>
-                <span style={{width:28,height:28,borderRadius:9,display:"grid",placeItems:"center",background:"rgba(56,189,248,.13)",color:"#38bdf8",fontSize:11,fontWeight:850}}>04</span>
-                <div><div style={{fontSize:13,fontWeight:800,color:T.fg}}>Connexions</div><div style={{fontSize:10,color:urbMuted,marginTop:3}}>{filteredPairList.length}{urbSelApp?" / "+pairList.length:""} paires de flux{urbSelApp?" · "+urbSelApp.name:" · domaine complet"}</div></div>
+                <span style={{width:28,height:28,borderRadius:9,display:"grid",placeItems:"center",background:"rgba(56,189,248,.13)",color:"#38bdf8",fontSize:11,fontWeight:850}}>02</span>
+                <div><div style={{fontSize:13,fontWeight:800,color:T.fg}}>Connexions</div><div style={{fontSize:10,color:urbMuted,marginTop:3}}>{filteredPairList.length}{urbSelApp?" / "+pairList.length:""} itinéraires{urbSelApp?" · filtrés par application":" · dans le domaine"}</div></div>
               </div>
-              {urbFlowPair&&<button onClick={function(){setUrbFlowPair(null);}} style={{fontSize:10,color:"#38bdf8",background:"rgba(56,189,248,.1)",border:"1px solid rgba(56,189,248,.2)",borderRadius:8,cursor:"pointer",padding:"6px 8px",fontWeight:700}}>Toutes</button>}
+              {detailFlows&&<button onClick={function(){setUrbFlowPair(null);}} style={{fontSize:10,color:"#38bdf8",background:"rgba(56,189,248,.1)",border:"1px solid rgba(56,189,248,.2)",borderRadius:8,cursor:"pointer",padding:"6px 8px",fontWeight:700}}>Toutes</button>}
             </div>
 
             {filteredPairList.length===0&&<div style={{fontSize:11,color:urbMuted,fontStyle:"italic",padding:"20px 12px",textAlign:"center",border:"1px dashed "+urbLine,borderRadius:11,marginTop:12}}>{urbSelApp?"Aucun flux pour cette application":"Aucun flux pour ce domaine"}</div>}
 
-            {!urbFlowPair&&<div style={{display:"flex",flexDirection:"column",gap:6}}>
+            {!detailFlows&&<div style={{display:"flex",flexDirection:"column",gap:6}}>
               {filteredPairList.map(function(pair,pi){
                 var fa=pair.from;var ta=pair.to;
                 var faCC=DC[fa.domain]||DC.Autre;
                 var taCC=DC[ta.domain]||DC.Autre;
                 var isSameZone=fa.domain===urbZone&&ta.domain===urbZone;
-                var pairKey=fa.name+">>"+ta.name;
+                var pairKey=fa.id+">>"+ta.id;
                 var pairIsSelected=urbFlowPair===pairKey;
                 return <div key={pi} onClick={function(){setUrbFlowPair(pairKey);}}
                   style={{background:pairIsSelected?(urbDark?"rgba(56,189,248,.12)":"rgba(14,165,233,.08)"):(urbDark?"rgba(148,163,184,.045)":"#f8fafc"),borderRadius:12,padding:"12px 12px",border:"1px solid "+(pairIsSelected?"rgba(56,189,248,.52)":urbLine),cursor:"pointer",transition:"transform .16s,background .16s,border-color .16s,box-shadow .16s",animation:"cardIn .18s ease both",animationDelay:(pi*.025)+"s"}}
@@ -6567,7 +6586,7 @@ if(view==="urbanisme"){
                   onMouseLeave={function(e){e.currentTarget.style.transform="";e.currentTarget.style.background=pairIsSelected?(urbDark?"rgba(56,189,248,.12)":"rgba(14,165,233,.08)"):(urbDark?"rgba(148,163,184,.045)":"#f8fafc");e.currentTarget.style.borderColor=pairIsSelected?"rgba(56,189,248,.52)":urbLine;e.currentTarget.style.boxShadow="";}}>
                   <div style={{display:"flex",alignItems:"center",gap:6}}>
                     <span style={{fontSize:12,fontWeight:700,color:T.fg,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{fa.name}</span>
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+                    <UrbFlowArrow color={pairIsSelected?"#22d3ee":"#818cf8"} width={26}/>
                     <span style={{fontSize:12,fontWeight:700,color:T.fg,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textAlign:"right"}}>{ta.name}</span>
                     <span style={{fontSize:10,background:"rgba(56,189,248,.12)",color:"#38bdf8",border:"1px solid rgba(56,189,248,.22)",borderRadius:8,padding:"3px 7px",fontWeight:800,flexShrink:0}}>{pair.count}</span>
                   </div>
@@ -6584,12 +6603,12 @@ if(view==="urbanisme"){
 
           {/* Third step: selected application or selected flow details */}
           <div style={{...urbPanel,padding:16,minWidth:0,minHeight:250,animation:"cardIn .22s cubic-bezier(.16,1,.3,1) both"}}>
-            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}><span style={{width:28,height:28,borderRadius:9,display:"grid",placeItems:"center",background:"rgba(139,92,246,.14)",color:"#a78bfa",fontSize:11,fontWeight:850}}>05</span><div><div style={{fontSize:13,fontWeight:800,color:T.fg}}>{detailFlows?"Détail des flux":urbSelApp?"Fiche application":"Explorer un élément"}</div><div style={{fontSize:10,color:urbMuted,marginTop:3}}>{detailFlows?"Protocoles et échanges métier":urbSelApp?"Dépendances et informations clés":"Choisissez une application ou une connexion"}</div></div></div>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}><span style={{width:28,height:28,borderRadius:9,display:"grid",placeItems:"center",background:"rgba(139,92,246,.14)",color:"#a78bfa",fontSize:11,fontWeight:850}}>03</span><div><div style={{fontSize:13,fontWeight:800,color:T.fg}}>{detailFlows?"Détail des flux":urbSelApp?"Fiche application":"Détail"}</div><div style={{fontSize:10,color:urbMuted,marginTop:3}}>{detailFlows?"Données échangées et protocoles":urbSelApp?"Dépendances et informations clés":"Sélectionnez une application ou une connexion"}</div></div></div>
 
             {detailFlows&&<div style={{display:"flex",flexDirection:"column",gap:10}}>
-              <div style={{display:"flex",alignItems:"center",gap:8,padding:"12px 10px",borderRadius:12,background:urbDark?"rgba(56,189,248,.09)":"#f0f9ff",border:"1px solid rgba(56,189,248,.2)"}}><span style={{minWidth:0,flex:1,fontSize:11,fontWeight:750,color:T.fg,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{detailFlows.from.name}</span><span style={{color:"#38bdf8",fontSize:15}}>→</span><span style={{minWidth:0,flex:1,fontSize:11,fontWeight:750,color:T.fg,textAlign:"right",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{detailFlows.to.name}</span></div>
+              <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) 34px minmax(0,1fr)",alignItems:"center",gap:7,padding:"14px 11px",borderRadius:14,background:"linear-gradient(120deg,"+(DC[detailFlows.from.domain]||DC.Autre).ac+"22, rgba(56,189,248,.10), "+(DC[detailFlows.to.domain]||DC.Autre).ac+"22)",border:"1px solid rgba(56,189,248,.24)"}}><div style={{minWidth:0}}><div style={{fontSize:8,color:urbMuted,textTransform:"uppercase",letterSpacing:".1em"}}>Émetteur</div><div style={{fontSize:11,fontWeight:800,color:T.fg,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginTop:4}}>{detailFlows.from.name}</div><div style={{fontSize:8,color:(DC[detailFlows.from.domain]||DC.Autre).ac,marginTop:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{detailFlows.from.domain}</div></div><div style={{width:32,height:32,borderRadius:11,display:"grid",placeItems:"center",background:"rgba(56,189,248,.16)",boxShadow:"0 0 18px rgba(56,189,248,.12)"}}><UrbFlowArrow color="#38bdf8" width={30}/></div><div style={{minWidth:0,textAlign:"right"}}><div style={{fontSize:8,color:urbMuted,textTransform:"uppercase",letterSpacing:".1em"}}>Récepteur</div><div style={{fontSize:11,fontWeight:800,color:T.fg,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginTop:4}}>{detailFlows.to.name}</div><div style={{fontSize:8,color:(DC[detailFlows.to.domain]||DC.Autre).ac,marginTop:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{detailFlows.to.domain}</div></div></div>
               <div style={{fontSize:10,color:urbMuted}}>{detailFlows.flows.length} flux métier dans cette connexion</div>
-              {detailFlows.flows.map(function(f,fi){return <div key={f.id||fi} style={{background:urbDark?"rgba(148,163,184,.045)":"#f8fafc",borderRadius:12,padding:12,border:"1px solid "+urbLine,animation:"cardIn .18s ease both",animationDelay:(fi*.04)+"s"}}>
+              {detailFlows.flows.map(function(f,fi){return <div key={f.id||fi} style={{background:urbDark?"rgba(148,163,184,.045)":"#F5F7FC",borderRadius:12,padding:12,border:"1px solid "+urbLine,animation:"cardIn .18s ease both",animationDelay:(fi*.04)+"s"}}>
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}><span style={{fontSize:10,fontWeight:800,color:"#38bdf8",background:"rgba(56,189,248,.12)",border:"1px solid rgba(56,189,248,.2)",padding:"5px 8px",borderRadius:7}}>{f.protocol||"Protocole non renseigné"}</span>{f.frequency&&<span style={{fontSize:9,color:urbMuted,background:urbDark?"rgba(148,163,184,.1)":"#eef2f7",padding:"5px 7px",borderRadius:7}}>{f.frequency}</span>}</div>
                 <div style={{fontSize:12,fontWeight:750,color:T.fg,marginTop:10}}>{f.label||"Flux sans libellé"}</div>{f.description&&<div style={{fontSize:10,color:urbMuted,marginTop:5,lineHeight:1.6}}>{f.description}</div>}
               </div>;})}
@@ -6600,11 +6619,11 @@ if(view==="urbanisme"){
                 <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:10}}><div style={{minWidth:0}}><div style={{fontSize:10,fontWeight:800,letterSpacing:".1em",textTransform:"uppercase",color:zoneCC.ac}}>Application</div><div style={{fontSize:18,fontWeight:850,letterSpacing:"-.03em",color:T.fg,marginTop:5,overflowWrap:"anywhere"}}>{urbSelApp.name}</div></div><span style={{fontSize:9,fontWeight:800,color:selectedAppStatusColor,background:selectedAppStatusColor+"18",border:"1px solid "+selectedAppStatusColor+"35",borderRadius:8,padding:"6px 8px",whiteSpace:"nowrap"}}>{urbSelApp.criticality||"Criticité n.d."}</span></div>
                 <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,marginTop:14}}>{[["FLUX",selectedAppFlows.length],["SORTANTS",selectedAppOut],["ENTRANTS",selectedAppIn]].map(function(m){return <div key={m[0]} style={{padding:"8px 6px",borderRadius:9,textAlign:"center",background:urbDark?"rgba(2,6,23,.32)":"rgba(255,255,255,.72)"}}><div style={{fontSize:15,fontWeight:850,color:T.fg}}>{m[1]}</div><div style={{fontSize:8,color:urbMuted,letterSpacing:".06em",marginTop:3}}>{m[0]}</div></div>;})}</div>
               </div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>{[["Éditeur",urbSelApp.vendor],["Version",urbSelApp.version],["Responsable",urbSelApp.owner],["Utilisateurs",urbSelApp.users],["Statut",urbSelApp.status],["Catégorie",urbSelApp.category]].filter(function(x){return x[1];}).map(function(x){return <div key={x[0]} style={{padding:"8px 9px",borderRadius:9,background:urbDark?"rgba(148,163,184,.045)":"#f8fafc",border:"1px solid "+urbLine,minWidth:0}}><div style={{fontSize:8,color:urbMuted,textTransform:"uppercase",letterSpacing:".08em"}}>{x[0]}</div><div style={{fontSize:10,color:T.fg,fontWeight:650,marginTop:4,overflowWrap:"anywhere"}}>{x[1]}</div></div>;})}</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>{[["Éditeur",urbSelApp.vendor],["Version",urbSelApp.version],["Responsable",urbSelApp.owner],["Utilisateurs",urbSelApp.users],["Statut",urbSelApp.status],["Catégorie",urbSelApp.category]].filter(function(x){return x[1]&&!(x[0]==="Catégorie"&&x[1]==="Autre");}).map(function(x){return <div key={x[0]} style={{padding:"8px 9px",borderRadius:9,background:urbDark?"rgba(148,163,184,.045)":"#f8fafc",border:"1px solid "+urbLine,minWidth:0}}><div style={{fontSize:8,color:urbMuted,textTransform:"uppercase",letterSpacing:".08em"}}>{x[0]}</div><div style={{fontSize:10,color:T.fg,fontWeight:650,marginTop:4,overflowWrap:"anywhere"}}>{x[1]}</div></div>;})}</div>
               {urbSelApp.description&&<div style={{fontSize:10,color:urbMuted,lineHeight:1.6,padding:"10px 11px",borderLeft:"2px solid "+zoneCC.ac,background:urbDark?"rgba(148,163,184,.04)":"#f8fafc",borderRadius:"0 9px 9px 0"}}>{urbSelApp.description}</div>}
               <div style={{fontSize:10,fontWeight:750,color:T.fg,marginTop:2}}>Flux associés <span style={{color:urbMuted,fontWeight:500}}>· cliquez une connexion pour le détail</span></div>
               {selectedAppFlows.length===0&&<div style={{fontSize:10,color:urbMuted,fontStyle:"italic",padding:"12px 4px"}}>Aucune dépendance recensée.</div>}
-              {selectedAppFlows.slice(0,8).map(function(f,i){var outbound=f.from===urbSelApp.id;var other=apps.find(function(a){return a.id===(outbound?f.to:f.from);});var pairKey=(apps.find(function(a){return a.id===f.from;})||{}).name+">>"+(apps.find(function(a){return a.id===f.to;})||{}).name;return <div key={f.id||i} onClick={function(){setUrbFlowPair(pairKey);}} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 9px",borderRadius:9,background:urbDark?"rgba(148,163,184,.045)":"#f8fafc",border:"1px solid "+urbLine,cursor:"pointer"}}><span style={{fontSize:8,fontWeight:800,color:outbound?"#34d399":"#818cf8",background:outbound?"rgba(52,211,153,.12)":"rgba(129,140,248,.12)",padding:"4px 5px",borderRadius:6}}>{outbound?"SORTANT":"ENTRANT"}</span><span style={{minWidth:0,flex:1,fontSize:10,color:T.fg,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{other?other.name:"Application inconnue"}</span><span style={{fontSize:9,color:"#38bdf8"}}>→</span></div>;})}
+              {selectedAppFlows.slice(0,8).map(function(f,i){var outbound=f.from===urbSelApp.id;var other=apps.find(function(a){return a.id===(outbound?f.to:f.from);});var pairKey=f.from+">>"+f.to;return <div key={f.id||i} onClick={function(){setUrbFlowPair(pairKey);}} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 9px",borderRadius:9,background:urbDark?"rgba(148,163,184,.045)":"#f8fafc",border:"1px solid "+urbLine,cursor:"pointer"}}><span style={{fontSize:8,fontWeight:800,color:outbound?"#34d399":"#818cf8",background:outbound?"rgba(52,211,153,.12)":"rgba(129,140,248,.12)",padding:"4px 5px",borderRadius:6}}>{outbound?"SORTANT":"ENTRANT"}</span><span style={{minWidth:0,flex:1,fontSize:10,color:T.fg,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{other?other.name:"Application inconnue"}</span><UrbFlowArrow color={outbound?"#34d399":"#818cf8"} width={22}/></div>;})}
             </div>}
 
             {!detailFlows&&!urbSelApp&&<div style={{height:200,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",padding:18}}><div style={{width:52,height:52,borderRadius:17,display:"grid",placeItems:"center",background:urbDark?"rgba(139,92,246,.12)":"#f5f3ff",color:"#a78bfa",fontSize:22,marginBottom:14}}>⌁</div><div style={{fontSize:12,fontWeight:750,color:T.fg}}>Votre architecture, en détail</div><div style={{fontSize:10,color:urbMuted,lineHeight:1.6,maxWidth:240,marginTop:7}}>Sélectionnez une application à gauche ou une connexion au centre pour afficher ses dépendances et ses flux métier.</div></div>}
@@ -6751,9 +6770,10 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
     </div></div></AppCtx.Provider>;
 
   /* ═══ MAPPING ═══ */
-  return <AppCtx.Provider value={ctxValue}><div style={{height:"100vh",display:"flex",overflow:"hidden"}}><Sidebar/><div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",position:"relative"}}>
-    <div ref={toolbarRef} style={{background:T.bgAlt,borderBottom:"1px solid "+T.borderLight,padding:"8px 16px",display:"flex",alignItems:"center",gap:10,flexShrink:0,zIndex:200,flexWrap:"wrap",position:"relative"}}>
-      <input placeholder="Rechercher..." value={search} onChange={e=>setSearch(e.target.value)} style={{...I,width:140}}/>
+  var toolbarSurface=isDark?"linear-gradient(145deg, rgba(38,41,68,.96), rgba(20,22,42,.96))":"linear-gradient(145deg,#FFFFFF,#F2F3FB)";
+  return <AppCtx.Provider value={ctxValue}><div style={{height:"100%",display:"flex",overflow:"hidden"}}><Sidebar/><div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",position:"relative"}}>
+    <div ref={toolbarRef} className="mapping-toolbar" style={{background:"linear-gradient(180deg,"+T.bgAlt+","+T.bg+")",borderBottom:"1px solid "+T.borderLight,padding:"10px 12px",display:"flex",alignItems:"center",gap:6,flexShrink:0,zIndex:200,flexWrap:"wrap",position:"relative",boxShadow:"0 8px 24px rgba(0,0,0,0.14)"}}>
+      <input placeholder="Rechercher apps, domaines…" value={search} onChange={e=>setSearch(e.target.value)} style={{...I,width:180,padding:"8px 11px",borderRadius:10,boxShadow:isDark?"inset 0 1px 0 rgba(255,255,255,.03)":"0 2px 8px rgba(15,23,42,.04)"}}/>
       {/* Dropdown filters */}
       {[
         {id:"domain",label:"Domaine",sel:selDom,setSel:setSelDom,items:doms.map(d=>({v:d,label:d,color:(DC[d]||DC.Autre).ac}))},
@@ -6769,20 +6789,20 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
         const isOpen=openFilter===flt.id;
         const count=flt.sel.length;
         const activeColor=count>0&&flt.sel[0]&&flt.items.find(it=>it.v===flt.sel[0])?.color||"#548CA8";
-        return <div key={flt.id} style={{position:"relative"}}>
-          <button onMouseDown={e=>{e.stopPropagation();setOpenFilter(isOpen?null:flt.id);}} style={{...B,padding:"4px 10px",fontSize:10,background:count>0?activeColor+"22":T.bgCard,color:count>0?activeColor:T.fgMuted,border:"1px solid "+(count>0?activeColor:T.border),borderRadius:4,display:"flex",alignItems:"center",gap:4}}>
+        return <div key={flt.id} className="mapping-trigger-anchor" style={{position:"relative"}}>
+          <button className="mapping-trigger" aria-haspopup="true" aria-expanded={isOpen} onMouseDown={e=>{e.stopPropagation();setOpenFilter(isOpen?null:flt.id);}} style={{...B,padding:"7px 12px",fontSize:10,background:count>0?"linear-gradient(135deg,"+activeColor+"32,"+activeColor+"12)":toolbarSurface,color:count>0?activeColor:T.fgMuted,border:"1px solid "+(count>0?activeColor+"75":T.border),borderRadius:10,display:"flex",alignItems:"center",gap:6,boxShadow:count>0?"0 4px 12px "+activeColor+"18":"0 2px 8px rgba(0,0,0,.12)"}}>
             {flt.label}{count>0&&<span style={{background:activeColor,color:"#fff",fontSize:10,borderRadius:8,padding:"0 5px",lineHeight:"14px",minWidth:14,textAlign:"center"}}>{count}</span>}
             <span style={{fontSize:10,marginLeft:2}}>{isOpen?"▲":"▼"}</span>
           </button>
-          {isOpen&&<div style={{position:"absolute",top:"100%",left:0,marginTop:4,background:T.bgCard,border:"1px solid "+T.border,borderRadius:8,padding:6,minWidth:180,zIndex:200,boxShadow:"0 4px 16px #00000060",maxHeight:240,overflowY:"auto"}} onMouseDown={e=>e.stopPropagation()}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4,padding:"2px 6px"}}>
+          {isOpen&&<div className="mapping-menu" style={{position:"absolute",top:"100%",left:0,marginTop:6,background:T.bgCard,border:"1px solid "+T.border,borderRadius:12,padding:8,minWidth:190,zIndex:300,boxShadow:"0 16px 38px rgba(0,0,0,.32)",maxHeight:280,overflowY:"auto"}} onMouseDown={e=>e.stopPropagation()}>
+            <div className="mapping-menu-filter-head" style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4,padding:"2px 6px"}}>
               <span style={{fontSize:11,color:T.fgMuted}}>{flt.items.length} options</span>
               {flt.sel.length>0&&<span style={{fontSize:11,color:"#E06C75",cursor:"pointer"}} onMouseDown={e=>{e.stopPropagation();flt.setSel([]);}}>Effacer</span>}
             </div>
             {flt.items.map(it=>{
               const on=flt.sel.includes(it.v);
               const appCount=apps.filter(a=>flt.id==="domain"?a.domain===it.v:flt.id==="category"?a.category===it.v:flt.id==="d1"?a.statusD1===it.v:flt.id==="d2"?a.statusD2===it.v:flt.id==="statut"?a.statut===it.v:a.criticality===it.v).length;
-              return <div key={it.v} onMouseDown={e=>{e.stopPropagation();flt.setSel(p=>on?p.filter(x=>x!==it.v):[...p,it.v]);}} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",borderRadius:4,cursor:"pointer",background:on?it.color+"18":"transparent",transition:"background 0.1s"}}
+              return <div key={it.v} className="mapping-menu-option" aria-selected={on} onMouseDown={e=>{e.stopPropagation();flt.setSel(p=>on?p.filter(x=>x!==it.v):[...p,it.v]);}} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",borderRadius:4,cursor:"pointer",background:on?it.color+"18":"transparent",transition:"background 0.1s"}}
                 onMouseEnter={e=>{if(!on)e.currentTarget.style.background="#ffffff08";}} onMouseLeave={e=>{e.currentTarget.style.background=on?it.color+"18":"transparent";}}>
                 <div style={{width:14,height:14,borderRadius:4,border:`2px solid ${on?it.color:"#444"}`,background:on?it.color:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{on&&<span style={{color:"#fff",fontSize:9}}>✓</span>}</div>
                 <div style={{width:8,height:8,borderRadius:2,background:it.color,flexShrink:0}}/>
@@ -6793,77 +6813,78 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
         </div>;})}
       {activeFilters&&<button onMouseDown={e=>{e.stopPropagation();setSelDom([]);setSelCat([]);setSelCrit([]);}} style={{...B,padding:"4px 8px",fontSize:11,background:"#FF525220",color:"#FF5252",borderRadius:4}}>✕</button>}
       <div style={{flex:1}}/>
-      <button onMouseDown={e=>{e.stopPropagation();applyStarLayout();}} title="Le domaine ayant le plus de flux est centré ; les autres sont espacés selon leurs connexions" style={{...B,padding:"4px 10px",fontSize:11,background:"#2979FF18",color:"#2979FF",border:"1px solid #2979FF40",borderRadius:6,display:"flex",alignItems:"center",gap:5,fontWeight:600}}>&#10227; Réagencement auto</button>
+      <button className="mapping-trigger mapping-trigger-primary" onMouseDown={e=>{e.stopPropagation();applyStarLayout();}} title="Regroupe les applications par catégorie, rapproche les domaines les plus connectés et cadre la carte. Les fonctions d’édition restent disponibles." style={{...B,padding:"7px 11px",fontSize:9.5,background:"linear-gradient(120deg,#4F46E5,#6366F1 58%,#0EA5E9)",color:"#fff",border:"1px solid rgba(165,180,252,.45)",borderRadius:11,display:"flex",alignItems:"center",gap:6,fontWeight:800,boxShadow:"0 6px 16px rgba(79,70,229,.28)"}}><span style={{fontSize:13}}>✦</span> Optimiser la disposition</button>
       {/* ── Navigation menu (mouse icon) ── */}
-      <div style={{position:"relative"}}>
-        <button onClick={function(){setOpenMenu(openMenu==="modes"?null:"modes");}} style={{...B,background:openMenu==="modes"?T.bgHover:(!selMode&&!cMode?"#2979FF22":selMode?"#00BFA522":"transparent"),border:"1px solid "+(!selMode&&!cMode?"#2979FF":selMode?"#00BFA5":"transparent"),padding:"4px 10px",fontSize:11,borderRadius:4,display:"flex",alignItems:"center",gap:5}} title="Mode navigation">
-          <span style={{fontSize:14}}>&#128432;</span>
+      <div className="mapping-trigger-anchor" style={{position:"relative"}}>
+        <button className="mapping-trigger" aria-haspopup="true" aria-expanded={openMenu==="modes"} onClick={function(){setOpenMenu(openMenu==="modes"?null:"modes");}} style={{...B,background:openMenu==="modes"?"linear-gradient(135deg,#6366F130,#0EA5E918)":(!selMode&&!cMode?"linear-gradient(135deg,#6366F12E,#0EA5E91A)":selMode?"linear-gradient(135deg,#00BFA52B,#34D39918)":toolbarSurface),color:!selMode&&!cMode?"#A5B4FC":selMode?"#34D399":T.fgMuted,border:"1px solid "+(!selMode&&!cMode?"#6366F155":selMode?"#00BFA555":T.border),padding:"7px 11px",fontSize:10,borderRadius:10,display:"flex",alignItems:"center",gap:7,boxShadow:"0 3px 10px rgba(0,0,0,.12)"}} title="Mode navigation">
+          <span style={{width:20,height:20,borderRadius:7,display:"grid",placeItems:"center",background:!selMode&&!cMode?"rgba(99,102,241,.18)":selMode?"rgba(16,185,129,.16)":"rgba(148,163,184,.12)",fontSize:12}}>&#128432;</span>
           <span style={{fontSize:10,color:!selMode&&!cMode?"#2979FF":selMode?"#00BFA5":T.fg,fontWeight:600}}>{!selMode&&!cMode?"Nav":selMode?"Sél":"Flux"}</span>
           <span style={{fontSize:10,color:T.fgMuted}}>▾</span>
         </button>
-        {openMenu==="modes"&&<div style={{position:"absolute",top:"calc(100% + 4px)",left:0,background:T.bgCard,border:"1px solid "+T.border,borderRadius:8,padding:6,minWidth:170,boxShadow:"0 4px 20px #00000040",zIndex:300}}>
-          <div style={{fontSize:11,fontWeight:600,color:T.fgDim,textTransform:"uppercase",letterSpacing:1,padding:"4px 10px 6px"}}>Mode</div>
-          <div onMouseDown={function(e){e.stopPropagation();setSelMode(false);setCMode(false);setOpenMenu(null);}} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",borderRadius:4,cursor:"pointer",background:!selMode&&!cMode?"#2979FF15":"transparent",border:!selMode&&!cMode?"1px solid #2979FF30":"1px solid transparent",marginBottom:2}} onMouseEnter={function(e){e.currentTarget.style.background=T.bgHover;}} onMouseLeave={function(e){e.currentTarget.style.background=!selMode&&!cMode?"#2979FF15":"transparent";}}>
-            <span style={{fontSize:16}}>&#128432;</span>
+        {openMenu==="modes"&&<div className="mapping-menu" style={{position:"absolute",top:"calc(100% + 6px)",right:0,background:T.bgCard,border:"1px solid "+T.border,borderRadius:12,padding:8,minWidth:210,boxShadow:"0 16px 38px rgba(0,0,0,.32)",zIndex:300}}>
+          <div className="mapping-menu-heading">Mode de navigation</div>
+          <div className="mapping-menu-item" aria-current={!selMode&&!cMode?"true":undefined} onMouseDown={function(e){e.stopPropagation();setSelMode(false);setCMode(false);setOpenMenu(null);}} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 10px",borderRadius:4,cursor:"pointer",background:!selMode&&!cMode?"#2979FF15":"transparent",border:!selMode&&!cMode?"1px solid #2979FF30":"1px solid transparent",marginBottom:2}} onMouseEnter={function(e){e.currentTarget.style.background=T.bgHover;}} onMouseLeave={function(e){e.currentTarget.style.background=!selMode&&!cMode?"#2979FF15":"transparent";}}>
+            <span className="mapping-menu-icon" style={{fontSize:16,color:"#818CF8"}}>&#128432;</span>
             <div><div style={{fontSize:11,fontWeight:600,color:!selMode&&!cMode?"#2979FF":T.fg}}>Navigation</div><div style={{fontSize:11,color:T.fgMuted}}>Pan, zoom, déplacer apps</div></div>
           </div>
-          <div onMouseDown={function(e){e.stopPropagation();setSelMode(true);setCMode(false);setOpenMenu(null);}} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",borderRadius:4,cursor:"pointer",background:selMode?"#00BFA515":"transparent",border:selMode?"1px solid #00BFA530":"1px solid transparent"}} onMouseEnter={function(e){e.currentTarget.style.background=T.bgHover;}} onMouseLeave={function(e){e.currentTarget.style.background=selMode?"#00BFA515":"transparent";}}>
-            <span style={{fontSize:16}}>&#9654;</span>
+          <div className="mapping-menu-item" aria-current={selMode?"true":undefined} onMouseDown={function(e){e.stopPropagation();setSelMode(true);setCMode(false);setOpenMenu(null);}} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 10px",borderRadius:4,cursor:"pointer",background:selMode?"#00BFA515":"transparent",border:selMode?"1px solid #00BFA530":"1px solid transparent"}} onMouseEnter={function(e){e.currentTarget.style.background=T.bgHover;}} onMouseLeave={function(e){e.currentTarget.style.background=selMode?"#00BFA515":"transparent";}}>
+            <span className="mapping-menu-icon" style={{fontSize:16,color:"#34D399"}}>&#9654;</span>
             <div><div style={{fontSize:11,fontWeight:600,color:selMode?"#00BFA5":T.fg}}>Sélection</div><div style={{fontSize:11,color:T.fgMuted}}>Shift+clic, déplacement groupé</div></div>
           </div>
         </div>}
       </div>
       {/* ── Création menu ── */}
-      <div style={{position:"relative"}}>
-        <button onClick={function(){setOpenMenu(openMenu==="create"?null:"create");}} style={{...B,background:openMenu==="create"?T.bgHover:cMode?"#FF525222":T.border,border:"1px solid "+(cMode?"#FF5252":T.border),padding:"4px 10px",fontSize:11,borderRadius:4,display:"flex",alignItems:"center",gap:5}}>
-          <span style={{fontSize:13,color:cMode?"#FF5252":"#00C853"}}>+</span>
+      <div className="mapping-trigger-anchor" style={{position:"relative"}}>
+        <button className="mapping-trigger" aria-haspopup="true" aria-expanded={openMenu==="create"} onClick={function(){setOpenMenu(openMenu==="create"?null:"create");}} style={{...B,background:openMenu==="create"?"linear-gradient(135deg,#6366F126,#8B5CF618)":cMode?"linear-gradient(135deg,#EF44442E,#F9731618)":toolbarSurface,color:cMode?"#FB7185":T.fgMuted,border:"1px solid "+(cMode?"#EF444466":openMenu==="create"?"#8B5CF655":T.border),padding:"7px 11px",fontSize:10,borderRadius:10,display:"flex",alignItems:"center",gap:7,boxShadow:cMode?"0 4px 14px rgba(239,68,68,.14)":"0 3px 10px rgba(0,0,0,.12)"}}>
+          <span style={{width:20,height:20,borderRadius:7,display:"grid",placeItems:"center",background:cMode?"rgba(239,68,68,.16)":"rgba(16,185,129,.16)",fontSize:14,fontWeight:800,color:cMode?"#FB7185":"#34D399"}}>+</span>
           <span style={{fontSize:10,fontWeight:600,color:cMode?"#FF5252":T.fg}}>Création</span>
           <span style={{fontSize:10,color:T.fgMuted}}>▾</span>
         </button>
-        {openMenu==="create"&&<div style={{position:"absolute",top:"calc(100% + 4px)",left:0,background:T.bgCard,border:"1px solid "+T.border,borderRadius:8,padding:6,minWidth:170,boxShadow:"0 4px 20px #00000040",zIndex:300}}>
-          <div style={{fontSize:11,fontWeight:600,color:T.fgDim,textTransform:"uppercase",letterSpacing:1,padding:"4px 10px 6px"}}>Créer</div>
-          <div onClick={function(){setEApp({id:"",name:"",domain:"IT",category:"",description:"",status:"Maintien",criticality:"Moyenne",vendor:"",version:"",owner:"",users:0,x:200-off.x/zm,y:200-off.y/zm,statusD1:"",statusD2:"",statut:""});setShowAM(true);setOpenMenu(null);}} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",borderRadius:4,cursor:"pointer",marginBottom:2}} onMouseEnter={function(e){e.currentTarget.style.background=T.bgHover;}} onMouseLeave={function(e){e.currentTarget.style.background="transparent";}}>
-            <span style={{fontSize:16,color:"#00C853"}}>&#9633;</span>
+        {openMenu==="create"&&<div className="mapping-menu" style={{position:"absolute",top:"calc(100% + 6px)",right:0,background:T.bgCard,border:"1px solid "+T.border,borderRadius:12,padding:8,minWidth:210,boxShadow:"0 16px 38px rgba(0,0,0,.32)",zIndex:300}}>
+          <div className="mapping-menu-heading">Créer un élément</div>
+          <div className="mapping-menu-item" onClick={function(){setEApp({id:"",name:"",domain:"IT",category:"",description:"",status:"Maintien",criticality:"Moyenne",vendor:"",version:"",owner:"",users:0,x:200-off.x/zm,y:200-off.y/zm,statusD1:"",statusD2:"",statut:""});setShowAM(true);setOpenMenu(null);}} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 10px",borderRadius:4,cursor:"pointer",marginBottom:2}} onMouseEnter={function(e){e.currentTarget.style.background=T.bgHover;}} onMouseLeave={function(e){e.currentTarget.style.background="transparent";}}>
+            <span className="mapping-menu-icon" style={{fontSize:16,color:"#34D399"}}>&#9633;</span>
             <div><div style={{fontSize:11,fontWeight:600,color:"#00C853"}}>+ Application</div><div style={{fontSize:11,color:T.fgMuted}}>Ajouter une app au canvas</div></div>
           </div>
-          <div onClick={function(){setCMode(!cMode);setFFrom(null);setSelMode(false);setOpenMenu(null);}} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",borderRadius:4,cursor:"pointer",background:cMode?"#FF525215":"transparent",border:cMode?"1px solid #FF525230":"1px solid transparent"}} onMouseEnter={function(e){e.currentTarget.style.background=T.bgHover;}} onMouseLeave={function(e){e.currentTarget.style.background=cMode?"#FF525215":"transparent";}}>
-            <span style={{fontSize:16,color:"#FF5252"}}>&#8594;</span>
+          <div className="mapping-menu-item" aria-current={cMode?"true":undefined} onClick={function(){setCMode(!cMode);setFFrom(null);setSelMode(false);setOpenMenu(null);}} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 10px",borderRadius:4,cursor:"pointer",background:cMode?"#FF525215":"transparent",border:cMode?"1px solid #FF525230":"1px solid transparent"}} onMouseEnter={function(e){e.currentTarget.style.background=T.bgHover;}} onMouseLeave={function(e){e.currentTarget.style.background=cMode?"#FF525215":"transparent";}}>
+            <span className="mapping-menu-icon" style={{fontSize:16,color:"#FB7185"}}>&#8594;</span>
             <div><div style={{fontSize:11,fontWeight:600,color:cMode?"#FF5252":T.fg}}>Créer un flux</div><div style={{fontSize:11,color:T.fgMuted}}>Clic source → clic cible</div></div>
           </div>
         </div>}
       </div>
       {multiSel.length>0&&<div style={{display:"flex",gap:4,alignItems:"center"}}><span style={{fontSize:10,color:"#00BFA5"}}>{multiSel.length} sél.</span><button onMouseDown={e=>{e.stopPropagation();if(confirm("Supprimer "+multiSel.length+" app(s) ?")){setApps(p=>p.filter(a=>!multiSel.includes(a.id)));setFlows(p=>p.filter(f=>!multiSel.includes(f.from)&&!multiSel.includes(f.to)));setMultiSel([]);}}} style={{...B,padding:"3px 6px",fontSize:11,background:"#FF525220",color:"#FF5252",borderRadius:3}}>🗑</button><button onMouseDown={e=>{e.stopPropagation();setMultiSel([]);}} style={{...B,padding:"3px 6px",fontSize:11,background:T.border,borderRadius:3}}>✕</button></div>}
       {/* ── MENU: Fichier ── */}
-      <div style={{position:"relative"}}>
-        <button onClick={function(){setOpenMenu(openMenu==="file"?null:"file");}} style={{...B,background:openMenu==="file"?T.bgHover:T.border,padding:"5px 10px",fontSize:11,letterSpacing:0.3}}><span style={{fontSize:12,marginRight:4}}>&#128193;</span>Fichier ▾</button>
-        {openMenu==="file"&&<div style={{position:"absolute",top:"100%",right:0,marginTop:4,background:T.bgCard,border:"1px solid "+T.border,borderRadius:8,padding:6,minWidth:180,boxShadow:"0 4px 16px #00000030",zIndex:200}}>
-          <label style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",borderRadius:4,cursor:"pointer",fontSize:11,color:T.fg}} onMouseEnter={function(e){e.currentTarget.style.background=T.bgHover;}} onMouseLeave={function(e){e.currentTarget.style.background="transparent";}}>↑ Charger JSON<input type="file" accept=".json" style={{display:"none"}} onChange={function(e){if(e.target.files[0])loadJSON(e.target.files[0]);setOpenMenu(null);}}/></label>
-          <div onClick={function(){saveJSON();setOpenMenu(null);}} style={{padding:"6px 10px",borderRadius:4,cursor:"pointer",fontSize:11,color:T.fg}} onMouseEnter={function(e){e.currentTarget.style.background=T.bgHover;}} onMouseLeave={function(e){e.currentTarget.style.background="transparent";}}>↓ Sauvegarder</div>
-          <div style={{height:1,background:T.border,margin:"4px 0"}}/>
-          <div onClick={function(){exportCSV();setOpenMenu(null);}} style={{padding:"6px 10px",borderRadius:4,cursor:"pointer",fontSize:11,color:T.fg}} onMouseEnter={function(e){e.currentTarget.style.background=T.bgHover;}} onMouseLeave={function(e){e.currentTarget.style.background="transparent";}}>⬇ Exporter CSV</div>
-          <div onClick={function(){exportXLSX();setOpenMenu(null);}} style={{padding:"6px 10px",borderRadius:4,cursor:"pointer",fontSize:11,color:"#10B981",fontWeight:600}} onMouseEnter={function(e){e.currentTarget.style.background=T.bgHover;}} onMouseLeave={function(e){e.currentTarget.style.background="transparent";}}>⬇ Exporter XLSX (Apps·Flux·Dashboard)</div>
-          <div onClick={function(){setShowExportModal(true);setOpenMenu(null);}} style={{padding:"6px 10px",borderRadius:4,cursor:"pointer",fontSize:11,color:"#EF6C00",fontWeight:600}} onMouseEnter={function(e){e.currentTarget.style.background=T.bgHover;}} onMouseLeave={function(e){e.currentTarget.style.background="transparent";}}>⬇ Exporter PPTX…</div>
-          <div style={{height:1,background:T.border,margin:"4px 0"}}/>
-          <div onClick={function(){setView("home");setOpenMenu(null);}} style={{padding:"6px 10px",borderRadius:4,cursor:"pointer",fontSize:11,color:T.fgMuted}} onMouseEnter={function(e){e.currentTarget.style.background=T.bgHover;}} onMouseLeave={function(e){e.currentTarget.style.background="transparent";}}>Réimporter XLSX</div>
+      <div className="mapping-trigger-anchor" style={{position:"relative"}}>
+        <button className="mapping-trigger" aria-haspopup="true" aria-expanded={openMenu==="file"} onClick={function(){setOpenMenu(openMenu==="file"?null:"file");}} style={{...B,background:openMenu==="file"?"linear-gradient(135deg,#F59E0B22,#F9731612)":toolbarSurface,color:openMenu==="file"?"#FBBF24":T.fgMuted,border:"1px solid "+(openMenu==="file"?"#F59E0B55":T.border),padding:"7px 11px",fontSize:10,letterSpacing:0.1,borderRadius:10,boxShadow:"0 3px 10px rgba(0,0,0,.12)"}}><span style={{width:20,height:20,borderRadius:7,display:"grid",placeItems:"center",background:"rgba(245,158,11,.14)",fontSize:12,marginRight:1}}>&#128193;</span>Fichier ▾</button>
+        {openMenu==="file"&&<div className="mapping-menu" style={{position:"absolute",top:"100%",right:0,marginTop:6,background:T.bgCard,border:"1px solid "+T.border,borderRadius:12,padding:8,minWidth:220,boxShadow:"0 16px 38px rgba(0,0,0,.32)",zIndex:300}}>
+          <div className="mapping-menu-heading">Données & exports</div>
+          <label className="mapping-menu-item" style={{display:"flex",alignItems:"center",gap:10,padding:"6px 10px",borderRadius:4,cursor:"pointer",fontSize:11,color:T.fg}} onMouseEnter={function(e){e.currentTarget.style.background=T.bgHover;}} onMouseLeave={function(e){e.currentTarget.style.background="transparent";}}><span className="mapping-menu-icon" style={{color:"#38BDF8"}}>↑</span><span>Charger un fichier JSON</span><input type="file" accept=".json" style={{display:"none"}} onChange={function(e){if(e.target.files[0])loadJSON(e.target.files[0]);setOpenMenu(null);}}/></label>
+          <div className="mapping-menu-item" onClick={function(){saveJSON();setOpenMenu(null);}} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 10px",borderRadius:4,cursor:"pointer",fontSize:11,color:T.fg}} onMouseEnter={function(e){e.currentTarget.style.background=T.bgHover;}} onMouseLeave={function(e){e.currentTarget.style.background="transparent";}}><span className="mapping-menu-icon" style={{color:"#34D399"}}>↓</span><span>Sauvegarder en JSON</span></div>
+          <div className="mapping-menu-separator" style={{height:1,background:T.border,margin:"4px 0"}}/>
+          <div className="mapping-menu-item" onClick={function(){exportCSV();setOpenMenu(null);}} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 10px",borderRadius:4,cursor:"pointer",fontSize:11,color:T.fg}} onMouseEnter={function(e){e.currentTarget.style.background=T.bgHover;}} onMouseLeave={function(e){e.currentTarget.style.background="transparent";}}><span className="mapping-menu-icon" style={{color:"#38BDF8"}}>⇩</span><span>Exporter CSV</span></div>
+          <div className="mapping-menu-item" onClick={function(){exportXLSX();setOpenMenu(null);}} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 10px",borderRadius:4,cursor:"pointer",fontSize:11,color:T.fg}} onMouseEnter={function(e){e.currentTarget.style.background=T.bgHover;}} onMouseLeave={function(e){e.currentTarget.style.background="transparent";}}><span className="mapping-menu-icon" style={{color:"#34D399"}}>▦</span><span>Exporter XLSX <small style={{display:"block",fontSize:9,color:T.fgMuted,marginTop:2}}>Applications · flux · dashboard</small></span></div>
+          <div className="mapping-menu-item" onClick={function(){setShowExportModal(true);setOpenMenu(null);}} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 10px",borderRadius:4,cursor:"pointer",fontSize:11,color:T.fg}} onMouseEnter={function(e){e.currentTarget.style.background=T.bgHover;}} onMouseLeave={function(e){e.currentTarget.style.background="transparent";}}><span className="mapping-menu-icon" style={{color:"#FB923C"}}>▤</span><span>Exporter PowerPoint</span></div>
+          <div className="mapping-menu-separator" style={{height:1,background:T.border,margin:"4px 0"}}/>
+          <div className="mapping-menu-item" onClick={function(){setView("home");setOpenMenu(null);}} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 10px",borderRadius:4,cursor:"pointer",fontSize:11,color:T.fgMuted}} onMouseEnter={function(e){e.currentTarget.style.background=T.bgHover;}} onMouseLeave={function(e){e.currentTarget.style.background="transparent";}}><span className="mapping-menu-icon" style={{color:T.fgMuted}}>↻</span><span>Réimporter un fichier</span></div>
         </div>}
       </div>
       {/* ── MENU: Édition de la cartographie ── */}
-      <div style={{position:"relative"}}>
-        <button onClick={function(){setOpenMenu(openMenu==="edit"?null:"edit");}} style={{...B,background:openMenu==="edit"?"#6366F122":T.border,color:openMenu==="edit"?"#818CF8":T.fg,padding:"5px 10px",fontSize:11,letterSpacing:0.3,border:"1px solid "+(openMenu==="edit"?"#6366F155":"transparent")}}><span style={{fontSize:12,marginRight:4}}>✎</span>Édition ▾</button>
-        {openMenu==="edit"&&<div style={{position:"fixed",top:toolbarH+topOffset+4,right:12,background:T.bgCard,border:"1px solid "+T.border,borderRadius:10,padding:12,width:330,maxHeight:"78vh",overflowY:"auto",boxShadow:"0 12px 32px #00000050",zIndex:250}}>
-          <div style={{fontSize:11,fontWeight:800,color:T.fg,margin:"2px 6px 10px",letterSpacing:"0.02em"}}>Affichage et édition</div>
-          <div style={{fontSize:10,fontWeight:700,color:T.fgMuted,padding:"4px 6px"}}>Thème du canvas</div>
-          <div style={{display:"flex",gap:5,padding:"3px 4px 8px"}}>
-            <button onClick={function(){setThemeKey("light");}} style={{...B,flex:1,padding:"6px 8px",fontSize:10,background:!isDark?"#6366F1":T.bgAlt,color:!isDark?"#fff":T.fgMuted}}>☀ Clair</button>
-            <button onClick={function(){setThemeKey("dark");}} style={{...B,flex:1,padding:"6px 8px",fontSize:10,background:isDark?"#6366F1":T.bgAlt,color:isDark?"#fff":T.fgMuted}}>☾ Sombre</button>
+      <div className="mapping-trigger-anchor" style={{position:"relative"}}>
+        <button className="mapping-trigger" aria-haspopup="true" aria-expanded={openMenu==="edit"} onClick={function(){setOpenMenu(openMenu==="edit"?null:"edit");}} style={{...B,background:openMenu==="edit"?"linear-gradient(135deg,#8B5CF626,#6366F116)":toolbarSurface,color:openMenu==="edit"?"#C4B5FD":T.fgMuted,padding:"7px 11px",fontSize:10,letterSpacing:0.1,borderRadius:10,border:"1px solid "+(openMenu==="edit"?"#8B5CF655":T.border),boxShadow:"0 3px 10px rgba(0,0,0,.12)"}}><span style={{width:20,height:20,borderRadius:7,display:"grid",placeItems:"center",background:"rgba(139,92,246,.16)",fontSize:12,marginRight:1}}>✎</span>Édition ▾</button>
+        {openMenu==="edit"&&<div className="mapping-menu" style={{position:"fixed",top:toolbarH+topOffset+8,right:12,background:T.bgCard,border:"1px solid "+T.border,borderRadius:14,padding:14,width:340,maxHeight:"78vh",overflowY:"auto",boxShadow:"0 18px 46px rgba(0,0,0,.36)",zIndex:250}}>
+          <div className="mapping-menu-header"><div className="mapping-menu-title">Affichage & édition</div><div className="mapping-menu-subtitle">Personnalisez la lecture de votre cartographie</div></div>
+          <div className="mapping-menu-section-title">Apparence</div>
+          <div className="mapping-segmented">
+            <button aria-pressed={!isDark} onClick={function(){setThemeKey("light");}} style={{...B,flex:1,padding:"8px 10px",fontSize:11,background:!isDark?"linear-gradient(135deg,#6366F1,#8B5CF6)":"transparent",color:!isDark?"#fff":T.fgMuted,border:!isDark?"1px solid #818CF8":"1px solid transparent",borderRadius:8}}>☀ Clair</button>
+            <button aria-pressed={isDark} onClick={function(){setThemeKey("dark");}} style={{...B,flex:1,padding:"8px 10px",fontSize:11,background:isDark?"linear-gradient(135deg,#6366F1,#8B5CF6)":"transparent",color:isDark?"#fff":T.fgMuted,border:isDark?"1px solid #818CF8":"1px solid transparent",borderRadius:8}}>☾ Sombre</button>
           </div>
-          <div style={{fontSize:10,fontWeight:700,color:T.fgMuted,padding:"4px 6px"}}>Affichage des flux</div>
-          <div style={{display:"flex",gap:5,padding:"3px 4px 8px"}}>
-            <button onClick={function(){setFlowDisplayMode("dynamic");setFlowSuppressed(false);setFocusApp(null);setSelFlow(null);}} style={{...B,flex:1,padding:"6px 8px",fontSize:10,background:flowDisplayMode==="dynamic"?"#2979FF":T.bgAlt,color:flowDisplayMode==="dynamic"?"#fff":T.fgMuted}}>Au survol</button>
-            <button onClick={function(){setFlowDisplayMode("static");setFlowSuppressed(false);setFocusApp(null);setSelFlow(null);setTimeout(function(){fitCanvas();},80);}} style={{...B,flex:1,padding:"6px 8px",fontSize:10,background:flowDisplayMode==="static"?"#2979FF":T.bgAlt,color:flowDisplayMode==="static"?"#fff":T.fgMuted}}>Statique</button>
+          <div className="mapping-menu-section-title">Comportement des flux</div>
+          <div className="mapping-segmented">
+            <button aria-pressed={flowDisplayMode==="dynamic"} onClick={function(){setFlowDisplayMode("dynamic");setFlowSuppressed(false);setFocusApp(null);setSelFlow(null);}} style={{...B,flex:1,padding:"8px 10px",fontSize:11,background:flowDisplayMode==="dynamic"?"linear-gradient(135deg,#2563EB,#0EA5E9)":"transparent",color:flowDisplayMode==="dynamic"?"#fff":T.fgMuted,border:flowDisplayMode==="dynamic"?"1px solid #38BDF8":"1px solid transparent",borderRadius:8}}>Au survol</button>
+            <button aria-pressed={flowDisplayMode==="static"} onClick={function(){setFlowDisplayMode("static");setFlowSuppressed(false);setFocusApp(null);setSelFlow(null);setTimeout(function(){fitCanvas();},80);}} style={{...B,flex:1,padding:"8px 10px",fontSize:11,background:flowDisplayMode==="static"?"linear-gradient(135deg,#2563EB,#0EA5E9)":"transparent",color:flowDisplayMode==="static"?"#fff":T.fgMuted,border:flowDisplayMode==="static"?"1px solid #38BDF8":"1px solid transparent",borderRadius:8}}>Statique</button>
           </div>
           <div style={{height:1,background:T.border,margin:"3px 4px 8px"}}/>
-          <div style={{fontSize:10,fontWeight:700,color:T.fgMuted,padding:"4px 6px"}}>Taille de police</div>
+          <div className="mapping-menu-section-title">Lisibilité</div>
           {[{label:"Applications",value:appFontScale,set:setAppFontScale},{label:"Domaines",value:domainFontScale,set:setDomainFontScale},{label:"Catégories",value:categoryFontScale,set:setCategoryFontScale}].map(function(item){return <div key={item.label} style={{padding:"4px 6px"}}>
             <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:T.fgMuted,marginBottom:2}}><span>{item.label}</span><span style={{color:T.fg}}>{Math.round(item.value*100)}%</span></div>
             <input aria-label={"Police "+item.label} type="range" min="0.8" max="2.4" step="0.1" value={item.value} onChange={function(e){item.set(parseFloat(e.target.value));}} style={{width:"100%",cursor:"pointer"}}/>
@@ -6873,9 +6894,9 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
             <input aria-label="Police générale" type="range" min="0.8" max="2.2" step="0.1" value={fontScale} onChange={function(e){setFontScale(parseFloat(e.target.value));}} style={{flex:1,cursor:"pointer"}}/>
             <span style={{fontSize:10,color:T.fg,minWidth:32,textAlign:"right"}}>{Math.round(fontScale*100)}%</span>
           </div>
-          <div onClick={function(){setPresMode(true);setOpenMenu(null);}} style={{margin:"3px 4px 8px",padding:"7px 9px",borderRadius:6,cursor:"pointer",fontSize:10,color:"#818CF8",fontWeight:700,background:"#6366F114",border:"1px solid #6366F133"}}>▶ Mode présentation</div>
+          <div className="mapping-menu-action" onClick={function(){setPresMode(true);setOpenMenu(null);}}>▶ Lancer le mode présentation</div>
           <div style={{height:1,background:T.border,margin:"3px 4px 8px"}}/>
-          <div style={{fontSize:10,fontWeight:700,color:T.fgMuted,padding:"4px 6px"}}>Surbrillance</div>
+          <div className="mapping-menu-section-title">Mise en évidence</div>
           <div style={{display:"flex",gap:5,padding:"3px 4px 8px"}}>
             {[{label:"Apps",value:highlightApps,set:setHighlightApps,color:"#38BDF8"},{label:"Domaines",value:highlightDomains,set:setHighlightDomains,color:"#8B5CF6"},{label:"Catégories",value:highlightCategories,set:setHighlightCategories,color:"#F59E0B"}].map(function(item){return <button key={item.label} onClick={function(){item.set(!item.value);}} style={{flex:1,border:"1px solid "+(item.value?item.color+"80":T.border),background:item.value?item.color+"18":T.bgAlt,color:item.value?item.color:T.fgMuted,borderRadius:6,padding:"5px 3px",fontSize:9,fontWeight:700,cursor:"pointer"}}>{item.value?"✓ ":""}{item.label}</button>;})}
           </div>
@@ -6885,19 +6906,19 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
             <span style={{fontSize:10,color:T.fg,minWidth:30,textAlign:"right"}}>{highlightStrength}%</span>
           </div>
           <div style={{height:1,background:T.border,margin:"3px 4px 8px"}}/>
-          <div style={{fontSize:10,fontWeight:700,color:T.fgMuted,padding:"4px 6px"}}>Espacement des groupes</div>
-          {[{label:"Applications",value:appSpacing,min:0,max:100,step:5,set:setAppSpacing},{label:"Catégories",value:categorySpacing,min:80,max:360,step:10,set:setCategorySpacing},{label:"Domaines",value:domainSpacing,min:80,max:520,step:20,set:setDomainSpacing}].map(function(item){return <div key={item.label} style={{padding:"4px 6px"}}>
+          <div className="mapping-menu-section-title">Espacement des groupes</div>
+          {[{label:"Applications",value:appSpacing,min:0,max:100,step:5,set:setAppSpacing},{label:"Catégories",value:categorySpacing,min:30,max:360,step:10,set:setCategorySpacing},{label:"Domaines",value:domainSpacing,min:40,max:520,step:20,set:setDomainSpacing}].map(function(item){return <div key={item.label} style={{padding:"4px 6px"}}>
             <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:T.fgMuted,marginBottom:2}}><span>{item.label}</span><span style={{color:T.fg}}>{item.value}px</span></div>
             <input aria-label={"Espacement "+item.label} type="range" min={item.min} max={item.max} step={item.step} value={item.value} onChange={function(e){item.set(parseInt(e.target.value));}} style={{width:"100%",cursor:"pointer"}}/>
           </div>;})}
           <div style={{height:1,background:T.border,margin:"5px 4px 8px"}}/>
-          <div style={{fontSize:10,fontWeight:700,color:T.fgMuted,padding:"4px 6px"}}>Dimensions</div>
+          <div className="mapping-menu-section-title">Dimensions</div>
           {[{label:"Applications",value:globalScale,min:0.5,max:2,step:0.1,set:setGlobalScale,format:function(v){return Math.round(v*100)+"%";}},{label:"Domaines · marge",value:domainPadding,min:20,max:100,step:5,set:setDomainPadding,format:function(v){return v+" px";}},{label:"Catégories · taille",value:categoryScale,min:0.6,max:1.8,step:0.1,set:setCategoryScale,format:function(v){return Math.round(v*100)+"%";}}].map(function(item){return <div key={item.label} style={{padding:"4px 6px"}}>
             <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:T.fgMuted,marginBottom:2}}><span>{item.label}</span><span style={{color:T.fg}}>{item.format(item.value)}</span></div>
             <input aria-label={"Taille "+item.label} type="range" min={item.min} max={item.max} step={item.step} value={item.value} onChange={function(e){item.set(parseFloat(e.target.value));}} style={{width:"100%",cursor:"pointer"}}/>
           </div>;})}
           <div style={{height:1,background:T.border,margin:"5px 4px 8px"}}/>
-          <div style={{fontSize:10,fontWeight:700,color:T.fgMuted,padding:"4px 6px"}}>Épaisseur des bordures</div>
+          <div className="mapping-menu-section-title">Contours</div>
           {[{label:"Domaines",value:domBorderW,set:setDomBorderW},{label:"Catégories",value:categoryBorderW,set:setCategoryBorderW}].map(function(item){return <div key={item.label} style={{display:"flex",alignItems:"center",gap:7,padding:"4px 6px"}}>
             <span style={{fontSize:10,color:T.fgMuted,minWidth:62}}>{item.label}</span><input aria-label={"Bordure "+item.label} type="range" min="0.5" max="6" step="0.5" value={item.value} onChange={function(e){item.set(parseFloat(e.target.value));}} style={{flex:1,cursor:"pointer"}}/><span style={{fontSize:10,color:T.fg,minWidth:28,textAlign:"right"}}>{item.value}px</span>
           </div>;})}
@@ -6905,26 +6926,26 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
         </div>}
       </div>
       {/* ── MENU: Flux & Domaines ── */}
-      <div style={{position:"relative"}}>
-        <button onClick={function(){setOpenMenu(openMenu==="flux"?null:"flux");}} style={{...B,background:openMenu==="flux"?T.bgHover:T.border,padding:"5px 10px",fontSize:11,letterSpacing:0.3}}><span style={{fontSize:12,marginRight:4}}>&#8644;</span>Flux ▾</button>
-        {openMenu==="flux"&&<div style={{position:"absolute",top:"100%",right:0,marginTop:4,background:T.bgCard,border:"1px solid "+T.border,borderRadius:8,padding:8,minWidth:220,boxShadow:"0 4px 16px #00000030",zIndex:200}}>
-          <div style={{padding:"4px 8px",fontSize:10,color:T.fgMuted,fontWeight:600}}>Épaisseur</div>
+      <div className="mapping-trigger-anchor" style={{position:"relative"}}>
+        <button className="mapping-trigger" aria-haspopup="true" aria-expanded={openMenu==="flux"} onClick={function(){setOpenMenu(openMenu==="flux"?null:"flux");}} style={{...B,background:openMenu==="flux"?"linear-gradient(135deg,#38BDF826,#06B6D416)":toolbarSurface,color:openMenu==="flux"?"#7DD3FC":T.fgMuted,border:"1px solid "+(openMenu==="flux"?"#38BDF855":T.border),padding:"7px 11px",fontSize:10,letterSpacing:0.1,borderRadius:10,boxShadow:"0 3px 10px rgba(0,0,0,.12)"}}><span style={{width:20,height:20,borderRadius:7,display:"grid",placeItems:"center",background:"rgba(56,189,248,.15)",fontSize:12,marginRight:1}}>&#8644;</span>Flux ▾</button>
+        {openMenu==="flux"&&<div className="mapping-menu" style={{position:"absolute",top:"100%",right:0,marginTop:6,background:T.bgCard,border:"1px solid "+T.border,borderRadius:12,padding:10,minWidth:250,boxShadow:"0 16px 38px rgba(0,0,0,.32)",zIndex:300}}>
+          <div className="mapping-menu-section-title">Épaisseur des flux</div>
           <div style={{display:"flex",alignItems:"center",gap:6,padding:"4px 8px"}}>
             <input type="range" min="1" max="6" step="0.5" value={flowThickness} onChange={function(e){setFlowThickness(parseFloat(e.target.value));}} style={{flex:1,cursor:"pointer"}}/>
             <span style={{fontSize:10,color:T.fg,minWidth:24}}>{flowThickness}px</span>
           </div>
-          <div style={{padding:"4px 8px",fontSize:10,color:T.fgMuted,fontWeight:600}}>Police labels</div>
+          <div className="mapping-menu-section-title">Taille des libellés</div>
           <div style={{display:"flex",alignItems:"center",gap:6,padding:"4px 8px"}}>
             <input type="range" min="7" max="18" step="1" value={flowFontSize} onChange={function(e){setFlowFontSize(parseInt(e.target.value));}} style={{flex:1,cursor:"pointer"}}/>
             <span style={{fontSize:10,color:T.fg,minWidth:24}}>{flowFontSize}pt</span>
           </div>
-          <div style={{padding:"4px 8px",fontSize:10,color:T.fgMuted,fontWeight:600}}>Style de trait</div>
-          <div style={{display:"flex",gap:4,padding:"4px 8px"}}>
-            <button onClick={function(){setFlowDash("none");}} style={{...B,background:flowDash==="none"?"#2979FF":T.border,padding:"3px 10px",fontSize:10,flex:1}}>Plein</button>
-            <button onClick={function(){setFlowDash("dashed");}} style={{...B,background:flowDash==="dashed"?"#2979FF":T.border,padding:"3px 10px",fontSize:10,flex:1}}>Tirets</button>
-            <button onClick={function(){setFlowDash("dotted");}} style={{...B,background:flowDash==="dotted"?"#2979FF":T.border,padding:"3px 10px",fontSize:10,flex:1}}>Points</button>
+          <div className="mapping-menu-section-title">Style de trait</div>
+          <div className="mapping-segmented mapping-segmented-3">
+            <button aria-pressed={flowDash==="none"} onClick={function(){setFlowDash("none");}} style={{...B,background:flowDash==="none"?"linear-gradient(135deg,#2563EB,#0EA5E9)":"transparent",color:flowDash==="none"?"#fff":T.fgMuted,border:flowDash==="none"?"1px solid #38BDF8":"1px solid transparent",padding:"7px 8px",fontSize:10,flex:1}}>Plein</button>
+            <button aria-pressed={flowDash==="dashed"} onClick={function(){setFlowDash("dashed");}} style={{...B,background:flowDash==="dashed"?"linear-gradient(135deg,#2563EB,#0EA5E9)":"transparent",color:flowDash==="dashed"?"#fff":T.fgMuted,border:flowDash==="dashed"?"1px solid #38BDF8":"1px solid transparent",padding:"7px 8px",fontSize:10,flex:1}}>Tirets</button>
+            <button aria-pressed={flowDash==="dotted"} onClick={function(){setFlowDash("dotted");}} style={{...B,background:flowDash==="dotted"?"linear-gradient(135deg,#2563EB,#0EA5E9)":"transparent",color:flowDash==="dotted"?"#fff":T.fgMuted,border:flowDash==="dotted"?"1px solid #38BDF8":"1px solid transparent",padding:"7px 8px",fontSize:10,flex:1}}>Points</button>
           </div>
-          <div style={{padding:"4px 8px",fontSize:10,color:T.fgMuted,fontWeight:600,marginTop:4}}>Couleur</div>
+          <div className="mapping-menu-section-title">Couleur du flux</div>
           <div style={{display:"flex",alignItems:"center",gap:6,padding:"4px 8px"}}>
             <input type="color" value={flowColorCustom||"#548CA8"} onChange={function(e){setFlowColorCustom(e.target.value);}} style={{width:24,height:24,border:"none",borderRadius:4,cursor:"pointer",padding:0}}/>
             <span style={{fontSize:10,color:T.fg}}>{flowColorCustom||"Auto"}</span>
@@ -6936,12 +6957,19 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
     </div>
     <div style={{flex:1,display:"flex",overflow:"hidden",position:"relative"}}>
       <div ref={cvRef} style={{flex:1,overflow:"hidden",position:"relative",background:isDark?"#0B0B14":"#FFFFFF",cursor:pan?"grabbing":cMode?"crosshair":selMode?"default":"grab"}} onMouseDown={function(e){if(openMenu)setOpenMenu(null);const onBackground=!e.target.closest?.('[data-app]')&&!e.target.closest?.('.flow-layer');if(onBackground){setFocusApp(null);setSelFlow(null);setFlowSuppressed(true);}onCD(e);}} onMouseMove={function(e){if(!e.target.closest?.('[data-app]')&&!e.target.closest?.('[data-panel]')&&!e.target.closest?.('.flow-layer')){setFlowSuppressed(true);if(focusApp)setFocusApp(null);if(selFlow)setSelFlow(null);}onCM(e);}} onMouseUp={onCU} onMouseLeave={function(e){onCU(e);const enteringPanel=e.relatedTarget?.closest?.('[data-panel]');if(!enteringPanel){setFlowSuppressed(true);setFocusApp(null);setSelFlow(null);}}} onWheel={onWh} onContextMenu={e=>e.preventDefault()}>
-        <div className="cbg" style={{position:"absolute",inset:0,backgroundColor:isDark?"#0B0B14":"#FFFFFF",backgroundImage:"radial-gradient(circle,"+(isDark?"#292941":"#D6DCE8")+" 1px,transparent 1px)",backgroundSize:"30px 30px"}}/>
+        <div className="cbg" style={{position:"absolute",inset:0,backgroundColor:T.bg,backgroundImage:isDark?"radial-gradient(circle,rgba(148,163,184,.24) 1.15px,transparent 1.15px), radial-gradient(ellipse at 54% 46%,rgba(99,102,241,.08),transparent 68%)":"radial-gradient(circle,rgba(71,85,105,.16) 1px,transparent 1px), radial-gradient(ellipse at 18% 14%,rgba(99,102,241,.08),transparent 52%), radial-gradient(ellipse at 84% 86%,rgba(34,211,238,.08),transparent 56%)",backgroundSize:isDark?"34px 34px,100% 100%":"32px 32px,100% 100%,100% 100%"}}/>
       <div style={{transform:`translate(${off.x}px,${off.y}px) scale(${zm})`,transformOrigin:"0 0",position:"absolute",top:0,left:0,width:5000,height:4000}}>
         <CategoryZones/><DomainZones/><FlowLines/>{filtered.map(a=><AppNode key={a.id} app={a}/>)}
       </div>
-      <div style={{position:"absolute",bottom:12,right:12,background:T.bgCard,borderRadius:4,padding:"4px 10px",fontSize:10,color:T.fgMuted}}>{Math.round(zm*100)}% · {activeFilters?filtered.length+"/":""}{apps.length} apps · {flows.length} flux{activeFilters?" (filtré)":""}</div>
-      {!focusApp&&!flowDomFilter&&flows.length>0&&<div style={{position:"absolute",bottom:12,left:12,background:T.bgCard,border:"1px solid "+T.border,borderRadius:8,padding:"6px 12px",fontSize:10,color:T.fgMuted,opacity:0.8}}>{flowDisplayMode==="static"?"Tous les flux sont affichés · réglez leur visibilité dans Flux":"Survolez une application pour voir ses flux"}</div>}
+      <div data-app="1" style={{position:"absolute",bottom:16,right:16,display:"flex",alignItems:"center",gap:6,padding:6,borderRadius:13,background:isDark?"rgba(19,19,42,.92)":"rgba(255,255,255,.94)",border:"1px solid "+T.border,boxShadow:"0 10px 30px rgba(0,0,0,.2)",backdropFilter:"blur(12px)",color:T.fgMuted}}>
+        <button title="Dézoomer" onMouseDown={function(e){e.stopPropagation();setZm(function(z){return Math.max(.25,+(z-.1).toFixed(2));});}} style={{...B,width:30,height:30,padding:0,background:T.bgHover,color:T.fg,borderRadius:8,fontSize:17}}>−</button>
+        <span style={{minWidth:44,textAlign:"center",fontSize:10,fontWeight:800,color:T.fg,fontVariantNumeric:"tabular-nums"}}>{Math.round(zm*100)}%</span>
+        <button title="Zoomer" onMouseDown={function(e){e.stopPropagation();setZm(function(z){return Math.min(2.5,+(z+.1).toFixed(2));});}} style={{...B,width:30,height:30,padding:0,background:T.bgHover,color:T.fg,borderRadius:8,fontSize:17}}>+</button>
+        <span style={{width:1,height:22,background:T.border,margin:"0 2px"}}/>
+        <button title="Cadrer toute la cartographie sans déplacer les applications" onMouseDown={function(e){e.stopPropagation();fitCanvas();}} style={{...B,padding:"7px 10px",background:"#6366F1",color:"#fff",borderRadius:8,fontSize:10,whiteSpace:"nowrap"}}>⌖ Ajuster</button>
+        <span style={{width:1,height:22,background:T.border,margin:"0 2px"}}/>
+        <span style={{padding:"0 6px",fontSize:9,fontWeight:650,whiteSpace:"nowrap"}}>{activeFilters?filtered.length+" / ":""}{apps.length} apps · {flows.length} flux{activeFilters?" filtrés":""}</span>
+      </div>
     </div>
     {selApp&&!showAM&&<div data-panel="1" style={{width:360,flexShrink:0,background:T.bgAlt,borderLeft:"1px solid "+T.borderLight,overflowY:"auto",display:"flex",flexDirection:"column",zIndex:10}}>
       {/* Header with domain color accent */}

@@ -590,3 +590,187 @@ select.inp   { cursor:pointer; background-image:url("data:image/svg+xml,%3Csvg x
   from { opacity:0; transform:translateY(8px); }
   to   { opacity:1; transform:translateY(0); }
 }
+
+/* ── Canvas mapping toolbar ────────────────────────────────────── */
+.mapping-toolbar {
+  isolation: isolate;
+}
+.mapping-toolbar > button,
+.mapping-toolbar button {
+  font-family: var(--font);
+  min-height: 34px;
+  transition: transform var(--tf), filter var(--tf), box-shadow var(--tn), border-color var(--tf);
+}
+.mapping-toolbar button:hover:not(:disabled) {
+  filter: brightness(1.13);
+  transform: translateY(-1px);
+}
+.mapping-toolbar button:active:not(:disabled) {
+  transform: translateY(0) scale(.97);
+}
+.mapping-toolbar button:focus-visible {
+  outline: 2px solid #818cf8;
+  outline-offset: 2px;
+  z-index: 2;
+}
+.mapping-toolbar .mapping-trigger:not(.mapping-trigger-primary) {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  border-radius: 11px !important;
+  min-height: 36px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding-inline: 8px !important;
+  letter-spacing: -0.01em;
+  box-shadow: 0 2px 8px rgba(0,0,0,.09);
+}
+.mapping-toolbar .mapping-trigger-anchor {
+  flex: 0 0 auto;
+}
+.mapping-toolbar .mapping-trigger:not(.mapping-trigger-primary):hover:not(:disabled) {
+  box-shadow: 0 7px 18px rgba(0,0,0,.16), 0 0 0 1px rgba(129,140,248,.18) !important;
+}
+.mapping-toolbar .mapping-trigger[aria-expanded="true"]:not(.mapping-trigger-primary) {
+  box-shadow: 0 0 0 3px rgba(99,102,241,.14), 0 6px 16px rgba(0,0,0,.14) !important;
+}
+.mapping-toolbar input:not([type="range"]):not([type="color"]) {
+  transition: border-color var(--tn), box-shadow var(--tn), background var(--tn);
+}
+.mapping-toolbar input:not([type="range"]):not([type="color"]):focus {
+  border-color: #818cf8 !important;
+  box-shadow: 0 0 0 3px rgba(99,102,241,.18) !important;
+}
+.mapping-menu {
+  animation: mapMenuIn .16s cubic-bezier(.16,1,.3,1) both;
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  transform-origin: top left;
+}
+.mapping-menu button,
+.mapping-menu label,
+.mapping-menu [style*="cursor: pointer"] {
+  border-radius: 9px !important;
+  transition: background var(--tf), color var(--tf), border-color var(--tf), transform var(--tf), filter var(--tf);
+}
+.mapping-menu label,
+.mapping-menu [style*="cursor: pointer"] {
+  padding: 9px 10px !important;
+}
+.mapping-menu [style*="cursor: pointer"]:hover,
+.mapping-menu label:hover {
+  filter: brightness(1.12);
+  transform: translateX(2px);
+}
+.mapping-menu-heading {
+  margin: 0 2px 8px;
+  padding: 5px 8px 11px;
+  border-bottom: 1px solid rgba(148,163,184,.16);
+  color: inherit;
+  opacity: .68;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.mapping-menu-header {
+  margin: 0 0 14px;
+  padding: 3px 4px 13px;
+  border-bottom: 1px solid rgba(148,163,184,.16);
+}
+.mapping-menu-title { color:inherit; font-size:15px; font-weight:800; letter-spacing:-.02em; }
+.mapping-menu-subtitle { color:inherit; opacity:.62; font-size:11px; margin-top:3px; }
+.mapping-menu-section-title {
+  display:flex;
+  align-items:center;
+  gap:7px;
+  margin:13px 4px 7px;
+  color:inherit;
+  opacity:.64;
+  font-size:9px;
+  font-weight:800;
+  letter-spacing:.09em;
+  text-transform:uppercase;
+}
+.mapping-menu-section-title::before {
+  content:"";
+  width:6px; height:6px; border-radius:2px;
+  background:linear-gradient(135deg,#818cf8,#38bdf8);
+  box-shadow:0 0 8px rgba(129,140,248,.35);
+}
+.mapping-menu-item {
+  min-height:46px;
+  margin:3px 0;
+  padding:8px 10px !important;
+  border:1px solid transparent;
+  background:rgba(148,163,184,.035);
+  text-decoration:none;
+}
+.mapping-menu-item:hover {
+  border-color:rgba(129,140,248,.22);
+  background:rgba(99,102,241,.09) !important;
+  box-shadow:0 4px 14px rgba(0,0,0,.10);
+}
+.mapping-menu-item[aria-current="true"] {
+  border-color:rgba(129,140,248,.32) !important;
+  background:rgba(99,102,241,.12) !important;
+}
+.mapping-menu-icon {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:30px; height:30px; flex:0 0 30px;
+  border:1px solid rgba(148,163,184,.13);
+  border-radius:9px;
+  background:rgba(148,163,184,.08);
+}
+.mapping-menu-separator { height:1px; margin:8px 4px !important; background:rgba(148,163,184,.16) !important; }
+.mapping-menu-filter-head {
+  padding:4px 7px 8px !important;
+  margin-bottom:7px !important;
+  border-bottom:1px solid rgba(148,163,184,.14);
+}
+.mapping-menu-option {
+  min-height:38px;
+  padding:7px 9px !important;
+  border:1px solid transparent;
+  border-radius:9px !important;
+}
+.mapping-menu-option[aria-selected="true"] {
+  border-color:rgba(129,140,248,.25);
+  box-shadow:inset 0 0 0 1px rgba(129,140,248,.08);
+}
+.mapping-segmented {
+  display:flex;
+  gap:4px;
+  padding:4px;
+  margin:2px 2px 10px;
+  border:1px solid rgba(148,163,184,.15);
+  border-radius:12px;
+  background:rgba(148,163,184,.10);
+}
+.mapping-segmented-3 { margin-top:2px; }
+.mapping-segmented button { min-height:34px; }
+.mapping-menu-action {
+  margin:7px 2px 10px;
+  padding:10px 12px;
+  border:1px solid rgba(129,140,248,.28);
+  border-radius:10px;
+  background:linear-gradient(110deg,rgba(99,102,241,.14),rgba(14,165,233,.08));
+  color:#a5b4fc;
+  cursor:pointer;
+  font-size:11px;
+  font-weight:750;
+  transition:transform var(--tf), border-color var(--tf), background var(--tf);
+}
+.mapping-menu-action:hover { transform:translateY(-1px); border-color:rgba(129,140,248,.5); background:linear-gradient(110deg,rgba(99,102,241,.22),rgba(14,165,233,.13)); }
+.mapping-menu input[type="range"] { accent-color:#818cf8; min-height:20px; }
+@keyframes mapMenuIn {
+  from { opacity: 0; transform: translateY(-5px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mapping-toolbar button,
+  .mapping-toolbar input,
+  .mapping-menu { animation: none !important; transition: none !important; }
+}
