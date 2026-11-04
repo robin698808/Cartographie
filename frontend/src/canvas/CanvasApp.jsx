@@ -1244,7 +1244,6 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       dd.push(["Domaines",doms.length]);
       dd.push(["Interfaces",totF]);
       dd.push(["Apps critiques",apps.filter(function(a){return a.criticality==="Haute";}).length]);
-      dd.push(["Ratio flux/app",(totF/tot).toFixed(2)]);
       dd.push([""]);
       dd.push(["CRITICITE","Nb","%"]);
       ["Haute","Moyenne","Basse"].forEach(function(cr){var n=apps.filter(function(a){return a.criticality===cr;}).length;dd.push([cr,n,Math.round(n/tot*100)+"%"]);});
@@ -4770,14 +4769,13 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     const clearTip=function(){setChartTip(null);};
     const hexToRgbCo=function(hex){var r=parseInt(hex.slice(1,3),16)||102,g=parseInt(hex.slice(3,5),16)||102,b=parseInt(hex.slice(5,7),16)||102;return r+","+g+","+b;};
     const toggleSection=(id)=>setHiddenSections(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
-    const ALL_WIDGETS=["chart_apps","chart_flux","chart_owner",...(projectType==='deal'?["carveout"]:["chart_statut"]),"flowreg"];
-    const DEFAULT_SIZES={chart_apps:"m",chart_flux:"m",chart_owner:"m",carveout:"l",chart_statut:"m",flowreg:"l"};
+    const DEFAULT_SIZES={chart_apps:"m",flow_matrix:"l",critical_apps:"l",chart_criticality:"m",chart_owner:"m",chart_statut:"m",carveout:"l",flowreg:"l"};
     const [widgetSizes,setWidgetSizes]=useState(function(){try{var s=localStorage.getItem("dash_sizes_"+(projectId||"default"));if(s)return Object.assign({},DEFAULT_SIZES,JSON.parse(s));}catch(e){}return Object.assign({},DEFAULT_SIZES);});
     const saveWidgetSizes=(sz)=>{setWidgetSizes(sz);try{localStorage.setItem("dash_sizes_"+(projectId||"default"),JSON.stringify(sz));}catch(e){}};
     const [hovWid,setHovWid]=useState(null);
     const [hiddenWidgets,setHiddenWidgets]=useState([]);
-    const [widgetPos,setWidgetPos]=useState(function(){try{var s=localStorage.getItem("dash_pos_"+(projectId||"default"));if(s)return JSON.parse(s);}catch(e){}return{};});
-    const saveWidgetPos=function(p){setWidgetPos(p);try{localStorage.setItem("dash_pos_"+(projectId||"default"),JSON.stringify(p));}catch(e){}};
+    const [widgetPos,setWidgetPos]=useState(function(){try{var s=localStorage.getItem("dash_pos_v2_"+(projectId||"default"));if(s)return JSON.parse(s);}catch(e){}return{};});
+    const saveWidgetPos=function(p){setWidgetPos(p);try{localStorage.setItem("dash_pos_v2_"+(projectId||"default"),JSON.stringify(p));}catch(e){}};
     const [dragInfo,setDragInfo]=useState(null);
     const [wZIndex,setWZIndex]=useState({});
     const [zCounter,setZCounter]=useState(100);
@@ -4858,7 +4856,10 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       };
     },[resizeInfo]);
     const [expandedWidget,setExpandedWidget]=useState(null);
-    const CHART_TYPES_DEF={chart_apps:"bar",chart_flux:"bar",chart_owner:"donut",chart_statut:"donut"};
+    const [flowMatrixMode,setFlowMatrixMode]=useState("heatmap");
+    const [selectedFlowCell,setSelectedFlowCell]=useState(null);
+    const [selectedCriticalApp,setSelectedCriticalApp]=useState(null);
+    const CHART_TYPES_DEF={chart_apps:"bar",chart_owner:"donut",chart_statut:"donut"};
     const [chartTypes,setChartTypes]=useState(Object.assign({},CHART_TYPES_DEF));
     const setChartType=function(id,t){setChartTypes(function(p){return Object.assign({},p,{[id]:t});});};
     const dm=[...new Set(apps.map(a=>a.domain))];
@@ -4913,13 +4914,45 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         {opts.map(function(o){return <option key={o.k} value={o.k} style={{background:"#1A1A35",color:"#fff"}}>{o.label}</option>;})}
       </select>;
     };
-    var ALL_WIDGETS_LIST=["chart_apps","chart_flux","chart_owner",...(projectType==='deal'?["carveout"]:["chart_statut"]),"flowreg"];
+    var ALL_WIDGETS_LIST=["chart_apps","chart_criticality","critical_apps","flow_matrix","chart_owner","chart_statut",...(projectType==='deal'?["carveout"]:[]),"flowreg"];
+    var getWidgetH=function(id){return{chart_apps:280,chart_criticality:320,critical_apps:480,flow_matrix:460,chart_owner:260,chart_statut:260,carveout:760,flowreg:720}[id]||300;};
+    var buildDashboardLayout=function(columns,columnWidth){
+      var rows=[{ids:["chart_apps","chart_criticality"]},{ids:["critical_apps"],wide:true},{ids:["flow_matrix"],wide:true},{ids:["chart_owner","chart_statut"]}];
+      var fullWidth=columns===1?columnWidth:columnWidth*2+20;
+      var layout={};var y=16;
+      rows.forEach(function(row){
+        var widgets=row.ids.filter(function(id){return ALL_WIDGETS_LIST.includes(id);});
+        if(row.wide){
+          var wideId=widgets[0];
+          if(wideId){layout[wideId]={x:16,y:y,w:fullWidth,h:getWidgetH(wideId)};y+=getWidgetH(wideId)+32;}
+          return;
+        }
+        for(var start=0;start<widgets.length;start+=columns){
+          var group=widgets.slice(start,start+columns);
+          var rowHeight=Math.max.apply(null,group.map(getWidgetH));
+          group.forEach(function(id,index){layout[id]={x:16+index*(columnWidth+20),y:y,w:columnWidth,h:getWidgetH(id)};});
+          y+=rowHeight+32;
+        }
+      });
+      if(projectType==="deal"){layout.carveout={x:16,y:y,w:fullWidth,h:getWidgetH("carveout")};y+=getWidgetH("carveout")+32;}
+      layout.flowreg={x:16,y:y,w:fullWidth,h:getWidgetH("flowreg")};
+      return layout;
+    };
     var getDefaultPos=function(id){
-      var idx=ALL_WIDGETS_LIST.indexOf(id);
-      var col=idx%2; var row=Math.floor(idx/2);
-      return{x:col*520+16, y:row*400+16};
+      var columns=window.innerWidth<940?1:2;
+      var width=columns===1?Math.min(600,Math.max(300,window.innerWidth-280)):Math.min(500,Math.max(300,(window.innerWidth-320)/2));
+      return buildDashboardLayout(columns,width)[id]||{x:16,y:16,w:width,h:300};
     };
     var getWidgetW=function(id){var size=widgetSizes[id]||DEFAULT_SIZES[id]||"m";return{s:340,m:500,l:1020}[size]||500;};
+    var optimizeDashboard=function(){
+      var columns=window.innerWidth<940?1:2;
+      var columnWidth=columns===1?Math.min(600,Math.max(300,window.innerWidth-280)):Math.min(500,Math.max(300,(window.innerWidth-320)/2));
+      var next=buildDashboardLayout(columns,columnWidth);
+      saveWidgetPos(next);
+      saveWidgetSizes(Object.assign({},DEFAULT_SIZES));
+      setHiddenWidgets([]);
+      setWZIndex({});
+    };
     const wrapWidget=function(id,accentColor,title,extraHeader,content,chartSwitcher){
       if(hiddenWidgets.includes(id))return null;
       var isExpanded=expandedWidget===id;
@@ -5034,30 +5067,32 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
         <div><h2 style={{fontSize:24,fontWeight:700,margin:0}}>Dashboard Interfaces</h2><p style={{color:T.fgMuted,fontSize:13,marginTop:4}}>Vue d'ensemble des domaines et flux applicatifs</p></div>
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
-          {hiddenWidgets.length>0&&<button onClick={function(){setHiddenWidgets([]);}} style={{background:T.bgAlt,border:"1px solid "+T.border,color:T.fg,borderRadius:5,padding:"6px 12px",fontSize:11,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>
+          {hiddenWidgets.length>0&&<button onClick={function(){setHiddenWidgets([]);}} style={{background:T.bgAlt,border:"1px solid "+T.border,color:T.fg,borderRadius:9,padding:"8px 12px",fontSize:11,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>
             👁 Afficher ({hiddenWidgets.length})
           </button>}
-          <button onClick={function(){saveWidgetPos({});saveWidgetSizes(Object.assign({},DEFAULT_SIZES));setHiddenWidgets([]);setWZIndex({});}} style={{background:"transparent",border:"1px solid "+T.border,color:T.fgMuted,borderRadius:5,padding:"6px 12px",fontSize:11,cursor:"pointer"}} title="Réinitialiser la disposition">↺ Reset</button>
+          <button className="dashboard-optimize-button" onClick={optimizeDashboard} title="Réafficher tous les widgets et organiser automatiquement le cockpit">
+            <span aria-hidden="true">✦</span> Optimiser le cockpit
+          </button>
+          <button onClick={function(){saveWidgetPos({});saveWidgetSizes(Object.assign({},DEFAULT_SIZES));setHiddenWidgets([]);setWZIndex({});}} style={{background:"transparent",border:"1px solid "+T.border,color:T.fgMuted,borderRadius:9,padding:"8px 12px",fontSize:11,cursor:"pointer"}} title="Réinitialiser la disposition">↺ Reset</button>
         </div>
       </div>
       {/* KPIs — barre horizontale unifiée */}
       {function(){
-        var ratio=tot>0?(totF/tot).toFixed(1):"0";
         var kpis=[
           {l:"Applications",v:tot,c:"#2979FF",glow:"rgba(41,121,255,0.18)",icon:"▣",key:""},
           {l:"Interfaces",v:totF,c:"#00C853",glow:"rgba(0,200,83,0.18)",icon:"⇄",key:""},
           {l:"Domaines",v:dm.length,c:"#7C4DFF",glow:"rgba(124,77,255,0.18)",icon:"◉",key:""},
           {l:"Critiques",v:totC,c:"#FF5252",glow:"rgba(255,82,82,0.18)",icon:"⚠",key:"critiques"},
-          {l:"Ratio flux/app",v:ratio,c:"#EF6C00",glow:"rgba(239,108,0,0.18)",icon:"∿",key:""},
         ];
-        return <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:10,marginBottom:24}}>
+        return <div className="dashboard-kpi-grid" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:12,marginBottom:24}}>
           {kpis.map(function(k){
             var isActive=k.key&&quickFilter===k.key;
             var clickable=!!k.key;
             return <div key={k.l}
               onClick={clickable?function(){setQuickFilter(function(p){return p===k.key?"":k.key;});}:undefined}
-              style={{background:T.bgCard,borderRadius:10,padding:"14px 16px",boxShadow:isActive?"0 0 0 2px "+k.c+", 0 4px 20px "+k.glow:"0 0 0 1px "+T.border+", 0 4px 16px "+k.glow,display:"flex",alignItems:"center",gap:12,transition:"box-shadow 0.15s, transform 0.1s",cursor:clickable?"pointer":"default",transform:isActive?"scale(1.02)":"scale(1)"}}>
-              <div style={{width:36,height:36,borderRadius:8,background:k.glow,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,color:k.c,flexShrink:0}}>{k.icon}</div>
+              className="dashboard-kpi"
+              style={{background:T.bgCard,borderRadius:14,padding:"15px 17px",border:"1px solid "+(isActive?k.c+"70":T.border),boxShadow:isActive?"0 8px 22px "+k.glow:"0 4px 16px rgba(30,27,75,.045)",display:"flex",alignItems:"center",gap:12,transition:"box-shadow 0.2s, transform 0.2s, border-color 0.2s",cursor:clickable?"pointer":"default",transform:isActive?"translateY(-2px)":"translateY(0)"}}>
+              <div style={{width:40,height:40,borderRadius:11,background:"linear-gradient(145deg,"+k.glow+",transparent)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,color:k.c,flexShrink:0,border:"1px solid "+k.c+"20"}}>{k.icon}</div>
               <div>
                 <div style={{fontSize:22,fontWeight:700,color:k.c,lineHeight:1}}>{k.v}</div>
                 <div style={{fontSize:10,color:T.fgMuted,marginTop:3,lineHeight:1.2}}>{k.l}</div>
@@ -5068,7 +5103,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         </div>;
       }()}
       
-      <div style={{position:"relative",width:"100%",minHeight:1800}}>
+      <div style={{position:"relative",width:"100%",minHeight:Math.max(1800,...ALL_WIDGETS_LIST.map(function(id){var pos=widgetPos[id]||getDefaultPos(id);return(pos.y||0)+(pos.h||340)+64;}))}}>
       {ALL_WIDGETS_LIST.filter(function(id){return!hiddenWidgets.includes(id);}).map(function(sid){
         if(sid==="chart_apps")return wrapWidget(sid,"#7C4DFF","Apps par domaine",null,function(isExpanded,ww,wh){
           var barData=[...st].sort(function(a,b){return b.count-a.count;});
@@ -5167,7 +5202,56 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
             </div>
           </div>;
         },mkChartSwitch(sid));
-        if(sid==="chart_flux")return wrapWidget(sid,"#2979FF","Flux par domaine",null,function(isExpanded,ww,wh){
+        if(sid==="flow_matrix")return wrapWidget(sid,"#06B6D4","Matrice des flux inter-domaines",null,function(isExpanded,ww,wh){
+          var matrixDomains=dm.map(function(domain){
+            var outgoing=dm.reduce(function(sum,target){return sum+(mtx[domain+"→"+target]||0);},0);
+            var incoming=dm.reduce(function(sum,source){return sum+(mtx[source+"→"+domain]||0);},0);
+            return{domain:domain,outgoing:outgoing,incoming:incoming,total:outgoing+incoming,color:(DC[domain]||DC.Autre).ac};
+          }).sort(function(a,b){return b.total-a.total;});
+          var routes=matrixDomains.flatMap(function(source){return matrixDomains.map(function(target){var count=mtx[source.domain+"→"+target.domain]||0;return{from:source.domain,to:target.domain,count:count};});}).filter(function(route){return route.count>0;}).sort(function(a,b){return b.count-a.count;});
+          var topRoutes=routes.slice(0,6);
+          var maxRoute=topRoutes[0]||null;
+          var maxCell=Math.max.apply(null,routes.map(function(route){return route.count;}).concat([1]));
+          var totalActivePairs=routes.length;
+          var selectedRoute=selectedFlowCell?routes.find(function(route){return route.from===selectedFlowCell.from&&route.to===selectedFlowCell.to;}):null;
+          var focusedRoute=selectedRoute||maxRoute;
+          var matrixMinWidth=100+matrixDomains.length*48;
+          var cellSize=Math.min(58,Math.max(42,Math.floor(((ww||1020)-132)/Math.max(matrixDomains.length,1))));
+          var shortDomain=function(value){return value.length>9?value.slice(0,8)+"…":value;};
+          var selectRoute=function(route){setSelectedFlowCell({from:route.from,to:route.to});setActiveDomain(route.from);};
+          return <div className="dashboard-widget-surface flow-matrix-widget" style={{background:T.bgCard,borderRadius:16,padding:18,boxShadow:"0 8px 24px rgba(30,27,75,.07), 0 0 0 1px "+T.border,height:(isExpanded||wh)?"100%":undefined,display:(isExpanded||wh)?"flex":undefined,flexDirection:(isExpanded||wh)?"column":undefined}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
+              <div style={{width:36,height:36,borderRadius:12,display:"grid",placeItems:"center",background:"linear-gradient(145deg,#06B6D426,#6366F11C)",color:"#06B6D4",fontSize:17,boxShadow:"0 5px 16px #06B6D422"}}>↗</div>
+              <div style={{flex:1,minWidth:0}}><div style={{fontSize:12,fontWeight:800,color:T.fg}}>Échanges entre domaines</div><div style={{fontSize:9,color:T.fgMuted,marginTop:2}}>Survolez ou sélectionnez une cellule pour explorer les flux</div></div>
+            </div>
+            <div style={{display:"flex",justifyContent:"flex-end",marginBottom:8}}><button aria-pressed={flowMatrixMode==="routes"} onClick={function(){setFlowMatrixMode(function(mode){return mode==="heatmap"?"routes":"heatmap";});}} style={{border:"1px solid "+T.border,borderRadius:9,padding:"6px 10px",background:T.bgAlt,color:T.fg,fontSize:9,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>{flowMatrixMode==="heatmap"?"☷ Top échanges":"▦ Vue matrice"}</button></div>
+            <div style={{display:"flex",gap:8,marginBottom:12}}>
+              {[{label:"Flux",value:totF,color:"#06B6D4"},{label:"Routes actives",value:totalActivePairs,color:"#8B5CF6"},{label:"Route dominante",value:focusedRoute?focusedRoute.count+" flux":"—",color:"#F59E0B"}].map(function(metric){return <div key={metric.label} style={{flex:1,minWidth:0,padding:"8px 10px",borderRadius:10,background:T.bgAlt,border:"1px solid "+T.border}}><div style={{fontSize:8,color:T.fgMuted,marginBottom:3}}>{metric.label}</div><div style={{fontSize:14,fontWeight:800,color:metric.color,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{metric.value}</div></div>;})}
+            </div>
+            {!routes.length?<div style={{flex:1,display:"grid",placeItems:"center",fontSize:11,color:T.fgMuted}}>Aucun flux inter-domaines à visualiser.</div>:flowMatrixMode==="heatmap"?<div className="flow-matrix-scroll" style={{flex:1,minHeight:0,overflow:"auto",borderRadius:12,border:"1px solid "+T.border,background:T.bgAlt,padding:8}}>
+              <div style={{display:"grid",gridTemplateColumns:"92px repeat("+matrixDomains.length+","+cellSize+"px)",gap:4,minWidth:matrixMinWidth}}>
+                <div style={{display:"flex",alignItems:"end",padding:"0 4px 6px",fontSize:8,fontWeight:800,color:T.fgMuted,letterSpacing:".05em"}}>ÉMETTEUR ↓</div>
+                {matrixDomains.map(function(domain){return <div key={domain.domain} title={domain.domain} style={{height:30,display:"grid",placeItems:"center",padding:"2px",fontSize:8,fontWeight:750,color:domain.color,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{shortDomain(domain.domain)}</div>;})}
+                {matrixDomains.map(function(source){return <React.Fragment key={source.domain}>
+                  <div title={source.domain+" · "+source.outgoing+" sortant(s)"} style={{display:"flex",alignItems:"center",gap:6,padding:"0 5px",fontSize:9,fontWeight:750,color:source.color,overflow:"hidden"}}><span style={{width:6,height:6,borderRadius:2,background:source.color,flexShrink:0}}/><span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{shortDomain(source.domain)}</span></div>
+                  {matrixDomains.map(function(target){
+                    var count=mtx[source.domain+"→"+target.domain]||0;
+                    var intensity=count?0.12+Math.log1p(count)/Math.log1p(maxCell)*0.68:0;
+                    var isSelected=selectedFlowCell&&selectedFlowCell.from===source.domain&&selectedFlowCell.to===target.domain;
+                    return <button key={source.domain+"→"+target.domain} aria-label={source.domain+" vers "+target.domain+" : "+count+" flux"} title={source.domain+" → "+target.domain+" · "+count+" flux"} onMouseEnter={function(e){if(count)setChartTip({x:e.clientX,y:e.clientY,label:source.domain+" → "+target.domain,val:count+" flux",pct:Math.round(count/(totF||1)*100)});}} onMouseMove={function(e){setChartTip(function(t){return t?Object.assign({},t,{x:e.clientX,y:e.clientY}):t;});}} onMouseLeave={clearTip} onClick={function(){if(count)selectRoute({from:source.domain,to:target.domain,count:count});}} style={{height:34,borderRadius:8,border:"1px solid "+(isSelected?"#67E8F9":count?"rgba(99,102,241,.2)":T.border),background:count?"linear-gradient(145deg,rgba(99,102,241,"+intensity+"),rgba(6,182,212,"+(intensity*.78)+"))":T.bgCard,color:count?T.fgMuted:T.fgFaint,fontSize:9,fontWeight:count?800:500,cursor:count?"pointer":"default",boxShadow:isSelected?"0 0 0 2px #06B6D455,0 0 18px #06B6D433":count?"inset 0 1px 0 rgba(255,255,255,.07)":"none",transform:isSelected?"scale(1.05)":"scale(1)",transition:"transform .16s,box-shadow .16s,background .25s"}}>{count||"·"}</button>;
+                  })}
+                </React.Fragment>;})}
+              </div>
+            </div>:<div className="flow-route-list" style={{flex:1,minHeight:0,overflowY:"auto",display:"grid",gap:7,paddingRight:3}}>
+              {topRoutes.map(function(route,index){var selectedRouteNow=focusedRoute&&focusedRoute.from===route.from&&focusedRoute.to===route.to;var pct=Math.round(route.count/maxCell*100);return <button key={route.from+"→"+route.to} onClick={function(){selectRoute(route);}} style={{width:"100%",padding:"9px 11px",borderRadius:11,border:"1px solid "+(selectedRouteNow?"#06B6D466":T.border),background:selectedRouteNow?"linear-gradient(110deg,#06B6D414,#6366F10B)":T.bgAlt,color:T.fg,textAlign:"left",cursor:"pointer",transition:"transform .18s,border-color .18s,background .18s"}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:7}}><span style={{width:22,height:22,borderRadius:7,display:"grid",placeItems:"center",background:"#06B6D416",color:"#06B6D4",fontSize:9,fontWeight:800}}>{index+1}</span><span style={{flex:1,minWidth:0,fontSize:10,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}><span style={{color:(DC[route.from]||DC.Autre).ac}}>{route.from}</span><span style={{color:T.fgMuted,margin:"0 7px"}}>→</span><span style={{color:(DC[route.to]||DC.Autre).ac}}>{route.to}</span></span><b style={{fontSize:13,color:"#06B6D4",fontVariantNumeric:"tabular-nums"}}>{route.count}</b></div>
+                <div className="dashboard-meter-track"><span style={{width:pct+"%",background:"linear-gradient(90deg,#6366F1,#06B6D4)"}}/></div>
+              </button>;})}
+            </div>}
+            {focusedRoute&&<div style={{marginTop:9,display:"flex",justifyContent:"space-between",gap:8,fontSize:8,color:T.fgMuted}}><span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>Focus : <b style={{color:T.fg}}>{focusedRoute.from} → {focusedRoute.to}</b></span><span>{Math.round(focusedRoute.count/(totF||1)*100)}% du total</span></div>}
+          </div>;
+        });
+        if(sid==="chart_flux_legacy")return wrapWidget(sid,"#2979FF","Flux par domaine",null,function(isExpanded,ww,wh){
           var fluxData=dm.map(function(d){
             var out=flows.filter(function(f){var fa=apps.find(function(a){return a.id===f.from;});return fa&&fa.domain===d;}).length;
             var inn=flows.filter(function(f){var ta=apps.find(function(a){return a.id===f.to;});return ta&&ta.domain===d;}).length;
@@ -5422,6 +5506,86 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
             </div>
           </div>;
         },mkChartSwitch(sid));
+        if(sid==="chart_criticality")return wrapWidget(sid,"#EF4444","Criticité du portefeuille",null,function(isExpanded,ww,wh){
+          var totalPortfolio=apps.length||1;
+          var levels=[
+            {label:"Haute",color:"#EF4444"},
+            {label:"Moyenne",color:"#F59E0B"},
+            {label:"Basse",color:"#10B981"},
+            {label:"Non renseignée",color:"#94A3B8"},
+          ].map(function(level){
+            var count=level.label==="Non renseignée"
+              ?apps.filter(function(a){return !["Haute","Moyenne","Basse"].includes(a.criticality);}).length
+              :apps.filter(function(a){return a.criticality===level.label;}).length;
+            return Object.assign({},level,{count:count,pct:Math.round(count/totalPortfolio*100)});
+          });
+          var criticalPct=Math.round((totC/totalPortfolio)*100);
+          return <div className="dashboard-widget-surface" style={{background:T.bgCard,borderRadius:16,padding:18,boxShadow:"0 8px 24px rgba(30,27,75,.07), 0 0 0 1px "+T.border,height:(isExpanded||wh)?"100%":undefined,display:(isExpanded||wh)?"flex":undefined,flexDirection:(isExpanded||wh)?"column":undefined}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:18}}>
+              <div style={{width:34,height:34,borderRadius:11,display:"grid",placeItems:"center",background:"linear-gradient(145deg,#EF444426,#EF44440A)",color:"#EF4444",fontSize:16}}>⚑</div>
+              <div style={{flex:1}}><div style={{fontSize:12,fontWeight:750,color:T.fg}}>Criticité des applications</div><div style={{fontSize:9,color:T.fgMuted,marginTop:2}}>Répartition réelle du portefeuille</div></div>
+              <div style={{textAlign:"right"}}><div style={{fontSize:20,fontWeight:800,color:"#EF4444",lineHeight:1}}>{totC}</div><div style={{fontSize:9,color:T.fgMuted,marginTop:3}}>haute · {criticalPct}%</div></div>
+            </div>
+            <div style={{display:"flex",height:10,borderRadius:8,overflow:"hidden",background:T.border,marginBottom:16}}>
+              {levels.map(function(level){return level.count>0&&<div key={level.label} title={level.label+": "+level.count} style={{width:level.pct+"%",background:"linear-gradient(90deg,"+level.color+"99,"+level.color+")",transition:"width .6s cubic-bezier(.16,1,.3,1)"}}/>;})}
+            </div>
+            <div style={{display:"grid",gap:12}}>
+              {levels.map(function(level){return <div key={level.label}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:10,marginBottom:5}}>
+                  <span style={{display:"flex",alignItems:"center",gap:7,color:T.fg}}><span style={{width:8,height:8,borderRadius:3,background:level.color,boxShadow:"0 0 10px "+level.color+"55"}}/>{level.label}</span>
+                  <span style={{color:T.fgMuted,fontVariantNumeric:"tabular-nums"}}><b style={{color:T.fg,marginRight:6}}>{level.count}</b>{level.pct}%</span>
+                </div>
+                <div className="dashboard-meter-track"><span style={{width:level.pct+"%",background:"linear-gradient(90deg,"+level.color+"99,"+level.color+")"}}/></div>
+              </div>;})}
+            </div>
+          </div>;
+        });
+        if(sid==="critical_apps")return wrapWidget(sid,"#EF4444","Top 10 — Applications critiques",null,function(isExpanded,ww,wh){
+          var severityWeight={Critique:4,Haute:3,Moyenne:2,Basse:1};
+          var severityColor={Critique:"#B91C1C",Haute:"#EF4444",Moyenne:"#F59E0B",Basse:"#10B981"};
+          var ranked=apps.map(function(app){
+            var incoming=flows.filter(function(flow){return flow.to===app.id;}).length;
+            var outgoing=flows.filter(function(flow){return flow.from===app.id;}).length;
+            return{app:app,incoming:incoming,outgoing:outgoing,degree:incoming+outgoing,weight:severityWeight[app.criticality]||0};
+          }).sort(function(a,b){return b.weight-a.weight||b.degree-a.degree||String(a.app.name||"").localeCompare(String(b.app.name||""));});
+          var top10=ranked.filter(function(item){return item.weight>=2;}).slice(0,10);
+          if(top10.length<10)top10=top10.concat(ranked.filter(function(item){return item.weight<2;}).slice(0,10-top10.length));
+          var selected=top10.find(function(item){return item.app.id===selectedCriticalApp;})||top10[0];
+          var maxDegree=Math.max.apply(null,top10.map(function(item){return item.degree;}).concat([1]));
+          var highCount=apps.filter(function(app){return app.criticality==="Critique"||app.criticality==="Haute";}).length;
+          var selectedFlows=[];
+          if(selected){
+            var seenPeers={};
+            selectedFlows=flows.filter(function(flow){return flow.from===selected.app.id||flow.to===selected.app.id;}).filter(function(flow){var peerId=flow.from===selected.app.id?flow.to:flow.from;if(seenPeers[peerId])return false;seenPeers[peerId]=true;return true;}).slice(0,3);
+          }
+          var cardWidth=ww||500;
+          return <div className="dashboard-widget-surface critical-apps-widget" style={{background:T.bgCard,borderRadius:16,padding:18,boxShadow:"0 8px 24px rgba(30,27,75,.07), 0 0 0 1px "+T.border,height:(isExpanded||wh)?"100%":undefined,display:(isExpanded||wh)?"flex":undefined,flexDirection:(isExpanded||wh)?"column":undefined}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,paddingRight:82}}>
+              <div style={{width:36,height:36,borderRadius:12,display:"grid",placeItems:"center",background:"linear-gradient(145deg,#EF44442b,#F9731620)",color:"#EF4444",fontSize:16,boxShadow:"0 5px 16px #EF444422"}}>⚠</div>
+              <div style={{flex:1,minWidth:0}}><div style={{fontSize:12,fontWeight:800,color:T.fg}}>Applications à traiter en priorité</div><div style={{fontSize:9,color:T.fgMuted,marginTop:2}}>Criticité, puis nombre de liaisons directes</div></div>
+              <div style={{textAlign:"right"}}><div style={{fontSize:18,fontWeight:850,color:"#EF4444",lineHeight:1}}>{top10.length}<span style={{fontSize:10,color:T.fgMuted,fontWeight:600}}> / 10</span></div><div style={{fontSize:8,color:T.fgMuted,marginTop:3}}>dont {highCount} haute(s)</div></div>
+            </div>
+            {!top10.length?<div style={{flex:1,display:"grid",placeItems:"center",fontSize:11,color:T.fgMuted}}>Aucune application à afficher.</div>:<>
+              <div className="critical-apps-list" style={{flex:1,minHeight:0,overflowY:"auto",display:"grid",gap:5,paddingRight:3}}>
+                {top10.map(function(item,index){
+                  var selectedId=selected&&selected.app.id===item.app.id;
+                  var color=severityColor[item.app.criticality]||"#94A3B8";
+                  var barPct=Math.round(item.degree/maxDegree*100);
+                  return <button key={item.app.id} className="critical-app-row" aria-pressed={selectedId} onClick={function(){setSelectedCriticalApp(item.app.id);}} style={{width:"100%",display:"grid",gridTemplateColumns:cardWidth<430?"24px minmax(0,1fr) auto":"28px minmax(0,1.35fr) minmax(74px,.8fr) minmax(76px,.85fr)",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:10,border:"1px solid "+(selectedId?color+"66":T.border),background:selectedId?color+"12":T.bgAlt,color:T.fg,textAlign:"left",cursor:"pointer",transition:"background .18s,border-color .18s,transform .18s"}}>
+                    <span style={{width:22,height:22,borderRadius:7,display:"grid",placeItems:"center",background:selectedId?color+"24":T.bgCard,color:selectedId?color:T.fgMuted,fontSize:9,fontWeight:800,fontVariantNumeric:"tabular-nums"}}>{String(index+1).padStart(2,"0")}</span>
+                    <span style={{minWidth:0}}><span style={{display:"block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:10,fontWeight:700}}>{item.app.name||"Application sans nom"}</span><span style={{display:"block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:8,color:T.fgMuted,marginTop:2}}>{item.app.domain||"Domaine non renseigné"}</span></span>
+                    {cardWidth>=430&&<span style={{justifySelf:"start",fontSize:8,fontWeight:750,color:color,padding:"4px 7px",borderRadius:99,background:color+"19",whiteSpace:"nowrap"}}>{item.app.criticality||"Non définie"}</span>}
+                    <span style={{minWidth:0}}><span style={{display:"flex",justifyContent:"space-between",fontSize:8,color:T.fgMuted,marginBottom:4}}><span>Flux</span><b style={{color:T.fg,fontSize:9}}>{item.degree}<span style={{color:"#06B6D4",fontWeight:500}}> · {item.incoming}↓ {item.outgoing}↑</span></b></span><span className="dashboard-meter-track" style={{display:"block",height:4}}><span style={{width:barPct+"%",background:"linear-gradient(90deg,"+color+"77,"+color+")"}}/></span></span>
+                  </button>;
+                })}
+              </div>
+              {selected&&<div className="critical-app-detail" style={{marginTop:10,padding:"9px 11px",borderRadius:11,background:"linear-gradient(110deg,#EF444414,#8B5CF60A)",border:"1px solid #EF444428"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,marginBottom:5}}><span style={{fontSize:9,fontWeight:800,color:T.fg}}>Liaisons directes · {selected.app.name||"Application"}</span><span style={{fontSize:8,color:severityColor[selected.app.criticality]||T.fgMuted,fontWeight:700}}>{selected.incoming} entrante(s) · {selected.outgoing} sortante(s)</span></div>
+                {selectedFlows.length?selectedFlows.map(function(flow,index){var isOutbound=flow.from===selected.app.id;var peer=apps.find(function(app){return app.id===(isOutbound?flow.to:flow.from);});return <div key={flow.id||index} style={{display:"flex",alignItems:"center",gap:6,fontSize:8,color:T.fgMuted,marginTop:3}}><span style={{color:isOutbound?"#06B6D4":"#8B5CF6",fontWeight:800}}>{isOutbound?"→ sortant":"← entrant"}</span><span style={{color:T.fg,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{peer?peer.name:"Application inconnue"}</span><span style={{marginLeft:"auto",whiteSpace:"nowrap"}}>{flow.protocol||flow.frequency||"Interface"}</span></div>;}):<div style={{fontSize:8,color:T.fgMuted}}>Aucune liaison directe enregistrée.</div>}
+              </div>}
+            </>}
+          </div>;
+        });
         if(sid==="chart_statut")return wrapWidget(sid,"#06B6D4","Répartition par statut",null,function(isExpanded,ww,wh){
           var stMap={};
           apps.forEach(function(a){var s=a.statut&&a.statut.trim()?a.statut.trim():"Non défini";stMap[s]=(stMap[s]||0)+1;});
