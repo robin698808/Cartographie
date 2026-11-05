@@ -1251,16 +1251,6 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     setTimeout(function(){fitCanvas(na);},50);
   };
 
-  const previousLayoutScale=useRef({fontScale:fontScale,globalScale:globalScale,appSpacing:appSpacing,domainSpacing:domainSpacing,categorySpacing:categorySpacing,flowDisplayMode:flowDisplayMode});
-  // The layout helper intentionally uses the latest render state when layout controls change.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(()=>{
-    const previous=previousLayoutScale.current;
-    if(previous.fontScale===fontScale&&previous.globalScale===globalScale&&previous.appSpacing===appSpacing&&previous.domainSpacing===domainSpacing&&previous.categorySpacing===categorySpacing&&previous.flowDisplayMode===flowDisplayMode)return;
-    previousLayoutScale.current={fontScale:fontScale,globalScale:globalScale,appSpacing:appSpacing,domainSpacing:domainSpacing,categorySpacing:categorySpacing,flowDisplayMode:flowDisplayMode};
-    if(apps.length>0)applyStarLayout();
-  },[fontScale,globalScale,appSpacing,domainSpacing,categorySpacing,flowDisplayMode]);
-
   const fitCanvas=(layoutApps=filtered)=>{
     if(!layoutApps.length)return;
     const appWidth=(a)=>AW_BASE*globalScale*(domScales[a.domain]||1)*Math.max(0.7,fontScale);
@@ -7051,6 +7041,11 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
             <span style={{fontSize:10,color:T.fgMuted,whiteSpace:"nowrap"}}>Police générale</span>
             <input aria-label="Police générale" type="range" min="0.8" max="2.2" step="0.1" value={fontScale} onChange={function(e){setFontScale(parseFloat(e.target.value));}} style={{flex:1,cursor:"pointer"}}/>
             <span style={{fontSize:10,color:T.fg,minWidth:32,textAlign:"right"}}>{Math.round(fontScale*100)}%</span>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:7,padding:"2px 6px 8px"}}>
+            <span style={{fontSize:10,color:T.fgMuted,whiteSpace:"nowrap"}}>Étiquettes de flux</span>
+            <input aria-label="Police étiquettes de flux" type="range" min="8" max="32" step="1" value={flowFontSize} onChange={function(e){setFlowFontSize(parseInt(e.target.value));}} style={{flex:1,cursor:"pointer"}}/>
+            <span style={{fontSize:10,color:T.fg,minWidth:32,textAlign:"right"}}>{flowFontSize}pt</span>
           </div>
           <div className="mapping-menu-action" onClick={function(){setPresMode(true);setOpenMenu(null);}}>▶ Lancer le mode présentation</div>
           <div style={{height:1,background:T.border,margin:"3px 4px 8px"}}/>
