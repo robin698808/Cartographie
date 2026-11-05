@@ -5157,9 +5157,9 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       var isExpanded=expandedWidget===id;
       var size=widgetSizes[id]||DEFAULT_SIZES[id]||"m";
       var isHov=hovWid===id||isExpanded;
-      var pos=widgetPos[id]||getDefaultPos(id);
-      var ww=(pos&&pos.w)||getWidgetW(id);
-      var wh=(pos&&pos.h)||undefined;
+      var span={s:4,m:6,l:12}[size]||6;
+      var ww=Math.round(Math.max(320,window.innerWidth-360)*span/12);
+      var wh=undefined;
       var resolvedContent=typeof content==="function"?content(isExpanded,ww,wh):content;
       if(isExpanded){
         return <div key={id} style={{position:"fixed",inset:0,zIndex:9900,background:T.bg,overflow:"auto",display:"flex",flexDirection:"column"}}
@@ -5178,40 +5178,11 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
           </div>
         </div>;
       }
-      var isResizing=resizeInfo&&resizeInfo.id===id;
-      var rSide=isResizing?resizeInfo.side:"";
-      var hlColor=function(side){return rSide===side?"#6366F1":(accentColor||"rgba(255,255,255,0.32)");};
-      var hlGlow=function(side){return rSide===side?"0 0 8px #6366F1":"none";};
-      var hlOp=function(side){return(isHov||rSide===side)?1:0;};
-      return <div key={id} data-wid={id} style={{
-        position:"absolute",
-        left:pos.x, top:pos.y,
-        width:ww,
-        height:wh,
-        zIndex:wZIndex[id]||10,
-        borderRadius:14,
-        outline:dragInfo&&dragInfo.id===id?"2px solid #6366F1":"2px solid transparent",
-        outlineOffset:3,
-        opacity:dragInfo&&dragInfo.id===id?0.85:1,
-        cursor:dragInfo&&dragInfo.id===id?"grabbing":"default",
-        userSelect:"none",
-      }}
-        onMouseDown={function(){
-          var nz=zCounter+1; setZCounter(nz); setWZIndex(function(p){return Object.assign({},p,{[id]:nz});});
-        }}
-        onMouseEnter={function(){setHovWid(id);}}
-        onMouseLeave={function(){setHovWid(null);}}
-      >
-        {/* Drag handle */}
-        <div onMouseDown={function(e){
-          e.preventDefault(); e.stopPropagation();
-          var rect=e.currentTarget.closest('[data-wid]').getBoundingClientRect();
-          setDragInfo({id:id,ox:e.clientX-rect.left,oy:e.clientY-rect.top});
-          var nz=zCounter+1; setZCounter(nz); setWZIndex(function(p){return Object.assign({},p,{[id]:nz});});
-        }} style={{position:"absolute",top:12,left:12,zIndex:20,opacity:isHov?0.75:0,transition:"opacity 0.12s",pointerEvents:isHov?"all":"none",cursor:"grab",background:"rgba(0,0,0,0.45)",borderRadius:4,padding:"3px 5px",fontSize:13,color:"#fff",userSelect:"none",lineHeight:1,backdropFilter:"blur(4px)"}}
-          title="Déplacer">⣿</div>
-        {/* Controls */}
-        <div style={{position:"absolute",top:10,right:10,zIndex:20,display:"flex",gap:6,alignItems:"center",padding:4,borderRadius:12,background:T.bgCard+"E6",border:"1px solid "+T.border,boxShadow:"0 6px 20px rgba(0,0,0,0.28)",backdropFilter:"blur(10px)",opacity:(isHov||domFilters[id])?1:0,transition:"opacity 0.12s",pointerEvents:(isHov||domFilters[id])?"all":"none"}}>
+      var spanCols={s:4,m:6,l:12}[size]||6;
+      return <div key={id} data-wid={id} className="dash-cell" style={{gridColumn:"span "+spanCols,minWidth:0,display:"flex",flexDirection:"column",gap:8}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"nowrap",minHeight:30}}>
+          <div style={{width:4,height:16,borderRadius:2,background:accentColor||"#6366F1",flexShrink:0}}/>
+          <span style={{fontSize:12.5,fontWeight:700,color:T.fg,flex:1,minWidth:40,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{title}</span>
           {DOM_FILTER_IDS.indexOf(id)>=0&&domSel(id)}
           {chartSwitcher}
           <div style={{display:"flex",background:T.bgAlt,border:"1px solid "+T.border,borderRadius:8,padding:2,gap:1}}>
@@ -5234,31 +5205,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
             </svg>
           </button>
         </div>
-        {/* ── Poignée gauche ── */}
-        <div onMouseDown={function(e){e.preventDefault();e.stopPropagation();setResizeInfo({id:id,side:"left",startX:e.clientX,startW:ww,startPosX:pos.x});var nz=zCounter+1;setZCounter(nz);setWZIndex(function(p){return Object.assign({},p,{[id]:nz});});}}
-          style={{position:"absolute",top:0,left:-5,width:10,height:"100%",cursor:"ew-resize",zIndex:25,display:"flex",alignItems:"center",justifyContent:"center",opacity:hlOp("left"),transition:"opacity 0.15s"}}>
-          <div style={{width:3,height:40,borderRadius:3,background:hlColor("left"),boxShadow:hlGlow("left"),transition:"background 0.12s, box-shadow 0.12s"}}/>
-        </div>
-        {/* ── Poignée droite ── */}
-        <div onMouseDown={function(e){e.preventDefault();e.stopPropagation();setResizeInfo({id:id,side:"right",startX:e.clientX,startW:ww});var nz=zCounter+1;setZCounter(nz);setWZIndex(function(p){return Object.assign({},p,{[id]:nz});});}}
-          style={{position:"absolute",top:0,right:-5,width:10,height:"100%",cursor:"ew-resize",zIndex:25,display:"flex",alignItems:"center",justifyContent:"center",opacity:hlOp("right"),transition:"opacity 0.15s"}}>
-          <div style={{width:3,height:40,borderRadius:3,background:hlColor("right"),boxShadow:hlGlow("right"),transition:"background 0.12s, box-shadow 0.12s"}}/>
-        </div>
-        {/* ── Poignée haut ── */}
-        <div onMouseDown={function(e){e.preventDefault();e.stopPropagation();var rect=e.currentTarget.closest('[data-wid]').getBoundingClientRect();setResizeInfo({id:id,side:"top",startY:e.clientY,startH:rect.height,startPosY:pos.y});var nz=zCounter+1;setZCounter(nz);setWZIndex(function(p){return Object.assign({},p,{[id]:nz});});}}
-          style={{position:"absolute",top:-5,left:0,width:"100%",height:10,cursor:"ns-resize",zIndex:25,display:"flex",alignItems:"center",justifyContent:"center",opacity:hlOp("top"),transition:"opacity 0.15s"}}>
-          <div style={{height:3,width:40,borderRadius:3,background:hlColor("top"),boxShadow:hlGlow("top"),transition:"background 0.12s, box-shadow 0.12s"}}/>
-        </div>
-        {/* ── Poignée bas ── */}
-        <div onMouseDown={function(e){e.preventDefault();e.stopPropagation();var rect=e.currentTarget.closest('[data-wid]').getBoundingClientRect();setResizeInfo({id:id,side:"bottom",startY:e.clientY,startH:rect.height});var nz=zCounter+1;setZCounter(nz);setWZIndex(function(p){return Object.assign({},p,{[id]:nz});});}}
-          style={{position:"absolute",bottom:-5,left:0,width:"100%",height:10,cursor:"ns-resize",zIndex:25,display:"flex",alignItems:"center",justifyContent:"center",opacity:hlOp("bottom"),transition:"opacity 0.15s"}}>
-          <div style={{height:3,width:40,borderRadius:3,background:hlColor("bottom"),boxShadow:hlGlow("bottom"),transition:"background 0.12s, box-shadow 0.12s"}}/>
-        </div>
-        {/* ── Contenu (scroll si hauteur fixée) ── */}
-        {wh
-          ?<div style={{height:"100%",overflowY:"auto",overflowX:"hidden",borderRadius:12,background:T.bgCard,boxSizing:"border-box"}}>{resolvedContent}</div>
-          :resolvedContent
-        }
+        <div className="dash-body" style={{flex:1,minWidth:0,display:"flex",flexDirection:"column"}}>{resolvedContent}</div>
       </div>;
     };
     return <div style={{width:"100%",padding:"24px 32px",boxSizing:"border-box"}} onMouseLeave={clearTip}>
@@ -5267,22 +5214,24 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         <span style={{fontWeight:700}}>{chartTip.label}</span>
         {" · "}<span style={{color:T.fgMuted}}>{chartTip.val}{chartTip.pct!=null?" ("+chartTip.pct+"%)" :""}</span>
       </div>}
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
-        <div><h2 style={{fontSize:24,fontWeight:700,margin:0}}>Dashboard Interfaces</h2><p style={{color:T.fgMuted,fontSize:13,marginTop:4}}>Vue d'ensemble des domaines et flux applicatifs</p></div>
-        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+      <div style={{position:"sticky",top:0,zIndex:50,margin:"-24px -32px 20px",padding:"14px 32px",background:T.bg+"EE",backdropFilter:"blur(10px)",borderBottom:"1px solid "+T.border,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+        <div><h2 style={{fontSize:20,fontWeight:800,margin:0}}>Dashboard</h2><p style={{color:T.fgMuted,fontSize:12,margin:"2px 0 0"}}>Vue d'ensemble des domaines et flux applicatifs</p></div>
+        <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
           <button onClick={function(){setShowCustom(function(p){return!p;});}} style={{background:showCustom?"linear-gradient(135deg,#2979FF,#00B8D4)":T.bgAlt,border:"1px solid "+(showCustom?"transparent":T.border),color:showCustom?"#fff":T.fg,borderRadius:9,padding:"8px 12px",fontSize:11,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6}} title="Choisir les thèmes et widgets affichés">
             <span aria-hidden="true">⚙</span> Personnaliser
             <span style={{background:showCustom?"rgba(255,255,255,.25)":"rgba(41,121,255,.15)",color:showCustom?"#fff":"#2979FF",borderRadius:10,padding:"1px 7px",fontSize:10}}>{ALL_WIDGETS_LIST.filter(function(id){return!hiddenWidgets.includes(id);}).length}/{ALL_WIDGETS_LIST.length}</span>
           </button>
-          {hiddenWidgets.length>0&&<button onClick={function(){relayoutWith([]);}} style={{background:T.bgAlt,border:"1px solid "+T.border,color:T.fg,borderRadius:9,padding:"8px 12px",fontSize:11,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>
-            👁 Afficher ({hiddenWidgets.length})
-          </button>}
-          <button className="dashboard-optimize-button" onClick={optimizeDashboard} title="Réorganiser automatiquement les widgets affichés">
-            <span aria-hidden="true">✦</span> Optimiser le cockpit
-          </button>
-          <button onClick={function(){saveWidgetPos({});saveWidgetSizes(Object.assign({},DEFAULT_SIZES));setHiddenWidgets([]);setWZIndex({});}} style={{background:"transparent",border:"1px solid "+T.border,color:T.fgMuted,borderRadius:9,padding:"8px 12px",fontSize:11,cursor:"pointer"}} title="Réinitialiser la disposition">↺ Reset</button>
+          <button onClick={function(){saveWidgetPos({});saveWidgetSizes(Object.assign({},DEFAULT_SIZES));setHiddenWidgets([]);setWZIndex({});}} style={{background:"transparent",border:"1px solid "+T.border,color:T.fgMuted,borderRadius:9,padding:"8px 12px",fontSize:11,cursor:"pointer"}} title="Réinitialiser la disposition">↺ Réinitialiser</button>
         </div>
       </div>
+      {hiddenWidgets.some(function(id){return ALL_WIDGETS_LIST.includes(id);})&&<div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:16}}>
+        <span style={{fontSize:11,color:T.fgMuted,fontWeight:600}}>Widgets masqués :</span>
+        {ALL_WIDGETS_LIST.filter(function(id){return hiddenWidgets.includes(id);}).map(function(id){
+          var lbl="";WIDGET_THEMES.forEach(function(th){th.widgets.forEach(function(w){if(w.id===id)lbl=w.label;});});
+          return <button key={id} onClick={function(){toggleWidgetIds([id],true);}} title="Afficher ce widget" style={{background:T.bgAlt,border:"1px dashed "+T.border,color:T.fg,borderRadius:16,padding:"4px 11px",fontSize:11,cursor:"pointer"}}>+ {lbl||id}</button>;
+        })}
+        <button onClick={function(){relayoutWith([]);}} style={{background:"transparent",border:"none",color:"#6366F1",fontSize:11,fontWeight:700,cursor:"pointer"}}>Tout afficher</button>
+      </div>}
       {showCustom&&<div style={{background:T.bgCard,border:"1px solid "+T.border,borderRadius:14,padding:18,marginBottom:20,boxShadow:T.shadow}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,gap:10,flexWrap:"wrap"}}>
           <div><div style={{fontSize:14,fontWeight:700}}>Personnaliser le dashboard</div><div style={{fontSize:11,color:T.fgMuted,marginTop:2}}>Cochez les thèmes ou widgets à afficher — votre choix est mémorisé pour ce projet.</div></div>
@@ -5345,7 +5294,9 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         </div>;
       }()}
       
-      <div style={{position:"relative",width:"100%",minHeight:Math.max(hiddenWidgets.length>=ALL_WIDGETS_LIST.length?300:1000,...ALL_WIDGETS_LIST.filter(function(id){return!hiddenWidgets.includes(id);}).map(function(id){var pos=widgetPos[id]||getDefaultPos(id);return(pos.y||0)+(pos.h||340)+64;}))}}>
+      <style>{".dash-body>*{flex:1 1 auto;min-width:0;box-sizing:border-box}@media (max-width:900px){.dash-cell{grid-column:span 12 !important}}"}</style>
+      {ALL_WIDGETS_LIST.every(function(id){return hiddenWidgets.includes(id);})&&<div style={{padding:"60px 20px",textAlign:"center",color:T.fgMuted,fontSize:13,border:"1px dashed "+T.border,borderRadius:14}}>Tous les widgets sont masqués. <button onClick={function(){relayoutWith([]);}} style={{marginLeft:8,background:"#6366F1",color:"#fff",border:"none",borderRadius:8,padding:"6px 12px",fontSize:11,fontWeight:700,cursor:"pointer"}}>Tout afficher</button></div>}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(12,minmax(0,1fr))",gap:"22px 20px",gridAutoFlow:"row dense",alignItems:"stretch",width:"100%"}}>
       {ALL_WIDGETS_LIST.filter(function(id){return!hiddenWidgets.includes(id);}).map(function(sid){
         if(sid==="chart_apps")return wrapWidget(sid,"#7C4DFF","Apps par domaine",null,function(isExpanded,ww,wh){
           var barData=[...st].sort(function(a,b){return b.count-a.count;});
