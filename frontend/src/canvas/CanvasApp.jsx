@@ -5158,7 +5158,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       var size=widgetSizes[id]||DEFAULT_SIZES[id]||"m";
       var isHov=hovWid===id||isExpanded;
       var span={s:4,m:6,l:12}[size]||6;
-      var ww=Math.round(Math.max(320,(window.innerWidth<=900?window.innerWidth-80:window.innerWidth-329)-220)/12*span+(span-1)*20);
+      var fullW=Math.max(300,window.innerWidth<=900?window.innerWidth-80:window.innerWidth-270);var ww=Math.round((fullW-220)/12*span+(span-1)*20);
       var wh=undefined;
       var resolvedContent=typeof content==="function"?content(isExpanded,ww,wh):content;
       if(isExpanded){
@@ -5303,7 +5303,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
           var ctype=chartTypes[sid]||"bar";
           var appSlices=barData.map(function(d){return{name:d.domain,value:d.count,color:(DC[d.domain]||DC.Autre).ac};});
           var totalApps=apps.length||1;
-          var cw=ww||500;var svgW=isExpanded?560:Math.max(160,cw-56);var svgH=isExpanded?300:160;
+          var cw=ww||500;var svgW=isExpanded?560:Math.max(160,cw-56);var svgH=isExpanded?300:250;
           var renderBarV=function(){
             var W=svgW;var H=svgH;
             var pad={l:40,r:10,t:30,b:50};var n=barData.length;
@@ -5716,8 +5716,8 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
           return <div className="dashboard-widget-surface" style={{background:T.bgCard,borderRadius:16,padding:18,boxShadow:"0 8px 24px rgba(30,27,75,.07), 0 0 0 1px "+T.border,height:(isExpanded||wh)?"100%":undefined,display:(isExpanded||wh)?"flex":undefined,flexDirection:(isExpanded||wh)?"column":undefined}}>
             <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:18}}>
               <div style={{width:34,height:34,borderRadius:11,display:"grid",placeItems:"center",background:"linear-gradient(145deg,#EF444426,#EF44440A)",color:"#EF4444",fontSize:16}}>⚑</div>
-              <div style={{flex:1}}><div style={{fontSize:12,fontWeight:750,color:T.fg}}>Criticité des applications</div><div style={{fontSize:9,color:T.fgMuted,marginTop:2}}>Répartition réelle du portefeuille</div></div>
-              <div style={{textAlign:"right"}}><div style={{fontSize:20,fontWeight:800,color:"#EF4444",lineHeight:1}}>{totC}</div><div style={{fontSize:9,color:T.fgMuted,marginTop:3}}>haute · {criticalPct}%</div></div>
+              <div style={{flex:1}}><div style={{fontSize:15,fontWeight:800,color:T.fg}}>Criticité des applications</div><div style={{fontSize:12,color:T.fgMuted,marginTop:3}}>Répartition réelle du portefeuille</div></div>
+              <div style={{textAlign:"right"}}><div style={{fontSize:26,fontWeight:800,color:"#EF4444",lineHeight:1}}>{totC}</div><div style={{fontSize:12,color:T.fgMuted,marginTop:4}}>haute · {criticalPct}%</div></div>
             </div>
             {(chartTypes.chart_criticality==="matrix")?function(){
               var isNR=function(a){return!["Haute","Moyenne","Basse"].includes(a.criticality);};
@@ -5727,37 +5727,60 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
               var maxCell=1;
               rowsM.forEach(function(r){cols.forEach(function(c){var n=inCell(r,c).length;if(n>maxCell)maxCell=n;});});
               return <div style={{overflow:"auto",flex:(isExpanded||wh)?1:undefined,minHeight:0}}>
-                <div style={{display:"grid",gridTemplateColumns:"minmax(80px,1.2fr) repeat("+cols.length+",minmax(56px,1fr))",gap:4,fontSize:10}}>
+                <div style={{display:"grid",gridTemplateColumns:"minmax(80px,1.2fr) repeat("+cols.length+",minmax(56px,1fr))",gap:5,fontSize:12}}>
                   <div/>
-                  {cols.map(function(c){return <div key={c.label} style={{textAlign:"center",fontWeight:800,color:c.color,padding:"4px 2px",fontSize:9.5}}>{c.label}</div>;})}
+                  {cols.map(function(c){return <div key={c.label} style={{textAlign:"center",fontWeight:800,color:c.color,padding:"4px 2px",fontSize:12}}>{c.label}</div>;})}
                   {rowsM.map(function(r){
                     return [<div key={r.domain+"-l"} style={{display:"flex",alignItems:"center",gap:6,color:T.fg,fontWeight:700,minWidth:0}}><span style={{width:7,height:7,borderRadius:2,background:(DC[r.domain]||DC.Autre).ac,flexShrink:0}}/><span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={r.domain}>{r.domain}</span></div>].concat(cols.map(function(c){
                       var list=inCell(r,c);
                       var alpha=list.length?(0.14+0.5*list.length/maxCell):0;
                       return <div key={r.domain+c.label} title={list.length?c.label+" · "+r.domain+" : "+list.map(function(a){return a.name;}).join(", "):"Aucune application"}
                         onClick={list.length?function(){setSelApp(list[0]);setPanelOpen(true);}:undefined}
-                        style={{minHeight:42,borderRadius:8,background:list.length?c.color+Math.round(alpha*255).toString(16).padStart(2,"0"):T.bgAlt,border:"1px solid "+(list.length?c.color+"55":T.border),display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"3px 2px",cursor:list.length?"pointer":"default"}}>
-                        <span style={{fontSize:15,fontWeight:850,color:list.length?T.fg:T.fgFaint}}>{list.length||"·"}</span>
-                        {list.length>0&&<span style={{fontSize:8,color:T.fgMuted,maxWidth:"100%",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{list.slice(0,2).map(function(a){return a.name;}).join(", ")}{list.length>2?" +"+(list.length-2):""}</span>}
+                        style={{minHeight:54,borderRadius:8,background:list.length?c.color+Math.round(alpha*255).toString(16).padStart(2,"0"):T.bgAlt,border:"1px solid "+(list.length?c.color+"55":T.border),display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"3px 2px",cursor:list.length?"pointer":"default"}}>
+                        <span style={{fontSize:18,fontWeight:850,color:list.length?T.fg:T.fgFaint}}>{list.length||"·"}</span>
+                        {list.length>0&&<span style={{fontSize:10.5,color:T.fgMuted,maxWidth:"100%",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{list.slice(0,2).map(function(a){return a.name;}).join(", ")}{list.length>2?" +"+(list.length-2):""}</span>}
                       </div>;
                     }));
                   })}
                 </div>
-                <div style={{fontSize:9,color:T.fgMuted,marginTop:10}}>Domaine × criticité · cliquez une case pour ouvrir une application</div>
+                <div style={{fontSize:12,color:T.fgMuted,marginTop:10}}>Domaine × criticité · cliquez une case pour ouvrir une application</div>
               </div>;
-            }():<>
-            <div style={{display:"flex",height:10,borderRadius:8,overflow:"hidden",background:T.border,marginBottom:16}}>
-              {levels.map(function(level){return level.count>0&&<div key={level.label} title={level.label+": "+level.count} style={{width:level.pct+"%",background:"linear-gradient(90deg,"+level.color+"99,"+level.color+")",transition:"width .6s cubic-bezier(.16,1,.3,1)"}}/>;})}
-            </div>
-            <div style={{display:"grid",gap:12}}>
-              {levels.map(function(level){return <div key={level.label}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:10,marginBottom:5}}>
-                  <span style={{display:"flex",alignItems:"center",gap:7,color:T.fg}}><span style={{width:8,height:8,borderRadius:3,background:level.color,boxShadow:"0 0 10px "+level.color+"55"}}/>{level.label}</span>
-                  <span style={{color:T.fgMuted,fontVariantNumeric:"tabular-nums"}}><b style={{color:T.fg,marginRight:6}}>{level.count}</b>{level.pct}%</span>
+            }():function(){
+              var segs=levels.filter(function(l){return l.count>0;});
+              var segTotal=segs.reduce(function(t,l){return t+l.count;},0)||1;
+              var arcs=segs.length>1?buildArcs(segs.map(function(l){return{name:l.label,value:l.count,color:l.color};}),segTotal,65,65,60,40):[];
+              var byDom=st.map(function(d){var c=function(k){return d.apps.filter(function(a){return a.criticality===k;}).length;};return{domain:d.domain,h:c("Haute"),m:c("Moyenne"),b:c("Basse"),n:d.count};}).sort(function(a,b){return b.h-a.h||b.n-a.n;}).slice(0,isExpanded?12:6);
+              return <div style={{display:"flex",flexDirection:"column",gap:16,flex:1}}>
+                <div style={{display:"flex",gap:16,alignItems:"center",flexWrap:"wrap"}}>
+                  <svg width="112" height="112" viewBox="0 0 130 130" style={{flexShrink:0,width:112,height:112}}>
+                    {segs.length===1&&<circle cx="65" cy="65" r="50" fill="none" stroke={segs[0].color} strokeWidth="20"/>}
+                    {arcs.map(function(p){return <path key={p.idx} d={p.d} fill={p.color} stroke={T.bgCard} strokeWidth="2"><title>{p.name+" : "+p.value+" ("+p.pct+"%)"}</title></path>;})}
+                    <text x="65" y="68" textAnchor="middle" fill={T.fg} fontSize="28" fontWeight="800">{apps.length}</text>
+                    <text x="65" y="84" textAnchor="middle" fill={T.fgMuted} fontSize="9" letterSpacing="0.5">APPS</text>
+                  </svg>
+                  <div style={{flex:1,minWidth:170,display:"grid",gap:6}}>
+                    {levels.filter(function(l){return l.count>0||l.label!=="Non renseignée";}).map(function(level){return <div key={level.label} style={{display:"grid",gridTemplateColumns:"14px minmax(0,1fr) auto 44px",alignItems:"center",gap:10,padding:"5px 12px",borderRadius:10,background:level.count?level.color+"12":T.bgAlt,border:"1px solid "+(level.count?level.color+"33":T.border),opacity:level.count?1:0.6}}>
+                      <span style={{width:12,height:12,borderRadius:4,background:level.color}}/>
+                      <span style={{fontSize:14,fontWeight:600,color:T.fg}}>{level.label}</span>
+                      <b style={{fontSize:18,color:T.fg,fontVariantNumeric:"tabular-nums"}}>{level.count}</b>
+                      <span style={{fontSize:13,color:T.fgMuted,textAlign:"right",fontVariantNumeric:"tabular-nums"}}>{level.pct}%</span>
+                    </div>;})}
+                  </div>
                 </div>
-                <div className="dashboard-meter-track"><span style={{width:level.pct+"%",background:"linear-gradient(90deg,"+level.color+"99,"+level.color+")"}}/></div>
-              </div>;})}
-            </div></>}
+                {byDom.length>0&&<div>
+                  <div style={{fontSize:13,fontWeight:700,color:T.fg,marginBottom:10}}>Criticité par domaine</div>
+                  <div style={{display:"grid",gap:9}}>
+                    {byDom.map(function(d){return <div key={d.domain} style={{display:"grid",gridTemplateColumns:"minmax(70px,120px) minmax(0,1fr) 28px",alignItems:"center",gap:10}}>
+                      <span title={d.domain} style={{fontSize:13,color:T.fg,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{d.domain}</span>
+                      <div style={{display:"flex",height:14,borderRadius:7,overflow:"hidden",background:T.border}}>
+                        {[{v:d.h,c:"#EF4444",l:"Haute"},{v:d.m,c:"#F59E0B",l:"Moyenne"},{v:d.b,c:"#10B981",l:"Basse"}].map(function(x){return x.v>0&&<div key={x.l} title={x.l+" : "+x.v} style={{width:(x.v/d.n*100)+"%",background:x.c}}/>;})}
+                      </div>
+                      <b style={{fontSize:13,color:T.fgMuted,textAlign:"right"}}>{d.n}</b>
+                    </div>;})}
+                  </div>
+                </div>}
+              </div>;
+            }()}
           </div>;
         },mkChartSwitch("chart_criticality",null,[{k:"bars",label:"Répartition"},{k:"matrix",label:"Matrice"}]));
         if(sid==="critical_apps")return wrapWidget(sid,"#EF4444","Top 10 — Applications critiques",null,function(isExpanded,ww,wh){
@@ -5776,34 +5799,68 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
           var selectedFlows=[];
           if(selected){
             var seenPeers={};
-            selectedFlows=flows.filter(function(flow){return flow.from===selected.app.id||flow.to===selected.app.id;}).filter(function(flow){var peerId=flow.from===selected.app.id?flow.to:flow.from;if(seenPeers[peerId])return false;seenPeers[peerId]=true;return true;}).slice(0,3);
+            selectedFlows=flows.filter(function(flow){return flow.from===selected.app.id||flow.to===selected.app.id;}).filter(function(flow){var peerId=flow.from===selected.app.id?flow.to:flow.from;if(seenPeers[peerId])return false;seenPeers[peerId]=true;return true;}).slice(0,8);
           }
           var cardWidth=ww||500;
-          return <div className="dashboard-widget-surface critical-apps-widget" style={{background:T.bgCard,borderRadius:16,padding:18,boxShadow:"0 8px 24px rgba(30,27,75,.07), 0 0 0 1px "+T.border,height:(isExpanded||wh)?"100%":undefined,display:(isExpanded||wh)?"flex":undefined,flexDirection:(isExpanded||wh)?"column":undefined}}>
-            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,paddingRight:82}}>
-              <div style={{width:36,height:36,borderRadius:12,display:"grid",placeItems:"center",background:"linear-gradient(145deg,#EF44442b,#F9731620)",color:"#EF4444",fontSize:16,boxShadow:"0 5px 16px #EF444422"}}>⚠</div>
-              <div style={{flex:1,minWidth:0}}><div style={{fontSize:12,fontWeight:800,color:T.fg}}>Applications à traiter en priorité</div><div style={{fontSize:9,color:T.fgMuted,marginTop:2}}>Criticité, puis nombre de liaisons directes</div></div>
-              <div style={{textAlign:"right"}}><div style={{fontSize:18,fontWeight:850,color:"#EF4444",lineHeight:1}}>{top10.length}<span style={{fontSize:10,color:T.fgMuted,fontWeight:600}}> / 10</span></div><div style={{fontSize:8,color:T.fgMuted,marginTop:3}}>dont {highCount} haute(s)</div></div>
+          var wide=cardWidth>=680;
+          var showPill=wide?cardWidth>=1000:cardWidth>=520;
+          var sevPill=function(crit){var c=severityColor[crit]||"#94A3B8";return <span style={{fontSize:12,fontWeight:700,color:c,padding:"3px 11px",borderRadius:99,background:c+"1F",whiteSpace:"nowrap"}}>{crit||"Non définie"}</span>;};
+          var selColor=selected?(severityColor[selected.app.criticality]||"#94A3B8"):"#94A3B8";
+          return <div className="dashboard-widget-surface" style={{background:T.bgCard,borderRadius:16,padding:20,boxShadow:"0 8px 24px rgba(30,27,75,.07), 0 0 0 1px "+T.border,display:"flex",flexDirection:"column",height:(isExpanded||wh)?"100%":undefined}}>
+            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
+              <div style={{width:40,height:40,borderRadius:12,display:"grid",placeItems:"center",background:"linear-gradient(145deg,#EF44442b,#F9731620)",color:"#EF4444",fontSize:18}}>⚠</div>
+              <div style={{flex:1,minWidth:0}}><div style={{fontSize:15,fontWeight:800,color:T.fg}}>Applications à traiter en priorité</div><div style={{fontSize:12,color:T.fgMuted,marginTop:3}}>Classées par criticité puis par nombre de liaisons directes</div></div>
+              <div style={{textAlign:"right"}}><div style={{fontSize:26,fontWeight:800,color:"#EF4444",lineHeight:1}}>{highCount}</div><div style={{fontSize:12,color:T.fgMuted,marginTop:4}}>critiques / hautes</div></div>
             </div>
-            {!top10.length?<div style={{flex:1,display:"grid",placeItems:"center",fontSize:11,color:T.fgMuted}}>Aucune application à afficher.</div>:<>
-              <div className="critical-apps-list" style={{flex:1,minHeight:0,overflowY:"auto",display:"grid",gap:5,paddingRight:3}}>
-                {top10.map(function(item,index){
-                  var selectedId=selected&&selected.app.id===item.app.id;
-                  var color=severityColor[item.app.criticality]||"#94A3B8";
-                  var barPct=Math.round(item.degree/maxDegree*100);
-                  return <button key={item.app.id} className="critical-app-row" aria-pressed={selectedId} onClick={function(){setSelectedCriticalApp(item.app.id);}} style={{width:"100%",display:"grid",gridTemplateColumns:cardWidth<430?"24px minmax(0,1fr) auto":"28px minmax(0,1.35fr) minmax(74px,.8fr) minmax(76px,.85fr)",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:10,border:"1px solid "+(selectedId?color+"66":T.border),background:selectedId?color+"12":T.bgAlt,color:T.fg,textAlign:"left",cursor:"pointer",transition:"background .18s,border-color .18s,transform .18s"}}>
-                    <span style={{width:22,height:22,borderRadius:7,display:"grid",placeItems:"center",background:selectedId?color+"24":T.bgCard,color:selectedId?color:T.fgMuted,fontSize:9,fontWeight:800,fontVariantNumeric:"tabular-nums"}}>{String(index+1).padStart(2,"0")}</span>
-                    <span style={{minWidth:0}}><span style={{display:"block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:10,fontWeight:700}}>{item.app.name||"Application sans nom"}</span><span style={{display:"block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:8,color:T.fgMuted,marginTop:2}}>{item.app.domain||"Domaine non renseigné"}</span></span>
-                    {cardWidth>=430&&<span style={{justifySelf:"start",fontSize:8,fontWeight:750,color:color,padding:"4px 7px",borderRadius:99,background:color+"19",whiteSpace:"nowrap"}}>{item.app.criticality||"Non définie"}</span>}
-                    <span style={{minWidth:0}}><span style={{display:"flex",justifyContent:"space-between",fontSize:8,color:T.fgMuted,marginBottom:4}}><span>Flux</span><b style={{color:T.fg,fontSize:9}}>{item.degree}<span style={{color:"#06B6D4",fontWeight:500}}> · {item.incoming}↓ {item.outgoing}↑</span></b></span><span className="dashboard-meter-track" style={{display:"block",height:4}}><span style={{width:barPct+"%",background:"linear-gradient(90deg,"+color+"77,"+color+")"}}/></span></span>
-                  </button>;
-                })}
+            {!top10.length?<div style={{flex:1,display:"grid",placeItems:"center",fontSize:13,color:T.fgMuted,padding:30}}>Aucune application à afficher.</div>:
+            <div style={{display:"grid",gridTemplateColumns:wide?"minmax(0,1.6fr) minmax(300px,1fr)":"minmax(0,1fr)",gap:20,flex:1,minHeight:0}}>
+              <div style={{minWidth:0,display:"flex",flexDirection:"column",gap:6}}>
+                <div style={{display:"grid",gridTemplateColumns:showPill?"34px minmax(0,1fr) 100px 130px":"34px minmax(0,1fr) 110px",gap:10,padding:"0 12px 4px",fontSize:11,fontWeight:700,color:T.fgMuted,textTransform:"uppercase",letterSpacing:.5}}>
+                  <span>#</span><span>Application</span>{showPill&&<span>Criticité</span>}<span>Flux</span>
+                </div>
+                <div className="critical-apps-list" style={{display:"grid",gap:6,maxHeight:isExpanded?undefined:600,overflowY:"auto"}}>
+                  {top10.map(function(item,index){
+                    var on=selected&&selected.app.id===item.app.id;
+                    var color=severityColor[item.app.criticality]||"#94A3B8";
+                    var barPct=Math.round(item.degree/maxDegree*100);
+                    return <button key={item.app.id} className="critical-app-row" aria-pressed={on} onClick={function(){setSelectedCriticalApp(item.app.id);}} style={{width:"100%",display:"grid",gridTemplateColumns:showPill?"34px minmax(0,1fr) 100px 130px":"34px minmax(0,1fr) 110px",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:12,border:"1px solid "+(on?color+"88":T.border),borderLeft:"4px solid "+color,background:on?color+"12":T.bgAlt,color:T.fg,textAlign:"left",cursor:"pointer"}}>
+                      <span style={{width:26,height:26,borderRadius:8,display:"grid",placeItems:"center",background:on?color+"28":T.bgCard,color:on?color:T.fgMuted,fontSize:12,fontWeight:800}}>{index+1}</span>
+                      <span style={{minWidth:0}}>
+                        <span style={{display:"block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:14,fontWeight:700}}>{item.app.name||"Application sans nom"}</span>
+                        <span style={{display:"flex",alignItems:"center",gap:6,marginTop:3,fontSize:12,color:T.fgMuted}}>
+                          <span style={{width:8,height:8,borderRadius:3,background:(DC[item.app.domain]||DC.Autre).ac,flexShrink:0}}/>
+                          <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.app.domain||"Domaine non renseigné"}</span>
+                          {!showPill&&<span style={{color:color,fontWeight:700}}>· {item.app.criticality||"?"}</span>}
+                        </span>
+                      </span>
+                      {showPill&&<span>{sevPill(item.app.criticality)}</span>}
+                      <span style={{minWidth:0}}>
+                        <span style={{display:"flex",alignItems:"baseline",gap:8}}><b style={{fontSize:16}}>{item.degree}</b><span style={{fontSize:12,color:T.fgMuted}}>↓{item.incoming} ↑{item.outgoing}</span></span>
+                        <span className="dashboard-meter-track" style={{display:"block",height:6,marginTop:5}}><span style={{width:barPct+"%",background:"linear-gradient(90deg,"+color+"88,"+color+")"}}/></span>
+                      </span>
+                    </button>;
+                  })}
+                </div>
               </div>
-              {selected&&<div className="critical-app-detail" style={{marginTop:10,padding:"9px 11px",borderRadius:11,background:"linear-gradient(110deg,#EF444414,#8B5CF60A)",border:"1px solid #EF444428"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,marginBottom:5}}><span style={{fontSize:9,fontWeight:800,color:T.fg}}>Liaisons directes · {selected.app.name||"Application"}</span><span style={{fontSize:8,color:severityColor[selected.app.criticality]||T.fgMuted,fontWeight:700}}>{selected.incoming} entrante(s) · {selected.outgoing} sortante(s)</span></div>
-                {selectedFlows.length?selectedFlows.map(function(flow,index){var isOutbound=flow.from===selected.app.id;var peer=apps.find(function(app){return app.id===(isOutbound?flow.to:flow.from);});return <div key={flow.id||index} style={{display:"flex",alignItems:"center",gap:6,fontSize:8,color:T.fgMuted,marginTop:3}}><span style={{color:isOutbound?"#06B6D4":"#8B5CF6",fontWeight:800}}>{isOutbound?"→ sortant":"← entrant"}</span><span style={{color:T.fg,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{peer?peer.name:"Application inconnue"}</span><span style={{marginLeft:"auto",whiteSpace:"nowrap"}}>{flow.protocol||flow.frequency||"Interface"}</span></div>;}):<div style={{fontSize:8,color:T.fgMuted}}>Aucune liaison directe enregistrée.</div>}
+              {selected&&<div className="critical-app-detail" style={{minWidth:0,alignSelf:"start",padding:16,borderRadius:14,background:selColor+"0D",border:"1px solid "+selColor+"33",display:"flex",flexDirection:"column",gap:14}}>
+                <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:10}}>
+                  <div style={{minWidth:0}}><div style={{fontSize:16,fontWeight:800,color:T.fg,overflow:"hidden",textOverflow:"ellipsis"}}>{selected.app.name}</div><div style={{fontSize:12,color:T.fgMuted,marginTop:3}}>{selected.app.domain||"Domaine non renseigné"}</div></div>
+                  {sevPill(selected.app.criticality)}
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
+                  {[{l:"Entrants",v:selected.incoming,c:"#8B5CF6"},{l:"Sortants",v:selected.outgoing,c:"#06B6D4"},{l:"Total",v:selected.degree,c:selColor}].map(function(m){return <div key={m.l} style={{padding:"10px 8px",borderRadius:10,background:T.bgCard,border:"1px solid "+T.border,textAlign:"center"}}><div style={{fontSize:22,fontWeight:800,color:m.c,lineHeight:1}}>{m.v}</div><div style={{fontSize:11.5,color:T.fgMuted,marginTop:5}}>{m.l}</div></div>;})}
+                </div>
+                <div>
+                  <div style={{fontSize:12,fontWeight:700,color:T.fgMuted,textTransform:"uppercase",letterSpacing:.5,marginBottom:8}}>Liaisons directes</div>
+                  {selectedFlows.length?<div style={{display:"grid",gap:6}}>{selectedFlows.map(function(flow,index){var isOutbound=flow.from===selected.app.id;var peer=apps.find(function(app){return app.id===(isOutbound?flow.to:flow.from);});var dc=isOutbound?"#06B6D4":"#8B5CF6";return <div key={flow.id||index} style={{display:"grid",gridTemplateColumns:"88px minmax(0,1fr) auto",alignItems:"center",gap:8,padding:"8px 10px",borderRadius:9,background:T.bgCard,border:"1px solid "+T.border}}>
+                    <span style={{fontSize:12,fontWeight:700,color:dc}}>{isOutbound?"→ Sortant":"← Entrant"}</span>
+                    <span style={{fontSize:13,color:T.fg,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{peer?peer.name:"Application inconnue"}</span>
+                    <span style={{fontSize:11.5,color:T.fgMuted,whiteSpace:"nowrap"}}>{flow.protocol||flow.frequency||"Interface"}</span>
+                  </div>;})}</div>:<div style={{fontSize:13,color:T.fgMuted}}>Aucune liaison directe enregistrée.</div>}
+                </div>
+                <button onClick={function(){setSelApp(selected.app);setPanelOpen(true);}} style={{background:selColor,color:"#fff",border:"none",borderRadius:10,padding:"9px 14px",fontSize:13,fontWeight:700,cursor:"pointer"}}>Ouvrir la fiche</button>
               </div>}
-            </>}
+            </div>}
           </div>;
         });
         if(sid==="it_budget")return wrapWidget(sid,"#10B981","Budget & coûts IT",null,function(isExpanded,ww,wh){
@@ -5919,9 +5976,9 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
           </div>;
         }()}
       </div>);
-        if(sid==="flowreg")return wrapWidget(sid,"#2979FF","Registre des flux",null,<div style={{background:T.bgCard,borderRadius:8,padding:20}}>
-          <SectionHdr id="flowreg" title={"REGISTRE D'ÉCHANGES DES FLUX ("+flows.length+")"} extra={<span style={{fontSize:11,color:T.fgMuted}}>Séquençier technique complet des interconnexions IT</span>}/>
-          {!hiddenSections.includes("flowreg")&&function(){
+        if(sid==="flowreg")return wrapWidget(sid,"#2979FF","Registre des flux",null,<div style={{background:T.bgCard,borderRadius:16,padding:20,boxShadow:"0 8px 24px rgba(30,27,75,.07), 0 0 0 1px "+T.border}}>
+          <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}><div style={{width:40,height:40,borderRadius:12,display:"grid",placeItems:"center",background:"#2979FF1F",color:"#2979FF",fontSize:18}}>⇄</div><div style={{flex:1}}><div style={{fontSize:15,fontWeight:800,color:T.fg}}>Registre des échanges de flux</div><div style={{fontSize:12,color:T.fgMuted,marginTop:3}}>Toutes les interconnexions entre applications · cliquez une ligne pour le détail</div></div><div style={{textAlign:"right"}}><div style={{fontSize:26,fontWeight:800,color:"#2979FF",lineHeight:1}}>{flows.length}</div><div style={{fontSize:12,color:T.fgMuted,marginTop:4}}>flux</div></div></div>
+          {function(){
             // Compute unique values for each column
             var enriched=flows.map(function(f,fi){
               var fa=apps.find(function(a){return a.id===f.from;});
@@ -5949,85 +6006,85 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
           });
           var hasFilter=fSrcApp||fSrcDom||fTgtApp||fTgtDom||fProto||fFreq||fDesc||flxSearch;
           var activeFilterCount=[fSrcApp,fSrcDom,fTgtApp,fTgtDom,fProto,fFreq,fDesc].filter(Boolean).length;
-          var selSt={background:T.bgInput,border:"1px solid "+T.border,borderRadius:4,padding:"4px 6px",color:T.fg,fontSize:10,cursor:"pointer",width:"100%"};
+          var selSt={background:T.bgInput,border:"1px solid "+T.border,borderRadius:8,padding:"7px 9px",color:T.fg,fontSize:12.5,cursor:"pointer",width:"100%"};
           var selAct=Object.assign({},selSt,{borderColor:"#2979FF",background:"#2979FF10"});
           var clearAll=function(){setFlxSearch("");setFSrcApp("");setFSrcDom("");setFTgtApp("");setFTgtDom("");setFProto("");setFFreq("");setFDesc("");};
-          return <div style={{display:"flex",gap:0}}>
+          return <div style={{display:"flex",flexDirection:"column",gap:0}}>
             {/* Panneau latéral de filtres */}
-            {showFlxFilter&&<div style={{width:220,flexShrink:0,background:T.bgAlt,borderRadius:8,padding:14,marginRight:12,border:"1px solid "+T.border,alignSelf:"flex-start",position:"sticky",top:0}}>
+            {showFlxFilter&&<div style={{background:T.bgAlt,borderRadius:12,padding:14,marginBottom:14,border:"1px solid "+T.border}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-                <span style={{fontSize:11,fontWeight:700,color:T.fg}}>Filtres</span>
+                <span style={{fontSize:14,fontWeight:700,color:T.fg}}>Filtres</span>
                 {activeFilterCount>0&&<button onClick={clearAll} style={{background:"#FF525215",color:"#FF5252",border:"none",borderRadius:4,padding:"2px 6px",fontSize:9,cursor:"pointer"}}>Effacer ({activeFilterCount})</button>}
               </div>
-              <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                <div><div style={{fontSize:9,color:T.fgMuted,marginBottom:3,textTransform:"uppercase",fontWeight:600}}>Application source</div><select value={fSrcApp} onChange={function(e){setFSrcApp(e.target.value);}} style={fSrcApp?selAct:selSt}><option value="">Toutes</option>{uSrcApp.map(function(v){return <option key={v} value={v}>{v}</option>;})}</select></div>
-                <div><div style={{fontSize:9,color:T.fgMuted,marginBottom:3,textTransform:"uppercase",fontWeight:600}}>Domaine source</div><select value={fSrcDom} onChange={function(e){setFSrcDom(e.target.value);}} style={fSrcDom?selAct:selSt}><option value="">Tous</option>{uSrcDom.map(function(v){return <option key={v} value={v}>{v}</option>;})}</select></div>
-                <div><div style={{fontSize:9,color:T.fgMuted,marginBottom:3,textTransform:"uppercase",fontWeight:600}}>Application cible</div><select value={fTgtApp} onChange={function(e){setFTgtApp(e.target.value);}} style={fTgtApp?selAct:selSt}><option value="">Toutes</option>{uTgtApp.map(function(v){return <option key={v} value={v}>{v}</option>;})}</select></div>
-                <div><div style={{fontSize:9,color:T.fgMuted,marginBottom:3,textTransform:"uppercase",fontWeight:600}}>Domaine cible</div><select value={fTgtDom} onChange={function(e){setFTgtDom(e.target.value);}} style={fTgtDom?selAct:selSt}><option value="">Tous</option>{uTgtDom.map(function(v){return <option key={v} value={v}>{v}</option>;})}</select></div>
-                <div><div style={{fontSize:9,color:T.fgMuted,marginBottom:3,textTransform:"uppercase",fontWeight:600}}>Protocole</div><select value={fProto} onChange={function(e){setFProto(e.target.value);}} style={fProto?selAct:selSt}><option value="">Tous</option>{uProto.map(function(v){return <option key={v} value={v}>{v}</option>;})}</select></div>
-                <div><div style={{fontSize:9,color:T.fgMuted,marginBottom:3,textTransform:"uppercase",fontWeight:600}}>Fréquence</div><select value={fFreq} onChange={function(e){setFFreq(e.target.value);}} style={fFreq?selAct:selSt}><option value="">Toutes</option>{uFreq.map(function(v){return <option key={v} value={v}>{v}</option>;})}</select></div>
-                <div><div style={{fontSize:9,color:T.fgMuted,marginBottom:3,textTransform:"uppercase",fontWeight:600}}>Description</div><select value={fDesc} onChange={function(e){setFDesc(e.target.value);}} style={fDesc?selAct:selSt}><option value="">Toutes</option>{uDesc.map(function(v){return <option key={v} value={v}>{v}</option>;})}</select></div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:12}}>
+                <div><div style={{fontSize:11,color:T.fgMuted,marginBottom:4,textTransform:"uppercase",fontWeight:700}}>Application source</div><select value={fSrcApp} onChange={function(e){setFSrcApp(e.target.value);}} style={fSrcApp?selAct:selSt}><option value="">Toutes</option>{uSrcApp.map(function(v){return <option key={v} value={v}>{v}</option>;})}</select></div>
+                <div><div style={{fontSize:11,color:T.fgMuted,marginBottom:4,textTransform:"uppercase",fontWeight:700}}>Domaine source</div><select value={fSrcDom} onChange={function(e){setFSrcDom(e.target.value);}} style={fSrcDom?selAct:selSt}><option value="">Tous</option>{uSrcDom.map(function(v){return <option key={v} value={v}>{v}</option>;})}</select></div>
+                <div><div style={{fontSize:11,color:T.fgMuted,marginBottom:4,textTransform:"uppercase",fontWeight:700}}>Application cible</div><select value={fTgtApp} onChange={function(e){setFTgtApp(e.target.value);}} style={fTgtApp?selAct:selSt}><option value="">Toutes</option>{uTgtApp.map(function(v){return <option key={v} value={v}>{v}</option>;})}</select></div>
+                <div><div style={{fontSize:11,color:T.fgMuted,marginBottom:4,textTransform:"uppercase",fontWeight:700}}>Domaine cible</div><select value={fTgtDom} onChange={function(e){setFTgtDom(e.target.value);}} style={fTgtDom?selAct:selSt}><option value="">Tous</option>{uTgtDom.map(function(v){return <option key={v} value={v}>{v}</option>;})}</select></div>
+                <div><div style={{fontSize:11,color:T.fgMuted,marginBottom:4,textTransform:"uppercase",fontWeight:700}}>Protocole</div><select value={fProto} onChange={function(e){setFProto(e.target.value);}} style={fProto?selAct:selSt}><option value="">Tous</option>{uProto.map(function(v){return <option key={v} value={v}>{v}</option>;})}</select></div>
+                <div><div style={{fontSize:11,color:T.fgMuted,marginBottom:4,textTransform:"uppercase",fontWeight:700}}>Fréquence</div><select value={fFreq} onChange={function(e){setFFreq(e.target.value);}} style={fFreq?selAct:selSt}><option value="">Toutes</option>{uFreq.map(function(v){return <option key={v} value={v}>{v}</option>;})}</select></div>
+                <div><div style={{fontSize:11,color:T.fgMuted,marginBottom:4,textTransform:"uppercase",fontWeight:700}}>Description</div><select value={fDesc} onChange={function(e){setFDesc(e.target.value);}} style={fDesc?selAct:selSt}><option value="">Toutes</option>{uDesc.map(function(v){return <option key={v} value={v}>{v}</option>;})}</select></div>
               </div>
             </div>}
             <div style={{flex:1,minWidth:0}}>
             <div style={{display:"flex",gap:6,marginBottom:10,alignItems:"center",flexWrap:"wrap"}}>
-              <input placeholder="Rechercher..." value={flxSearch} onChange={function(e){setFlxSearch(e.target.value);}} style={{...I,width:160,padding:"5px 8px",fontSize:10}}/>
-              <button onClick={function(){setShowFlxFilter(function(p){return !p;});}} style={{background:showFlxFilter?"#2979FF20":T.bgAlt,color:showFlxFilter?"#2979FF":T.fg,border:"1px solid "+(showFlxFilter?"#2979FF":T.border),borderRadius:5,padding:"5px 10px",fontSize:10,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>
+              <input placeholder="Rechercher..." value={flxSearch} onChange={function(e){setFlxSearch(e.target.value);}} style={{...I,width:280,maxWidth:"100%",padding:"9px 13px",fontSize:13,borderRadius:10}}/>
+              <button onClick={function(){setShowFlxFilter(function(p){return !p;});}} style={{background:showFlxFilter?"#2979FF20":T.bgAlt,color:showFlxFilter?"#2979FF":T.fg,border:"1px solid "+(showFlxFilter?"#2979FF":T.border),borderRadius:9,padding:"9px 14px",fontSize:12.5,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>
                 {"⊟ Filtres"}{activeFilterCount>0&&<span style={{background:"#2979FF",color:"#fff",borderRadius:"50%",width:16,height:16,fontSize:9,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>{activeFilterCount}</span>}
               </button>
-              <span style={{fontSize:10,color:T.fgDim}}>{filtered2.length}/{flows.length} flux</span>
+              <span style={{fontSize:13,color:T.fgMuted}}>{filtered2.length}/{flows.length} flux</span>
               {hasFilter&&!showFlxFilter&&<button onClick={clearAll} style={{background:"#FF525215",color:"#FF5252",border:"none",borderRadius:4,padding:"3px 8px",fontSize:9,cursor:"pointer"}}>Effacer filtres</button>}
               <button onClick={function(){
                 var cols=["ID","Source","Domaine source","Cible","Domaine cible","Protocole","Fréquence","Description"];
                 var rows=filtered2.map(function(e){return["F-"+(e.f.order||e.fi+1),e.srcName,e.srcDom,e.tgtName,e.tgtDom,e.proto,e.freq,e.desc].map(function(v){return '"'+(v||"").replace(/"/g,'""')+'"';}).join(",");});
                 var csv=[cols.join(",")].concat(rows).join("\n");
                 var a=document.createElement("a");a.href="data:text/csv;charset=utf-8,"+encodeURIComponent(csv);a.download="flux_export.csv";a.click();
-              }} style={{background:T.bgAlt,color:T.fg,border:"1px solid "+T.border,borderRadius:5,padding:"5px 10px",fontSize:10,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:4,marginLeft:"auto"}}>
+              }} style={{background:T.bgAlt,color:T.fg,border:"1px solid "+T.border,borderRadius:9,padding:"9px 14px",fontSize:12.5,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:4,marginLeft:"auto"}}>
                 ⬇ CSV
               </button>
             </div>
             {function(){
               var protoCount={};enriched.forEach(function(e){if(e.proto)protoCount[e.proto]=(protoCount[e.proto]||0)+1;});
               var protoList=Object.keys(protoCount).sort(function(x,y){return protoCount[y]-protoCount[x];}).slice(0,8);
-              var cols="52px minmax(0,1fr) 120px minmax(0,1fr) 84px";
-              var hd={fontSize:9,color:T.fgMuted,fontWeight:700,textTransform:"uppercase",letterSpacing:0.5};
-              var chip=function(active,col){return {background:active?col+"25":T.bgAlt,color:active?col:T.fgMuted,border:"1px solid "+(active?col:T.border),borderRadius:14,padding:"3px 10px",fontSize:10,fontWeight:600,cursor:"pointer"};};
+              var cols="56px minmax(0,1fr) 130px minmax(0,1fr) 100px";
+              var hd={fontSize:11,color:T.fgMuted,fontWeight:700,textTransform:"uppercase",letterSpacing:0.5};
+              var chip=function(active,col){return {background:active?col+"25":T.bgAlt,color:active?col:T.fgMuted,border:"1px solid "+(active?col:T.border),borderRadius:14,padding:"5px 13px",fontSize:12.5,fontWeight:600,cursor:"pointer"};};
               var openApp=function(name,ev){ev.stopPropagation();var ap=apps.find(function(a){return a.name===name;});if(ap){setSelApp(ap);setPanelOpen(true);}};
-              var domPill=function(dom,isSrc){var ac=(DC[dom]||DC.Autre).ac;var on=(isSrc?fSrcDom:fTgtDom)===dom;return <span title={"Filtrer : domaine "+dom} onClick={function(ev){ev.stopPropagation();if(isSrc)setFSrcDom(on?"":dom);else setFTgtDom(on?"":dom);}} style={{fontSize:9,fontWeight:700,color:ac,background:ac+(on?"40":"18"),border:"1px solid "+ac+(on?"":"40"),borderRadius:10,padding:"1px 7px",cursor:"pointer",whiteSpace:"nowrap"}}>{dom}</span>;};
+              var domPill=function(dom,isSrc){var ac=(DC[dom]||DC.Autre).ac;var on=(isSrc?fSrcDom:fTgtDom)===dom;return <span title={"Filtrer : domaine "+dom} onClick={function(ev){ev.stopPropagation();if(isSrc)setFSrcDom(on?"":dom);else setFTgtDom(on?"":dom);}} style={{display:"inline-block",fontSize:11,fontWeight:700,color:ac,background:ac+(on?"40":"18"),border:"1px solid "+ac+(on?"":"40"),borderRadius:10,padding:"2px 9px",cursor:"pointer",whiteSpace:"nowrap"}}>{dom}</span>;};
               return <div>
                 {protoList.length>0&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10,alignItems:"center"}}>
-                  <span style={{fontSize:9,color:T.fgMuted,fontWeight:700,textTransform:"uppercase"}}>Protocole</span>
+                  <span style={{fontSize:11,color:T.fgMuted,fontWeight:700,textTransform:"uppercase"}}>Protocole</span>
                   {protoList.map(function(pr){return <span key={pr} onClick={function(){setFProto(fProto===pr?"":pr);}} style={chip(fProto===pr,"#2979FF")}>{pr} <b style={{opacity:0.7}}>{protoCount[pr]}</b></span>;})}
                 </div>}
                 <div style={{border:"1px solid "+T.border,borderRadius:10,overflow:"hidden"}}>
-                  <div style={{display:"grid",gridTemplateColumns:cols,gap:8,padding:"8px 12px",background:T.bgAlt,borderBottom:"1px solid "+T.border}}>
+                  <div style={{display:"grid",gridTemplateColumns:cols,gap:8,padding:"11px 14px",background:T.bgAlt,borderBottom:"1px solid "+T.border}}>
                     <span style={hd}>ID</span><span style={hd}>Source</span><span style={{...hd,textAlign:"center"}}>Échange</span><span style={hd}>Cible</span><span style={{...hd,textAlign:"right"}}>Fréquence</span>
                   </div>
-                  <div style={{maxHeight:520,overflowY:"auto"}}>
+                  <div style={{maxHeight:640,overflowY:"auto"}}>
                     {filtered2.length===0&&<div style={{padding:28,textAlign:"center",color:T.fgMuted,fontSize:11}}>Aucun flux ne correspond aux filtres.{hasFilter&&<span> <a onClick={clearAll} style={{color:"#2979FF",cursor:"pointer"}}>Effacer les filtres</a></span>}</div>}
                     {filtered2.map(function(e){
                       var faAc=(DC[e.srcDom]||DC.Autre).ac;var taAc=(DC[e.tgtDom]||DC.Autre).ac;
                       var open=expFlow===e.f.id;
                       return <div key={e.f.id} style={{borderBottom:"1px solid "+T.borderLight,borderLeft:"3px solid "+faAc,background:open?T.bgAlt:"transparent"}}>
                         <div onClick={function(){setExpFlow(open?null:e.f.id);}} onMouseEnter={function(ev){if(!open)ev.currentTarget.style.background=T.bgHover;}} onMouseLeave={function(ev){ev.currentTarget.style.background="transparent";}}
-                          style={{display:"grid",gridTemplateColumns:cols,gap:8,padding:"10px 12px",alignItems:"center",cursor:"pointer"}}>
-                          <span style={{color:T.fgDim,fontSize:10,fontFamily:"monospace"}}>{"F-"+(e.f.order||e.fi+1)}</span>
-                          <div style={{minWidth:0}}><div style={{fontWeight:700,color:T.fg,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.srcName}</div>{domPill(e.srcDom,true)}</div>
+                          style={{display:"grid",gridTemplateColumns:cols,gap:8,padding:"13px 14px",alignItems:"center",cursor:"pointer"}}>
+                          <span style={{color:T.fgMuted,fontSize:12.5,fontFamily:"monospace"}}>{"F-"+(e.f.order||e.fi+1)}</span>
+                          <div style={{minWidth:0}}><div style={{fontWeight:700,color:T.fg,fontSize:14,marginBottom:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.srcName}</div>{domPill(e.srcDom,true)}</div>
                           <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
-                            <span style={{background:faAc+"20",color:faAc,padding:"1px 8px",borderRadius:10,fontSize:9,fontWeight:700,maxWidth:116,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.proto||"?"}</span>
+                            <span style={{background:faAc+"20",color:faAc,padding:"3px 10px",borderRadius:10,fontSize:11.5,fontWeight:700,maxWidth:124,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.proto||"?"}</span>
                             <div style={{display:"flex",alignItems:"center",width:"100%"}}><div style={{flex:1,height:2,background:"linear-gradient(90deg,"+faAc+","+taAc+")",borderRadius:1}}/><span style={{color:taAc,fontSize:10,lineHeight:1,marginLeft:-2}}>▶</span></div>
                           </div>
-                          <div style={{minWidth:0}}><div style={{fontWeight:700,color:T.fg,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.tgtName}</div>{domPill(e.tgtDom,false)}</div>
-                          <span style={{textAlign:"right",color:T.fgMuted,fontSize:10,display:"flex",justifyContent:"flex-end",alignItems:"center",gap:6}}>{e.freq||"\u2014"}<span style={{color:T.fgDim,fontSize:9,transform:open?"rotate(90deg)":"none",transition:"transform .15s"}}>▶</span></span>
+                          <div style={{minWidth:0}}><div style={{fontWeight:700,color:T.fg,fontSize:14,marginBottom:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.tgtName}</div>{domPill(e.tgtDom,false)}</div>
+                          <span style={{textAlign:"right",color:T.fgMuted,fontSize:12.5,display:"flex",justifyContent:"flex-end",alignItems:"center",gap:6}}>{e.freq||"\u2014"}<span style={{color:T.fgDim,fontSize:9,transform:open?"rotate(90deg)":"none",transition:"transform .15s"}}>▶</span></span>
                         </div>
                         {open&&<div style={{padding:"4px 14px 14px 68px",display:"flex",flexDirection:"column",gap:8}}>
-                          <div style={{fontSize:11,color:T.fg,lineHeight:1.5}}>{e.desc||<span style={{color:T.fgMuted}}>Aucune description renseign?e.</span>}</div>
+                          <div style={{fontSize:13.5,color:T.fg,lineHeight:1.55}}>{e.desc||<span style={{color:T.fgMuted}}>Aucune description renseign?e.</span>}</div>
                           <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
-                            <span style={{fontSize:10,color:T.fgMuted}}>Protocole : <b style={{color:T.fg}}>{e.proto||"?"}</b></span>
-                            <span style={{fontSize:10,color:T.fgMuted}}>· Fréquence : <b style={{color:T.fg}}>{e.freq||"\u2014"}</b></span>
+                            <span style={{fontSize:12.5,color:T.fgMuted}}>Protocole : <b style={{color:T.fg}}>{e.proto||"?"}</b></span>
+                            <span style={{fontSize:12.5,color:T.fgMuted}}>· Fréquence : <b style={{color:T.fg}}>{e.freq||"\u2014"}</b></span>
                             <span style={{marginLeft:"auto",display:"flex",gap:6}}>
-                              <button onClick={function(ev){openApp(e.srcName,ev);}} style={{background:faAc+"20",color:faAc,border:"1px solid "+faAc+"55",borderRadius:6,padding:"4px 10px",fontSize:10,fontWeight:600,cursor:"pointer"}}>Ouvrir {e.srcName}</button>
-                              <button onClick={function(ev){openApp(e.tgtName,ev);}} style={{background:taAc+"20",color:taAc,border:"1px solid "+taAc+"55",borderRadius:6,padding:"4px 10px",fontSize:10,fontWeight:600,cursor:"pointer"}}>Ouvrir {e.tgtName}</button>
+                              <button onClick={function(ev){openApp(e.srcName,ev);}} style={{background:faAc+"20",color:faAc,border:"1px solid "+faAc+"55",borderRadius:6,padding:"7px 13px",fontSize:12.5,fontWeight:600,cursor:"pointer"}}>Ouvrir {e.srcName}</button>
+                              <button onClick={function(ev){openApp(e.tgtName,ev);}} style={{background:taAc+"20",color:taAc,border:"1px solid "+taAc+"55",borderRadius:6,padding:"7px 13px",fontSize:12.5,fontWeight:600,cursor:"pointer"}}>Ouvrir {e.tgtName}</button>
                             </span>
                           </div>
                         </div>}
