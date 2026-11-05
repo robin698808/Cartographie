@@ -326,7 +326,7 @@ function Sidebar(){
   var W=sidebarOpen?200:56;
   var NAV=[
     {id:"mapping",icon:"Map",label:"Cartographie",color:"#6366F1"},
-    {id:"urbanisme",icon:"Grid",label:"Urbanisme",color:"#F59E0B"},
+    {id:"urbanisme",icon:"Grid",label:"Paysage",color:"#F59E0B"},
     {id:"dashboard",icon:"BarChart",label:"Dashboard",color:"#8B5CF6"},
     ...(projectType==='deal'?[{id:"decisions",icon:"Target",label:"Decisions D1/D2",color:"#EF4444"}]:[]),
   ];
@@ -6241,7 +6241,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         <span style={{fontSize:11,color:T.fgMuted}}>Zoom</span>
         <input type="range" min="0.5" max="1.5" step="0.1" value={cardZoom} onChange={function(e){setCardZoom(parseFloat(e.target.value));}} style={{width:60,cursor:"pointer",accentColor:"#6366F1"}}/>
         {(hasDomPos||Object.keys(domWidths).length>0)&&<button onClick={function(){setDomPos({});setDomWidths({});}} style={{...B,background:T.border,padding:"4px 10px",fontSize:11,borderRadius:8}}>Reset</button>}
-        <button onClick={function(){setActiveDomFilter("");setView("urbanisme");}} style={{...B,background:"#F59E0B",padding:"6px 14px",fontSize:11,fontWeight:600,borderRadius:8,display:"flex",alignItems:"center",gap:5}}><span>&#8592;</span> Urbanisme</button>
+        <button onClick={function(){setActiveDomFilter("");setView("urbanisme");}} style={{...B,background:"#F59E0B",padding:"6px 14px",fontSize:11,fontWeight:600,borderRadius:8,display:"flex",alignItems:"center",gap:5}}><span>&#8592;</span> Paysage</button>
         <button onClick={function(){setView("mapping");setTimeout(fitCanvas,50);}} style={{...B,background:"#6366F1",padding:"6px 14px",fontSize:11,fontWeight:600,borderRadius:8,display:"flex",alignItems:"center",gap:5}}><span>&#8592;</span> Cartographie</button>
       </div>
     </div>
@@ -6442,7 +6442,7 @@ if(view==="urbanisme"){
   var UrbTopbar=function(props){
     return <div style={{background:T.bgAlt,borderBottom:"1px solid "+T.border,padding:"10px 20px",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
       <div>
-        <div style={{fontSize:15,fontWeight:800,color:T.fg,letterSpacing:"-0.02em",lineHeight:1}}>Urbanisme SI</div>
+        <div style={{fontSize:15,fontWeight:800,color:T.fg,letterSpacing:"-0.02em",lineHeight:1}}>Paysage SI</div>
         <div style={{display:"flex",alignItems:"center",gap:6,marginTop:3}}>
           <span style={{fontSize:11,color:T.fgMuted,cursor:urbZone?"pointer":"default"}} onClick={function(){if(urbZone){setUrbZone(null);setUrbFlowPair(null);setUrbSelApp(null);setUrbExpanded(false);}}}>Vue macro</span>
           {urbZone&&<><span style={{fontSize:11,color:T.fgDim}}>/</span>
@@ -6504,7 +6504,7 @@ if(view==="urbanisme"){
         <div style={{maxWidth:1320,margin:"0 auto"}}>
           {/* Hero + KPI */}
           <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",gap:24,flexWrap:"wrap",marginBottom:24}}>
-            <div style={{minWidth:0}}><div style={{fontSize:11,fontWeight:800,letterSpacing:".14em",textTransform:"uppercase",color:"#818cf8",marginBottom:10}}>Urbanisme · Paysage applicatif</div><h1 style={{fontSize:"clamp(26px,3.2vw,38px)",lineHeight:1.08,letterSpacing:"-.04em",fontWeight:850,color:T.fg,margin:0}}>Explorez votre SI <span style={{background:"linear-gradient(90deg,#818cf8,#22d3ee)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>par domaine</span></h1><p style={{fontSize:14,color:urbMuted,margin:"10px 0 0",maxWidth:560,lineHeight:1.6}}>Cliquez sur un domaine pour découvrir ses applications, ses connexions et le détail de chaque flux.</p></div>
+            <div style={{minWidth:0}}><div style={{fontSize:11,fontWeight:800,letterSpacing:".14em",textTransform:"uppercase",color:"#818cf8",marginBottom:10}}>Paysage applicatif</div><h1 style={{fontSize:"clamp(26px,3.2vw,38px)",lineHeight:1.08,letterSpacing:"-.04em",fontWeight:850,color:T.fg,margin:0}}>Explorez votre SI <span style={{background:"linear-gradient(90deg,#818cf8,#22d3ee)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>par domaine</span></h1><p style={{fontSize:14,color:urbMuted,margin:"10px 0 0",maxWidth:560,lineHeight:1.6}}>Cliquez sur un domaine pour découvrir ses applications, ses connexions et le détail de chaque flux.</p></div>
             <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
               {[["Domaines",allDoms2.length,"#818cf8"],["Applications",apps.length,"#22d3ee"],["Flux",flows.length,"#34d399"],["Critiques",criticalApps.length,"#fb7185"]].map(function(k){return <div key={k[0]} style={{minWidth:108,padding:"12px 16px",borderRadius:14,background:urbDark?"rgba(15,23,42,.6)":"#fff",border:"1px solid "+urbLine,boxShadow:urbDark?"none":"0 6px 16px rgba(51,65,85,.05)",borderTop:"3px solid "+k[2]}}><div style={{fontSize:26,fontWeight:850,lineHeight:1,color:T.fg,fontVariantNumeric:"tabular-nums"}}>{k[1]}</div><div style={{fontSize:11,color:urbMuted,marginTop:7,fontWeight:600}}>{k[0]}</div></div>;})}
             </div>

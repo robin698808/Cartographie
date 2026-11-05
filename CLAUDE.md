@@ -14,7 +14,7 @@ vers une architecture client-serveur Python** pour supporter :
 - Des espaces de projet isolés par équipe/mission
 
 **Règle d'or : ne jamais régresser sur la logique métier existante.** Toute la logique de
-canvas (drag & drop, zoom, flux, filtres, vues Urbanisme/Cartes/Dashboard/Décisions D1-D2,
+canvas (drag & drop, zoom, flux, filtres, vues Paysage/Cartes/Dashboard/Décisions D1-D2,
 exports XLSX/CSV/PPTX) doit être préservée à l'identique. On change l'architecture autour,
 pas le produit.
 
@@ -208,7 +208,7 @@ passer à la suivante, car la phase 3 dépend fortement de la structure d'API po
 
 ## Ce qui ne doit PAS changer
 
-- Les vues : Cartographie (canvas), Urbanisme (macro/zone), Cartes, Dashboard, Décisions D1/D2.
+- Les vues : Cartographie (canvas), Paysage (macro/zone), Cartes, Dashboard, Décisions D1/D2.
 - Les exports : XLSX (4 onglets : Applications, Flux, Dashboard, Config), CSV, PPTX.
 - Le format de réimport XLSX (colonnes `Nom, Domaine, Categorie, Statut, Criticite, Editeur,
   Version, Responsable, Utilisateurs, Description, Day 1, Day 2, x, y` pour les apps ;
