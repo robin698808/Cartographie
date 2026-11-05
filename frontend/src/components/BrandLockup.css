@@ -1,0 +1,13 @@
+.bl { display: flex; align-items: center; gap: 11px; }
+.bl-text { display: flex; flex-direction: column; line-height: 1; }
+.bl-name { font-size: 18px; font-weight: 700; letter-spacing: -0.025em; }
+.bl-by { margin-top: 4px; font-size: 10.5px; font-weight: 500; letter-spacing: 0.04em; }
+.bl-by strong { font-weight: 800; letter-spacing: 0.02em; }
+
+.bl-light .bl-name { color: #fff; }
+.bl-light .bl-by { color: rgba(199, 210, 254, 0.7); }
+.bl-light .bl-by strong { color: #A5B4FC; }
+
+.bl-dark .bl-name { color: var(--t1); }
+.bl-dark .bl-by { color: var(--t3); }
+.bl-dark .bl-by strong { color: var(--accent); }

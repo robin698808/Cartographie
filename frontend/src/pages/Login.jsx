@@ -2,33 +2,44 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login, register, getMe, forgotPassword } from '../api/client';
 import { useAuth } from '../api/AuthContext';
-import { LogoMark, LogoMarkHero, NetworkPattern } from '../components/Logo';
-import { Network, Building2, BarChart3, Users, TrendingUp, Layers, ShieldCheck, Zap } from 'lucide-react';
+import BrandLockup from '../components/BrandLockup';
+import AppMapPreview from '../components/AppMapPreview';
+import { Network, Building2, GitCompareArrows, Users } from 'lucide-react';
+import { CanvasVisual, LayersVisual, DonutVisual, TeamVisual } from '../components/FeatureVisuals';
+import './Login.css';
 
 const FEATURES = [
   {
     Icon: Network,
+    Visual: CanvasVisual,
     grad: 'linear-gradient(135deg,#60a5fa,#3b82f6)',
+    glow: '96, 165, 250',
     label: 'Canvas applicatif',
-    desc: 'Drag & drop, flux, domaines métier',
+    desc: 'Applications, flux et dépendances',
   },
   {
     Icon: Building2,
+    Visual: LayersVisual,
     grad: 'linear-gradient(135deg,#a78bfa,#7c3aed)',
-    label: 'Vue Urbanisme',
-    desc: 'Zones SI, cartographie par couches',
+    glow: '167, 139, 250',
+    label: 'Vue structurée',
+    desc: 'Métier, applicatifs, flux',
   },
   {
-    Icon: BarChart3,
+    Icon: GitCompareArrows,
+    Visual: DonutVisual,
     grad: 'linear-gradient(135deg,#34d399,#059669)',
-    label: 'Dashboard & Décisions',
-    desc: 'D1/D2, keep/sunset/migrate',
+    glow: '52, 211, 153',
+    label: 'Plan de rationalisation',
+    desc: 'Conserver, migrer, décommissionner',
   },
   {
     Icon: Users,
+    Visual: TeamVisual,
     grad: 'linear-gradient(135deg,#fbbf24,#d97706)',
+    glow: '251, 191, 36',
     label: 'Collaboration temps réel',
-    desc: 'Multi-utilisateurs, WebSocket',
+    desc: 'Plusieurs contributeurs en simultané',
   },
 ];
 
@@ -82,49 +93,49 @@ export default function Login() {
   return (
     <div className="login-page">
 
-      {/* ── Panneau gauche — branding visuel ── */}
+      {/* ── Panneau gauche — vitrine produit ── */}
       <div className="login-panel">
-        {/* Réseau topologique SVG en fond */}
-        <div className="login-panel-net">
-          <NetworkPattern width={440} height={760} />
-        </div>
+        <div className="lp-grid" />
+        <div className="lp-glow lp-glow-a" />
+        <div className="lp-glow lp-glow-b" />
+        <div className="lp-glow lp-glow-c" />
 
         <div className="login-panel-content">
-          {/* Brand */}
-          <div className="login-panel-brand">
-            <LogoMark size={36} />
-            <span className="login-panel-brand-name">Cartographe</span>
+          <div className="login-panel-brand lp-in" style={{ '--d': '0s' }}>
+            <BrandLockup size={40} />
           </div>
 
-          {/* Headline */}
-          <h1 className="login-panel-headline">
-            Cartographiez votre<br />Système d'Information
+          <h1 className="login-panel-headline lp-in" style={{ '--d': '0.1s' }}>
+            Cartographiez votre<br />
+            <span>système d'information</span>
           </h1>
-          <p className="login-panel-sub">
-            Outil de cartographie applicative IT pour due diligence,
-            audit SI et carve-out. Visualisez, analysez, décidez.
+          <p className="login-panel-sub lp-in" style={{ '--d': '0.24s' }}>
+            Recensez vos applications, leurs flux et leurs domaines métier,
+            et travaillez dessus à plusieurs.
           </p>
 
-          {/* Feature cards */}
+          <div className="lp-in" style={{ '--d': '0.34s' }}>
+            <AppMapPreview />
+          </div>
+
           <div className="login-features">
-            {FEATURES.map(({ Icon, grad, label, desc }) => (
-              <div key={label} className="login-feature">
+            {FEATURES.map(({ Icon, Visual, grad, glow, label, desc }, i) => (
+              <div key={label} className="login-feature lp-in" style={{ '--d': `${0.5 + i * 0.08}s`, '--g': glow }}>
                 <div className="login-feature-ico" style={{ background: grad }}>
-                  <Icon size={17} color="#fff" strokeWidth={1.8} />
+                  <Icon size={16} color="#fff" strokeWidth={1.9} />
                 </div>
                 <div className="login-feature-text">
                   <div className="login-feature-label">{label}</div>
                   <div className="login-feature-desc">{desc}</div>
                 </div>
-                <ShieldCheck size={13} color="rgba(255,255,255,0.35)" strokeWidth={1.5} />
+                <Visual />
               </div>
             ))}
           </div>
-
         </div>
 
         <div className="login-panel-footer">
-          <p>Cartographe © 2026 · Due diligence IT</p>
+          <p>Cartographe by onepoint © 2026 · Cartographie applicative IT</p>
         </div>
       </div>
 
@@ -180,8 +191,8 @@ export default function Login() {
         <div className="login-card">
 
           {/* Mobile logo (masqué sur desktop car panneau gauche présent) */}
-          <div style={{ display:'none' /* affiché via media query dans CSS si nécessaire */ }}>
-            <LogoMarkHero size={56} />
+          <div className="login-mobile-logo">
+            <BrandLockup size={44} tone="dark" />
           </div>
 
           <div className="login-head">

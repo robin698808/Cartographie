@@ -1,0 +1,76 @@
+/* Page de connexion — vitrine « cartographie applicative » */
+.login-page .login-panel {
+  width: clamp(540px, 54%, 800px);
+  background:
+    radial-gradient(900px circle at 0% 0%, #312e81 0%, transparent 55%),
+    radial-gradient(700px circle at 100% 100%, #0e7490 0%, transparent 50%),
+    linear-gradient(155deg, #0b1020 0%, #111a3a 60%, #0b1020 100%);
+  padding: 28px 48px 20px;
+  gap: 16px;
+}
+.login-page .login-panel::before,
+.login-page .login-panel::after { display: none; }
+@media (max-width: 960px) { .login-page .login-panel { display: none; } }
+
+.login-page .login-panel-content { display: flex; flex-direction: column; max-width: 680px; width: 100%; margin: 0 auto; }
+.login-page .login-panel-brand { margin-bottom: 20px; }
+
+.lp-glow { position: absolute; border-radius: 50%; filter: blur(80px); pointer-events: none; opacity: 0.5; }
+.lp-glow-a { width: 360px; height: 360px; background: #6366F1; top: -120px; right: -80px; animation: lp-drift-a 18s ease-in-out infinite; }
+.lp-glow-b { width: 300px; height: 300px; background: #06B6D4; bottom: -110px; left: 8%; opacity: 0.32; animation: lp-drift-b 22s ease-in-out infinite; }
+.lp-glow-c { width: 240px; height: 240px; background: #A855F7; top: 38%; left: -90px; opacity: 0.28; animation: lp-drift-a 26s ease-in-out infinite reverse; }
+@keyframes lp-drift-a { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-50px, 60px) scale(1.15); } }
+@keyframes lp-drift-b { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(70px, -40px) scale(1.1); } }
+
+/* Trame de points en fond, estompée vers les bords */
+.login-page .login-panel > .lp-grid {
+  position: absolute; inset: 0; pointer-events: none;
+  background-image: radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1px);
+  background-size: 26px 26px;
+  -webkit-mask-image: radial-gradient(ellipse at 50% 40%, #000 20%, transparent 75%);
+  mask-image: radial-gradient(ellipse at 50% 40%, #000 20%, transparent 75%);
+}
+
+/* Apparition progressive des éléments */
+.lp-in { opacity: 0; animation: lp-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) var(--d, 0s) forwards; }
+@keyframes lp-up { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .lp-glow, .lp-in { animation: none; opacity: 1; }
+}
+
+.login-page .login-panel-headline { font-size: 32px; line-height: 1.15; letter-spacing: -0.035em; margin-bottom: 10px; }
+.login-page .login-panel-headline span {
+  background: linear-gradient(90deg, #A5B4FC, #67E8F9);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.login-page .login-panel-sub { font-size: 14px; max-width: 540px; margin-bottom: 18px; color: rgba(226,232,240,0.72); }
+
+.login-page .login-features { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 22px; }
+.login-page .login-feature {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px;
+  padding: 12px 12px 12px 12px; position: relative; overflow: hidden;
+  background: linear-gradient(135deg, rgba(var(--g), 0.13), rgba(255,255,255,0.03) 70%);
+  border: 1px solid rgba(var(--g), 0.28);
+}
+.login-page .login-feature::after {
+  content: ''; position: absolute; width: 110px; height: 110px; right: -30px; top: -40px; border-radius: 50%;
+  background: rgba(var(--g), 0.2); filter: blur(30px); pointer-events: none; opacity: 0.6; transition: opacity 0.25s;
+}
+.login-page .login-feature:hover { border-color: rgba(var(--g), 0.6); box-shadow: 0 0 26px rgba(var(--g), 0.18); }
+.login-page .login-feature:hover::after { opacity: 1; }
+.login-page .login-feature.lp-in { transition: border-color 0.25s, box-shadow 0.25s; }
+.login-page .login-feature-label { font-size: 12.5px; line-height: 1.25; }
+.login-page .login-feature > .fv { position: relative; z-index: 1; }
+@media (max-width: 1180px) { .login-page .login-features { grid-template-columns: 1fr; } }
+
+.login-page .login-panel-footer { max-width: 680px; width: 100%; margin: 0 auto; }
+
+/* Côté formulaire */
+.login-page .login-form-side { background: radial-gradient(600px circle at 100% 0%, var(--accent-pale), transparent 60%), var(--bg); }
+.login-page .login-card {
+  max-width: 410px; padding: 36px 34px;
+  background: var(--surface); border: 1.5px solid var(--border); border-radius: 22px;
+  box-shadow: var(--s3);
+}
+.login-mobile-logo { display: none; margin-bottom: 20px; }
+@media (max-width: 960px) { .login-mobile-logo { display: block; } }

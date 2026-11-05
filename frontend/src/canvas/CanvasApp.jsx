@@ -1,4 +1,10 @@
 import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react';
+import CanvasHome from './CanvasHome';
+import { ItsiBudgetWidget, ItsiPatrimoineWidget } from './ItsiWidgets';
+import {
+  COST_TYPES, COST_COLORS, HOSTING_OPTS, HOSTING_COLORS, APPTYPE_OPTS, APPTYPE_COLORS, EOS_BUCKETS, ITSI_FIELDS, DEAL_ONLY_PATTERNS,
+  normText, parseAmount, parseDate, canonOption, eosBucket, formatEuro, formatDateFr,
+} from './itsi';
 
 // Dynamic imports — these heavy libs (XLSX ~816KB, PptxGenJS ~505KB) load only when
 /*
@@ -194,6 +200,10 @@ const FIELDS = [
   {key:"users",label:"Nb utilisateurs"},{key:"statut",label:"Statut"},{key:"statusD1",label:"Statut Day 1"},{key:"statusD2",label:"Statut Day 2"},{key:"flowTo",label:"Flux vers (séparés par |)"},{key:"flowProtocol",label:"Protocole flux"},{key:"flowLabel",label:"Objet du flux (séparés par |)"},
 ];
 
+// Champs propres au type de projet : Day 1 / Day 2 pour Deal IT/TECH, patrimoine & coûts pour IT/SI
+const ALL_FIELDS = [...FIELDS, ...ITSI_FIELDS.map(f=>({key:f.key,label:f.label,itsi:true}))];
+const fieldsFor = (projectType) => ALL_FIELDS.filter(f=>projectType==='deal'||(f.key!=="statusD1"&&f.key!=="statusD2"));
+
 const parseCSV = (text) => {
   const lines = text.split(/\r?\n/).filter(l=>l.trim());
   if(lines.length<2)return[];
@@ -228,9 +238,9 @@ const downloadTemplate = async (projectType = "deal") => {
   const isDeal = projectType === "deal";
   const wb = XLSX.utils.book_new();
   const hdr = isDeal
-    ? ["Nom Application","Catégorie","Domaine","Description","Criticité","Éditeur / Fournisseur","Version","Responsable","Nb Utilisateurs","Statut Day 1","Statut Day 2","Flux vers (séparés par |)","Protocole flux","Objet du flux (séparés par |)","Commentaires"]
-    : ["Nom Application","Catégorie","Domaine","Description","Criticité","Éditeur / Fournisseur","Version","Responsable","Nb Utilisateurs","Statut","Flux vers (séparés par |)","Protocole flux","Objet du flux (séparés par |)","Commentaires"];
-  const ex = isDeal ? [
+    ? ["Nom Application","Catégorie","Domaine","Description","Criticité","Éditeur / Fournisseur","Version","Responsable","Nb Utilisateurs","Statut Day 1","Statut Day 2","Flux vers (séparés par |)","Protocole flux","Objet du flux (séparés par |)","Commentaires","Coût annuel (€)","Coût mensuel (€)","Type de coût","Nb licences","Hébergement","Type d'application","Date de fin de mise en service"]
+    : ["Nom Application","Catégorie","Domaine","Description","Criticité","Éditeur / Fournisseur","Version","Responsable","Nb Utilisateurs","Statut","Coût annuel (€)","Coût mensuel (€)","Type de coût","Nb licences","Hébergement","Type d'application","Date de fin de mise en service","Flux vers (séparés par |)","Protocole flux","Objet du flux (séparés par |)","Commentaires"];
+  const dealRows = [
     ["SAP S/4HANA","Opérations Cœur","Finance","ERP central","Haute","SAP SE","S/4HANA 2023","J. Dupont",250,"Transfert TSA","Clone & Clean","Salesforce|Power BI","API|API","Données clients|Reporting financier","Système central"],
     ["Salesforce","Commercial","CRM","Haute","Salesforce Inc.","Enterprise","M. Martin",120,"Transfert TSA","Transfert","SAP S/4HANA|Mailchimp","API|REST","Commandes|Contacts marketing",""],
     ["Power BI","IT","Business Intelligence","Moyenne","Microsoft","Pro","A. Bernard",80,"Transfert TSA","Clone & Clean","","","",""],
@@ -241,22 +251,28 @@ const downloadTemplate = async (projectType = "deal") => {
     ["DocuSign","Juridique","Signature électronique","Moyenne","DocuSign","Enterprise","N. Blanc",30,"Transfert TSA","Transfert","Salesforce","API","Contrats signés",""],
     ["MES Wonderware","Production","Pilotage atelier","Haute","AVEVA","2023","F. Garcia",40,"Abandon","Clone & Clean","SAP S/4HANA|WMS Reflex","API|MQ","Ordres de fabrication|Bons de sortie",""],
     ["Workday","RH","Gestion des talents","Moyenne","Workday","2024R1","L. Petit",0,"Transfert TSA","Transfert","ADP","API","Données collaborateurs","Déploiement S2 2025"],
-  ] : [
-    ["SAP S/4HANA","Opérations Cœur","Finance","ERP central","Haute","SAP SE","S/4HANA 2023","J. Dupont",250,"Actif","Salesforce|Power BI","API|API","Données clients|Reporting financier","Système central"],
-    ["Salesforce","Commercial","CRM","Haute","Salesforce Inc.","Enterprise","M. Martin",120,"Actif","SAP S/4HANA|Mailchimp","API|REST","Commandes|Contacts marketing",""],
-    ["Power BI","IT","Business Intelligence","Moyenne","Microsoft","Pro","A. Bernard",80,"Cible","","","",""],
-    ["ADP","RH","Paie et gestion RH","Haute","ADP","v12","L. Petit",15,"Legacy","SAP S/4HANA","SFTP","Écritures de paie",""],
-    ["Mailchimp","Marketing","Emailing marketing","Basse","Intuit","Premium","S. Moreau",10,"Actif dégradé","","","",""],
-    ["Jira","IT","Gestion de projet IT","Moyenne","Atlassian","Cloud","P. Durand",45,"Actif","Confluence","REST","Documentation technique",""],
-    ["WMS Reflex","Logistique","Gestion d'entrepôt","Haute","Hardis Group","v6.2","C. Roux",35,"À refondre","SAP S/4HANA","API","Mouvements de stock",""],
-    ["DocuSign","Juridique","Signature électronique","Moyenne","DocuSign","Enterprise","N. Blanc",30,"Actif","Salesforce","API","Contrats signés",""],
-    ["MES Wonderware","Production","Pilotage atelier","Haute","AVEVA","2023","F. Garcia",40,"À migrer","SAP S/4HANA|WMS Reflex","API|MQ","Ordres de fabrication|Bons de sortie",""],
-    ["Workday","RH","Gestion des talents","Moyenne","Workday","2024R1","L. Petit",0,"À créer","ADP","API","Données collaborateurs","Déploiement S2 2025"],
   ];
+  const dealExtra = [[420000,"","OPEX",250,"On-premise","Progiciel (COTS)","2030-12-31"],["",15000,"OPEX",120,"SaaS","Progiciel (COTS)","2027-03-31"],[45000,"","OPEX",80,"SaaS","Progiciel (COTS)",""],[95000,"","OPEX",15,"SaaS","Progiciel (COTS)","2026-12-31"]];
+  const dealEx = dealRows.map((r,i)=>(i===0?r:[r[0],"",...r.slice(1)]).concat(dealExtra[i]||[]));
+  const siRows = [
+    ["SAP S/4HANA","Opérations Cœur","Finance","ERP central","Haute","SAP SE","S/4HANA 2023","J. Dupont",250,"Actif",420000,"Mixte",250,"On-premise","Progiciel (COTS)","2030-12-31","Salesforce|Power BI","API|API","Données clients|Reporting financier","Système central"],
+    ["Salesforce","Relation client","Commercial","Gestion de la relation client","Haute","Salesforce Inc.","Enterprise","M. Martin",120,"Actif",180000,"OPEX",120,"SaaS","Progiciel (COTS)","2027-03-31","SAP S/4HANA|Mailchimp","API|REST","Commandes|Contacts marketing",""],
+    ["Power BI","Pilotage","IT","Reporting et tableaux de bord","Moyenne","Microsoft","Pro","A. Bernard",80,"Cible",45000,"OPEX",80,"SaaS","Progiciel (COTS)","","","","",""],
+    ["ADP","Ressources humaines","RH","Paie","Haute","ADP","v12","L. Petit",15,"Legacy",95000,"OPEX",15,"SaaS","Progiciel (COTS)","2026-12-31","SAP S/4HANA","SFTP","Écritures de paie","Remplacement prévu par Workday"],
+    ["Mailchimp","Marketing digital","Marketing","Emailing marketing","Basse","Intuit","Premium","S. Moreau",10,"Actif dégradé",12000,"OPEX",10,"SaaS","Progiciel (COTS)","2026-06-30","","","",""],
+    ["Jira","Outils IT","IT","Gestion de projet IT","Moyenne","Atlassian","Cloud","P. Durand",45,"Actif",38000,"OPEX",45,"SaaS","Progiciel (COTS)","2028-09-30","Confluence","REST","Documentation technique",""],
+    ["WMS Reflex","Supply chain","Logistique","Gestion d'entrepôt","Haute","Hardis Group","v6.2","C. Roux",35,"À refondre",150000,"Mixte",35,"On-premise","Progiciel (COTS)","2027-12-31","SAP S/4HANA","API","Mouvements de stock",""],
+    ["DocuSign","Juridique","Juridique","Signature électronique","Moyenne","DocuSign","Enterprise","N. Blanc",30,"Actif",22000,"OPEX",30,"SaaS","Progiciel (COTS)","2029-06-30","Salesforce","API","Contrats signés",""],
+    ["MES Wonderware","Production","Production","Pilotage atelier","Haute","AVEVA","2023","F. Garcia",40,"À migrer",210000,"CAPEX",40,"On-premise","Progiciel (COTS)","2026-12-31","SAP S/4HANA|WMS Reflex","API|MQ","Ordres de fabrication|Bons de sortie",""],
+    ["Workday","Ressources humaines","RH","Gestion des talents","Moyenne","Workday","2024R1","L. Petit",0,"À créer",65000,"OPEX",0,"SaaS","Progiciel (COTS)","2032-12-31","ADP","API","Données collaborateurs","Déploiement S2 2025"],
+    ["Portail Extranet","Relation client","IT","Portail clients développé en interne","Moyenne","Interne","3.4","P. Durand",900,"Actif dégradé",70000,"Mixte",0,"Cloud privé","Développement spécifique","2027-06-30","Salesforce","API","Comptes clients",""],
+  ];
+  const siEx = siRows.map((r,i)=>{const b=r[10];const tp=r[11]==="Mixte"?"OPEX":r[11];return [...r.slice(0,10),i%2?"":b,i%2?Math.round(b/12):"",tp,...r.slice(12)];});
+  const ex = isDeal ? dealEx : siEx;
   const ws1 = XLSX.utils.aoa_to_sheet([hdr,...ex]);
   ws1["!cols"]= isDeal
-    ? [{wch:22},{wch:20},{wch:16},{wch:35},{wch:12},{wch:12},{wch:22},{wch:12},{wch:18},{wch:14},{wch:18},{wch:18},{wch:28},{wch:16},{wch:30},{wch:28}]
-    : [{wch:22},{wch:20},{wch:16},{wch:35},{wch:12},{wch:12},{wch:22},{wch:12},{wch:18},{wch:18},{wch:28},{wch:16},{wch:30},{wch:28}];
+    ? [{wch:22},{wch:20},{wch:16},{wch:35},{wch:12},{wch:12},{wch:22},{wch:12},{wch:18},{wch:14},{wch:18},{wch:18},{wch:28},{wch:16},{wch:30},{wch:28},{wch:16},{wch:16},{wch:12},{wch:12},{wch:24},{wch:28},{wch:18}]
+    : [{wch:24},{wch:20},{wch:16},{wch:35},{wch:12},{wch:22},{wch:14},{wch:14},{wch:14},{wch:16},{wch:16},{wch:16},{wch:12},{wch:12},{wch:24},{wch:28},{wch:18},{wch:28},{wch:16},{wch:30},{wch:28}];
   XLSX.utils.book_append_sheet(wb,ws1,"Applications");
   var fluxHdr=["N° Ordre","Application Émettrice","Application Réceptrice","Nom du Flux Métier","Protocole","Fréquence","Description"];
   var fluxEx=[[1,"SAP S/4HANA","Salesforce","Synchronisation clients","API","Temps réel","Envoi fiches clients"],[2,"SAP S/4HANA","Salesforce","Tarifs catalogue","API","Journalier","MAJ prix"],[3,"SAP S/4HANA","Power BI","Reporting financier","API","Journalier","Données comptables"],[4,"Salesforce","SAP S/4HANA","Commandes validées","REST","Temps réel","Retour commandes"],[5,"ADP","SAP S/4HANA","Écritures de paie","SFTP","Mensuel","Intégration paie"],[6,"MES Wonderware","SAP S/4HANA","Ordres de fabrication","API","Temps réel","Retour production"]];
@@ -269,8 +285,31 @@ const downloadTemplate = async (projectType = "deal") => {
     wsStatuts["!cols"]=[{wch:22},{wch:90}];
     XLSX.utils.book_append_sheet(wb,wsStatuts,"Référentiel Statuts");
   }
-  const ins = isDeal ? [["TEMPLATE CARTOGRAPHIE APPLICATIVE",""],["",""],["COLONNES OBLIGATOIRES",""],["Nom Application","Nom unique de l'application"],["Domaine","Finance, RH, IT, Commercial, Production, Logistique, Marketing, Juridique, Direction, Autre"],["",""],["COLONNES OPTIONNELLES",""],["Criticité","Haute / Moyenne / Basse"],["Statut Day 1","Stratégie de closing : Transfert TSA / Maintien / Rebuild / Abandon"],["Statut Day 2","Stratégie cible : Clone & Clean / Transfert / Rebuild / Abandon"],["Flux vers","Noms des applications cibles séparés par |"],["Protocole","API, REST, SFTP, ETL… séparés par |"],["Objet du flux","Libellé de la donnée échangée. Séparés par | si multiples"],["",""],["CONSEILS",""],["1.","Les noms dans 'Flux vers' = noms exacts de la colonne A"],["2.","Day 1 = statut de closing (J1) · Day 2 = vision cible à terme"],["3.","Voir onglet 'Référentiel Domaines' pour les couleurs"]]
-  : [["TEMPLATE CARTOGRAPHIE APPLICATIVE",""],["",""],["COLONNES OBLIGATOIRES",""],["Nom Application","Nom unique de l'application"],["Domaine","Finance, RH, IT, Commercial, Production, Logistique, Marketing, Juridique, Direction, Autre"],["",""],["COLONNES OPTIONNELLES",""],["Criticité","Haute / Moyenne / Basse"],["Statut","Voir l'onglet 'Référentiel Statuts' pour la liste complète et les définitions"],["Flux vers","Noms des applications cibles séparés par |"],["Protocole","API, REST, SFTP, ETL… séparés par |"],["Objet du flux","Libellé de la donnée échangée. Séparés par | si multiples"],["",""],["CONSEILS",""],["1.","Les noms dans 'Flux vers' = noms exacts de la colonne A"],["2.","Voir onglet 'Référentiel Statuts' pour la liste des statuts d'application"],["3.","Voir onglet 'Référentiel Domaines' pour les couleurs"]];
+  {
+    const wsPatr=XLSX.utils.aoa_to_sheet([["Champ","Valeur","Définition"],
+      ["Type de coût","CAPEX","Investissement immobilisé : acquisition de licences perpétuelles, matériel, développement activé"],
+      ["Type de coût","OPEX","Charge récurrente : abonnement, maintenance, support, hébergement, run"],
+      ["Hébergement","On-premise","Hébergé sur les serveurs de l'entreprise ou d'un datacenter dédié"],
+      ["Hébergement","Cloud privé","Infrastructure cloud dédiée à l'entreprise"],
+      ["Hébergement","Cloud public (IaaS/PaaS)","Application déployée par l'entreprise sur AWS, Azure, GCP…"],
+      ["Hébergement","SaaS","Application opérée et hébergée par l'éditeur"],
+      ["Hébergement","Hybride","Composants répartis entre on-premise et cloud"],
+      ["Hébergement","Inconnu","À investiguer"],
+      ["Type d'application","Progiciel (COTS)","Solution éditeur paramétrée, hors SaaS pur"],
+      ["Type d'application","Développement spécifique","Application développée sur mesure (interne ou prestataire)"],
+      ["Type d'application","Open source","Solution open source déployée et opérée par l'entreprise"],
+      ["Type d'application","Socle / Middleware","Brique d'infrastructure ou d'intégration (bus, annuaire, base de données…)"],
+      ["Type d'application","Poste de travail / Bureautique","Outils utilisateurs et bureautique"],
+      ["Type d'application","Autre","Cas non couvert ci-dessus"],
+      ["Coût annuel (€)","Nombre","Coût annuel de l'application en euros HT, sans symbole ni séparateur de milliers (ex : 125000)"],
+      ["Coût mensuel (€)","Nombre","Alternative au coût annuel : si seul le coût mensuel est renseigné, le coût annuel est calculé (×12)"],
+      ["Nb licences","Entier","Nombre de licences ou de sièges achetés"],
+      ["Date de fin de mise en service","AAAA-MM-JJ","Date prévue d'arrêt ou de fin de support (ex : 2027-06-30). Les formats JJ/MM/AAAA, MM/AAAA et AAAA sont aussi reconnus"]]);
+    wsPatr["!cols"]=[{wch:30},{wch:32},{wch:95}];
+    XLSX.utils.book_append_sheet(wb,wsPatr,"Référentiel Patrimoine");
+  }
+  const ins = isDeal ? [["TEMPLATE CARTOGRAPHIE APPLICATIVE",""],["",""],["COLONNES OBLIGATOIRES",""],["Nom Application","Nom unique de l'application"],["Domaine","Finance, RH, IT, Commercial, Production, Logistique, Marketing, Juridique, Direction, Autre"],["",""],["COLONNES OPTIONNELLES",""],["Criticité","Haute / Moyenne / Basse"],["Statut Day 1","Stratégie de closing : Transfert TSA / Maintien / Rebuild / Abandon"],["Statut Day 2","Stratégie cible : Clone & Clean / Transfert / Rebuild / Abandon"],["Flux vers","Noms des applications cibles séparés par |"],["Protocole","API, REST, SFTP, ETL… séparés par |"],["Objet du flux","Libellé de la donnée échangée. Séparés par | si multiples"],["Coût annuel (€) / Coût mensuel (€)","Optionnel : l'un ou l'autre (annuel = mensuel ×12). Alimente le widget « Budget & coûts »"],["Type de coût","Optionnel : OPEX / CAPEX"],["Nb licences, Hébergement, Type d'application, Date de fin de mise en service","Optionnels : alimentent le widget « Patrimoine applicatif » (valeurs attendues : onglet « Référentiel Patrimoine »)"],["",""],["CONSEILS",""],["1.","Les noms dans 'Flux vers' = noms exacts de la colonne A"],["2.","Day 1 = statut de closing (J1) · Day 2 = vision cible à terme"],["3.","Voir onglet 'Référentiel Domaines' pour les couleurs"]]
+  : [["TEMPLATE CARTOGRAPHIE APPLICATIVE",""],["",""],["COLONNES OBLIGATOIRES",""],["Nom Application","Nom unique de l'application"],["Domaine","Finance, RH, IT, Commercial, Production, Logistique, Marketing, Juridique, Direction, Autre"],["",""],["COLONNES OPTIONNELLES",""],["Criticité","Haute / Moyenne / Basse"],["Statut","Voir l'onglet 'Référentiel Statuts' pour la liste complète et les définitions"],["Coût annuel (€)","Coût annuel de l'application en euros HT (nombre, sans séparateur de milliers)"],["Coût mensuel (€)","Alternative au coût annuel (le coût annuel est alors calculé ×12)"],["Type de coût","OPEX / CAPEX"],["Nb licences","Nombre de licences ou de sièges"],["Hébergement","On-premise / Cloud privé / Cloud public (IaaS/PaaS) / SaaS / Hybride / Inconnu"],["Type d'application","Progiciel (COTS) / Développement spécifique / Open source / Socle / Middleware / Poste de travail / Bureautique / Autre"],["Date de fin de mise en service","Au format AAAA-MM-JJ (ex : 2027-06-30)"],["Flux vers","Noms des applications cibles séparés par |"],["Protocole","API, REST, SFTP, ETL… séparés par |"],["Objet du flux","Libellé de la donnée échangée. Séparés par | si multiples"],["",""],["CONSEILS",""],["1.","Les noms dans 'Flux vers' = noms exacts de la colonne A"],["2.","Voir onglet 'Référentiel Statuts' pour la liste des statuts d'application"],["3.","Voir onglet 'Référentiel Domaines' pour les couleurs"],["4.","Voir onglet 'Référentiel Patrimoine' pour les valeurs attendues (type de coût, hébergement, type d'application, formats)"],["5.","Colonnes Coût, Hébergement, Type d'application et Date de fin de mise en service : alimentent les widgets « Budget & coûts » et « Patrimoine applicatif » du dashboard"]];
   const ws3=XLSX.utils.aoa_to_sheet(ins); ws3["!cols"]=[{wch:30},{wch:70}]; XLSX.utils.book_append_sheet(wb,ws3,"Instructions");
   XLSX.writeFile(wb,"template_cartographie.xlsx");
 };
@@ -487,6 +526,9 @@ function App({ initialSnapshot, onSave, wsMessage, projectId, onThemeChange, top
   const [selD1,setSelD1]=useState("");
   const [selD2,setSelD2]=useState("");
   const [selStatut,setSelStatut]=useState("");
+  const [selHost,setSelHost]=useState([]);
+  const [selAType,setSelAType]=useState([]);
+  const [selEos,setSelEos]=useState([]);
   const [activeDomFilter,setActiveDomFilter]=useState("");
   const [selApp,setSelApp]=useState(null);
   const [selFlow,setSelFlow]=useState(null);// selected flow (click)
@@ -732,6 +774,9 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     const m={};
     const n=s=>s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
     const used=new Set();
+    // Les colonnes propres à l'autre type de projet sont écartées pour ne pas être confondues avec un champ courant
+    const otherPats=projectType==='deal'?[]:DEAL_ONLY_PATTERNS.statusD1.concat(DEAL_ONLY_PATTERNS.statusD2);
+    hds.forEach(function(h){if(otherPats.some(function(p){return n(h).indexOf(p)>=0;}))used.add(h);});
     if(projectType==='deal'){
       var d1best=hds.find(function(h){return["day 1","statut day 1","d1"].some(function(p){return n(h).indexOf(p)>=0;});});
       var d2best=hds.find(function(h){return h!==d1best&&["day 2","statut day 2","d2"].some(function(p){return n(h).indexOf(p)>=0;});});
@@ -739,7 +784,8 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       if(d2best){m.statusD2=d2best;used.add(d2best);}
     }
     const P={name:["nom","application","app","name"],x:["x","pos x","position x"],y:["y","pos y","position y"],domain:["domaine","domain"],description:["description","desc"],statut:["statut as-is","as-is","statut actuel","statut","status","état"],criticality:["criticité","criticite","criticality","importance"],vendor:["éditeur","editeur","vendor","fournisseur"],version:["version"],owner:["responsable","owner"],users:["utilisateur","users","nb util"],flowTo:["flux vers","flow to","interface vers","cible","target"],flowFrom:["source","emettrice","from"],flowProtocol:["protocole","protocol"],category:["catégorie","categorie","category","macro","zone","groupe","group","périmètre","perimetre"],flowLabel:["objet","object","libellé flux","donnée"]};
-    FIELDS.forEach(function(f){
+    ITSI_FIELDS.forEach(function(f){P[f.key]=f.patterns;});
+    fieldsFor(projectType).forEach(function(f){
       if(m[f.key])return;
       var best=hds.find(function(h){return!used.has(h)&&P[f.key]&&P[f.key].some(function(p){return n(h).indexOf(p)>=0;});});
       if(best){m[f.key]=best;used.add(best);}
@@ -754,7 +800,11 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       const cr=r[mapping.criticality]||"Moyenne"; critCount[cr]=(critCount[cr]||0)+1;
       if(mapping.flowTo&&r[mapping.flowTo]) r[mapping.flowTo].split("|").forEach(t=>{if(t.trim())flowCount++;});
     });
-    return {apps:data.length, domains:domSet.size, domainList:[...domSet], flows:flowCount, critCount, mappedFields:Object.keys(mapping).filter(k=>mapping[k]).length, totalFields:(projectType==='deal'?FIELDS:FIELDS.filter(f=>f.key!=="statusD1"&&f.key!=="statusD2")).length};
+    // Colonnes reconnues mais propres à l'autre type de projet : signalées à l'utilisateur, jamais importées
+    const mapped=new Set(Object.values(mapping).filter(Boolean));
+    const otherPatterns=projectType==='deal'?{}:{"Day 1":DEAL_ONLY_PATTERNS.statusD1,"Day 2":DEAL_ONLY_PATTERNS.statusD2};
+    const ignored=Object.keys(data[0]||{}).filter(h=>!mapped.has(h)).map(h=>{const label=Object.keys(otherPatterns).find(l=>otherPatterns[l].some(p=>normText(h).indexOf(p)>=0));return label?{header:h,field:label}:null;}).filter(Boolean);
+    return {apps:data.length, domains:domSet.size, domainList:[...domSet], flows:flowCount, critCount, ignored, mappedFields:Object.keys(mapping).filter(k=>mapping[k]).length, totalFields:fieldsFor(projectType).length};
   };
 
   const loadSheet=useCallback((wb,nm)=>{
@@ -816,7 +866,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
 
   const processImport=()=>{
     if(!cMap.name||!cMap.domain){alert("Mappez au minimum: Nom et Domaine");return;}
-    const na=rawData.map((r,i)=>({id:uid(),name:r[cMap.name]||"App_"+i,domain:r[cMap.domain]||"Autre",category:r[cMap.category]||"",description:r[cMap.description]||"",criticality:r[cMap.criticality]||"Moyenne",vendor:r[cMap.vendor]||"",version:r[cMap.version]||"",owner:r[cMap.owner]||"",users:parseInt(r[cMap.users])||0,statut:r[cMap.statut]||"",statusD1:r[cMap.statusD1]||"",statusD2:r[cMap.statusD2]||"",x:0,y:0,_ft:r[cMap.flowTo]||"",_fp:r[cMap.flowProtocol]||"",_fl:r[cMap.flowLabel]||""}));
+    const na=rawData.map((r,i)=>({id:uid(),name:r[cMap.name]||"App_"+i,domain:r[cMap.domain]||"Autre",category:r[cMap.category]||"",description:r[cMap.description]||"",criticality:r[cMap.criticality]||"Moyenne",vendor:r[cMap.vendor]||"",version:r[cMap.version]||"",owner:r[cMap.owner]||"",users:parseInt(r[cMap.users])||0,statut:r[cMap.statut]||"",statusD1:r[cMap.statusD1]||"",statusD2:r[cMap.statusD2]||"",x:0,y:0,_ft:r[cMap.flowTo]||"",_fp:r[cMap.flowProtocol]||"",_fl:r[cMap.flowLabel]||"",...(function(){var an=parseAmount(r[cMap.budget]),mo=parseAmount(r[cMap.monthlyCost]);return{budget:an!=null?an:(mo!=null?Math.round(mo*12*100)/100:null),monthlyCost:mo!=null?mo:(an!=null?Math.round(an/12*100)/100:null)};})(),...{costType:canonOption(r[cMap.costType],COST_TYPES),licenses:parseInt(String(r[cMap.licenses]||"").replace(/\s/g,""))||0,hosting:canonOption(r[cMap.hosting],HOSTING_OPTS),appType:canonOption(r[cMap.appType],APPTYPE_OPTS),endOfService:parseDate(r[cMap.endOfService])}}));
     const nf=[];
     if(rawFluxData&&rawFluxData.length>0){
       var nrm=function(s){return(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim();};
@@ -1193,7 +1243,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       var wb=XLSX.utils.book_new();
 
       // ── Onglet 1: Applications (format reimportable) ──
-      var ah=["Nom","Domaine","Categorie","Criticite","Editeur","Version","Responsable","Utilisateurs","Description",...(projectType==='deal'?["Day 1","Day 2"]:["Statut"]),"x","y"];
+      var ah=["Nom","Domaine","Categorie","Criticite","Editeur","Version","Responsable","Utilisateurs","Description",...(projectType==='deal'?["Day 1","Day 2"]:["Statut"]),"Coût annuel (€)","Coût mensuel (€)","Type de coût","Nb licences","Hébergement","Type d'application","Date de fin de mise en service","x","y"];
       var ar=apps.map(function(a){return[
         a.name,
         a.domain,
@@ -1204,12 +1254,12 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         a.owner||"",
         a.users||"",
         a.description||"",
-        ...(projectType==='deal'?[a.statusD1||"",a.statusD2||""]:[a.statut||""]),
+        ...(projectType==='deal'?[a.statusD1||"",a.statusD2||""]:[a.statut||""]),typeof a.budget==="number"?a.budget:"",typeof a.monthlyCost==="number"?a.monthlyCost:"",a.costType||"",a.licenses||"",a.hosting||"",a.appType||"",a.endOfService||"",
         Math.round(a.x)||0,
         Math.round(a.y)||0
       ];});
       var ws1=XLSX.utils.aoa_to_sheet([ah].concat(ar));
-      ws1["!cols"]=[{wch:24},{wch:16},{wch:14},{wch:12},{wch:18},{wch:10},{wch:18},{wch:10},{wch:35},{wch:18},{wch:16},{wch:7},{wch:7}];
+      ws1["!cols"]=projectType==='deal'?[{wch:24},{wch:16},{wch:14},{wch:12},{wch:18},{wch:10},{wch:18},{wch:10},{wch:35},{wch:18},{wch:16},{wch:16},{wch:12},{wch:12},{wch:24},{wch:28},{wch:18},{wch:7},{wch:7}]:[{wch:24},{wch:16},{wch:14},{wch:12},{wch:18},{wch:10},{wch:18},{wch:10},{wch:35},{wch:18},{wch:16},{wch:16},{wch:12},{wch:12},{wch:24},{wch:28},{wch:18},{wch:7},{wch:7}];
       ws1["!freeze"]={xSplit:0,ySplit:1};
       XLSX.utils.book_append_sheet(wb,ws1,"Applications");
 
@@ -4522,8 +4572,8 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     pres.writeFile({fileName:"Cartographie_Applicative.pptx"});
   };
 
-  const filtered=useMemo(()=>{let r=apps;if(selDom.length)r=r.filter(a=>selDom.includes(a.domain));if(selCat.length)r=r.filter(a=>selCat.includes(a.category||""));if(selCrit.length)r=r.filter(a=>selCrit.includes(a.criticality));if(projectType==='deal'){if(selD1)r=r.filter(a=>a.statusD1===selD1);if(selD2)r=r.filter(a=>a.statusD2===selD2);}else{if(selStatut)r=r.filter(a=>a.statut===selStatut);}if(search){const s=search.toLowerCase();r=r.filter(a=>a.name.toLowerCase().includes(s)||a.domain.toLowerCase().includes(s)||(a.vendor||"").toLowerCase().includes(s));}return r;},[apps,selDom,selCat,selCrit,selD1,selD2,selStatut,projectType,search]);
-  const activeFilters=(selDom.length+selCat.length+selCrit.length)>0;
+  const filtered=useMemo(()=>{let r=apps;if(selDom.length)r=r.filter(a=>selDom.includes(a.domain));if(selCat.length)r=r.filter(a=>selCat.includes(a.category||""));if(selCrit.length)r=r.filter(a=>selCrit.includes(a.criticality));if(projectType==='deal'){if(selD1)r=r.filter(a=>a.statusD1===selD1);if(selD2)r=r.filter(a=>a.statusD2===selD2);}else{if(selStatut)r=r.filter(a=>a.statut===selStatut);if(selHost.length)r=r.filter(a=>selHost.includes(a.hosting||""));if(selAType.length)r=r.filter(a=>selAType.includes(a.appType||""));if(selEos.length)r=r.filter(a=>selEos.includes(eosBucket(a.endOfService)));}if(search){const s=search.toLowerCase();r=r.filter(a=>a.name.toLowerCase().includes(s)||a.domain.toLowerCase().includes(s)||(a.vendor||"").toLowerCase().includes(s));}return r;},[apps,selDom,selCat,selCrit,selD1,selD2,selStatut,selHost,selAType,selEos,projectType,search]);
+  const activeFilters=(selDom.length+selCat.length+selCrit.length+selHost.length+selAType.length+selEos.length)>0;
   const cats=[...new Set(apps.map(a=>a.category).filter(Boolean))];
   const doms=[...new Set(apps.map(a=>a.domain))];
 
@@ -4769,11 +4819,20 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     const clearTip=function(){setChartTip(null);};
     const hexToRgbCo=function(hex){var r=parseInt(hex.slice(1,3),16)||102,g=parseInt(hex.slice(3,5),16)||102,b=parseInt(hex.slice(5,7),16)||102;return r+","+g+","+b;};
     const toggleSection=(id)=>setHiddenSections(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
-    const DEFAULT_SIZES={chart_apps:"m",flow_matrix:"l",critical_apps:"l",chart_criticality:"m",chart_owner:"m",chart_statut:"m",carveout:"l",flowreg:"l"};
+    const DEFAULT_SIZES={chart_apps:"m",flow_matrix:"l",critical_apps:"l",chart_criticality:"m",chart_owner:"m",carveout:"l",it_budget:"m",it_patrimoine:"m",flowreg:"l"};
     const [widgetSizes,setWidgetSizes]=useState(function(){try{var s=localStorage.getItem("dash_sizes_"+(projectId||"default"));if(s)return Object.assign({},DEFAULT_SIZES,JSON.parse(s));}catch(e){}return Object.assign({},DEFAULT_SIZES);});
     const saveWidgetSizes=(sz)=>{setWidgetSizes(sz);try{localStorage.setItem("dash_sizes_"+(projectId||"default"),JSON.stringify(sz));}catch(e){}};
     const [hovWid,setHovWid]=useState(null);
-    const [hiddenWidgets,setHiddenWidgets]=useState([]);
+    const hiddenKey="dash_hidden_"+(projectId||"default");
+    const [hiddenWidgets,setHiddenRaw]=useState(function(){try{var s=localStorage.getItem(hiddenKey);if(s){var a=JSON.parse(s);if(Array.isArray(a))return a;}}catch(e){}return[];});
+    const setHiddenWidgets=function(v){
+      setHiddenRaw(function(prev){
+        var next=typeof v==="function"?v(prev):v;
+        try{localStorage.setItem(hiddenKey,JSON.stringify(next));}catch(e){}
+        return next;
+      });
+    };
+    const [showCustom,setShowCustom]=useState(false);
     const [widgetPos,setWidgetPos]=useState(function(){try{var s=localStorage.getItem("dash_pos_v2_"+(projectId||"default"));if(s)return JSON.parse(s);}catch(e){}return{};});
     const saveWidgetPos=function(p){setWidgetPos(p);try{localStorage.setItem("dash_pos_v2_"+(projectId||"default"),JSON.stringify(p));}catch(e){}};
     const [dragInfo,setDragInfo]=useState(null);
@@ -4859,10 +4918,26 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     const [flowMatrixMode,setFlowMatrixMode]=useState("heatmap");
     const [selectedFlowCell,setSelectedFlowCell]=useState(null);
     const [selectedCriticalApp,setSelectedCriticalApp]=useState(null);
-    const CHART_TYPES_DEF={chart_apps:"bar",chart_owner:"donut",chart_statut:"donut"};
+    const CHART_TYPES_DEF={chart_apps:"bar",chart_owner:"donut",it_budget:"bars",it_patrimoine:"bars",chart_criticality:"bars"};
     const [chartTypes,setChartTypes]=useState(Object.assign({},CHART_TYPES_DEF));
     const setChartType=function(id,t){setChartTypes(function(p){return Object.assign({},p,{[id]:t});});};
     const dm=[...new Set(apps.map(a=>a.domain))];
+    const [domFilters,setDomFilters]=useState({});
+    const [expFlow,setExpFlow]=useState(null);
+    const domApps=function(id){var d=domFilters[id];return d?apps.filter(function(a){return a.domain===d;}):apps;};
+    const domFlows=function(id){var d=domFilters[id];if(!d)return flows;var ids={};apps.forEach(function(a){if(a.domain===d)ids[a.id]=1;});return flows.filter(function(f){return ids[f.from]||ids[f.to];});};
+    const DOM_FILTER_IDS=["chart_owner","it_budget","it_patrimoine","carveout"];
+    const CHEV="url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%239aa4c7' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E\")";
+    const WIDGET_SEL_STYLE={background:T.bgAlt+" "+CHEV+" no-repeat right 7px center",color:T.fg,border:"1px solid "+T.border,borderRadius:8,padding:"0 22px 0 10px",fontSize:10.5,fontWeight:600,cursor:"pointer",outline:"none",height:26,boxSizing:"border-box",appearance:"none",WebkitAppearance:"none",maxWidth:150,transition:"border-color .15s, background-color .15s"};
+    const domSel=function(id){
+      var cur=domFilters[id]||"";
+      return <select value={cur} title="Filtrer par domaine" onClick={function(e){e.stopPropagation();}} onMouseDown={function(e){e.stopPropagation();}}
+        onChange={function(e){var v=e.target.value;setDomFilters(function(p){return Object.assign({},p,{[id]:v});});}}
+        style={Object.assign({},WIDGET_SEL_STYLE,cur?{border:"1px solid #6366F1",color:"#818CF8",background:"rgba(99,102,241,0.14) "+CHEV+" no-repeat right 7px center"}:{})}>
+        <option value="" style={{background:T.bgCard,color:T.fg}}>Tous les domaines</option>
+        {dm.slice().sort().map(function(d){return <option key={d} value={d} style={{background:T.bgCard,color:T.fg}}>{d}</option>;})}
+      </select>;
+    };
     const st=dm.map(d=>{const da=apps.filter(a=>a.domain===d);const df=flows.filter(f=>{const fa=apps.find(a=>a.id===f.from);const ta=apps.find(a=>a.id===f.to);return fa?.domain===d||ta?.domain===d;});return{domain:d,count:da.length,flows:df.length,critical:da.filter(a=>a.criticality==="Haute").length,apps:da};});
     const tot=apps.length,totF=flows.length,totC=apps.filter(a=>a.criticality==="Haute").length;
     const mxF=Math.max(...st.map(d=>d.flows),1),mxA=Math.max(...st.map(d=>d.count),1);
@@ -4876,6 +4951,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         <div style={{display:"flex",gap:6,alignItems:"center"}}>{extra}</div>
       </div>;
     };
+    var ITSI_CHART_OPTS=[{k:"bars",label:"Barres"},{k:"columns",label:"Colonnes"},{k:"donut",label:"Donut"},{k:"pie",label:"Camembert"}];
     var buildArcs=function(slices,total,cx,cy,r,ir){
       var cum=0;
       return slices.map(function(sl,i){
@@ -4890,38 +4966,27 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         return{d:d,color:sl.color,name:sl.name,pct:Math.round(sl.value/total*100),value:sl.value,mid:mid,idx:i};
       });
     };
-    var mkChartSwitch=function(id,extraOpts){
+    var mkChartSwitch=function(id,extraOpts,onlyOpts){
       var cur=chartTypes[id]||"donut";
-      var opts=[{k:"donut",label:"Donut"},{k:"pie",label:"Camembert"},{k:"bar",label:"Histogramme"},{k:"area",label:"Aires"}].concat(extraOpts||[]);
+      var opts=onlyOpts||[{k:"donut",label:"Donut"},{k:"pie",label:"Camembert"},{k:"bar",label:"Histogramme"},{k:"area",label:"Aires"}].concat(extraOpts||[]);
       return <select
         value={cur}
         onClick={function(e){e.stopPropagation();}}
         onChange={function(e){e.stopPropagation();setChartType(id,e.target.value);}}
-        style={{
-          background:"rgba(0,0,0,0.55)",
-          color:"#fff",
-          border:"1px solid rgba(255,255,255,0.25)",
-          borderRadius:5,
-          padding:"3px 6px",
-          fontSize:10,
-          cursor:"pointer",
-          backdropFilter:"blur(4px)",
-          outline:"none",
-          marginRight:4,
-          appearance:"auto",
-        }}
+        style={WIDGET_SEL_STYLE}
       >
-        {opts.map(function(o){return <option key={o.k} value={o.k} style={{background:"#1A1A35",color:"#fff"}}>{o.label}</option>;})}
+        {opts.map(function(o){return <option key={o.k} value={o.k} style={{background:T.bgCard,color:T.fg}}>{o.label}</option>;})}
       </select>;
     };
-    var ALL_WIDGETS_LIST=["chart_apps","chart_criticality","critical_apps","flow_matrix","chart_owner","chart_statut",...(projectType==='deal'?["carveout"]:[]),"flowreg"];
-    var getWidgetH=function(id){return{chart_apps:280,chart_criticality:320,critical_apps:480,flow_matrix:460,chart_owner:260,chart_statut:260,carveout:760,flowreg:720}[id]||300;};
-    var buildDashboardLayout=function(columns,columnWidth){
-      var rows=[{ids:["chart_apps","chart_criticality"]},{ids:["critical_apps"],wide:true},{ids:["flow_matrix"],wide:true},{ids:["chart_owner","chart_statut"]}];
+    var ALL_WIDGETS_LIST=["chart_apps","chart_criticality","critical_apps","flow_matrix","chart_owner",...(projectType==='deal'?["carveout"]:[]),"it_budget","it_patrimoine","flowreg"];
+    var getWidgetH=function(id){return{chart_apps:280,chart_criticality:320,critical_apps:480,flow_matrix:460,chart_owner:260,carveout:760,it_budget:560,it_patrimoine:680,flowreg:720}[id]||300;};
+    var buildDashboardLayout=function(columns,columnWidth,hidden){
+      var hid=hidden||[];
+      var rows=[{ids:["chart_apps","chart_criticality"]},{ids:["critical_apps"],wide:true},{ids:["flow_matrix"],wide:true},{ids:["chart_owner"]},{ids:["it_budget","it_patrimoine"]}];
       var fullWidth=columns===1?columnWidth:columnWidth*2+20;
       var layout={};var y=16;
       rows.forEach(function(row){
-        var widgets=row.ids.filter(function(id){return ALL_WIDGETS_LIST.includes(id);});
+        var widgets=row.ids.filter(function(id){        return ALL_WIDGETS_LIST.includes(id)&&!hid.includes(id);});
         if(row.wide){
           var wideId=widgets[0];
           if(wideId){layout[wideId]={x:16,y:y,w:fullWidth,h:getWidgetH(wideId)};y+=getWidgetH(wideId)+32;}
@@ -4934,9 +4999,27 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
           y+=rowHeight+32;
         }
       });
-      if(projectType==="deal"){layout.carveout={x:16,y:y,w:fullWidth,h:getWidgetH("carveout")};y+=getWidgetH("carveout")+32;}
-      layout.flowreg={x:16,y:y,w:fullWidth,h:getWidgetH("flowreg")};
+      if(projectType==="deal"&&!hid.includes("carveout")){layout.carveout={x:16,y:y,w:fullWidth,h:getWidgetH("carveout")};y+=getWidgetH("carveout")+32;}
+      if(!hid.includes("flowreg"))layout.flowreg={x:16,y:y,w:fullWidth,h:getWidgetH("flowreg")};
       return layout;
+    };
+    var relayoutWith=function(hidden){
+      var columns=window.innerWidth<940?1:2;
+      var columnWidth=columns===1?Math.min(600,Math.max(300,window.innerWidth-280)):Math.min(500,Math.max(300,(window.innerWidth-320)/2));
+      saveWidgetPos(buildDashboardLayout(columns,columnWidth,hidden));
+      setHiddenWidgets(hidden);
+    };
+    var WIDGET_THEMES=[
+      {id:"kpi",label:"Indicateurs clés",icon:"◎",color:"#2979FF",desc:"Synthèse chiffrée du périmètre",widgets:[{id:"kpi_bar",label:"Bandeau d'indicateurs"}]},
+      {id:"overview",label:"Vue d'ensemble",icon:"▣",color:"#7C4DFF",desc:"Répartition du patrimoine applicatif",widgets:[{id:"chart_apps",label:"Apps par domaine"},{id:"chart_criticality",label:"Criticité"}]},
+      {id:"risk",label:"Risques & criticité",icon:"⚠",color:"#FF5252",desc:"Applications sensibles à surveiller",widgets:[{id:"critical_apps",label:"Applications critiques"}]},
+      {id:"flows",label:"Flux & interfaces",icon:"⇄",color:"#00C853",desc:"Échanges entre domaines et registre",widgets:[{id:"flow_matrix",label:"Matrice des flux"},{id:"flowreg",label:"Registre des flux"}]},
+      {id:"org",label:"Organisation",icon:"◉",color:"#00B8D4",desc:"Répartition par responsable",widgets:[{id:"chart_owner",label:"Par responsable"}]}
+    ].concat(projectType==="deal"?[{id:"deal",label:"Carve-out & Day 1/2",icon:"✂",color:"#FF9100",desc:"Trajectoire de séparation",widgets:[{id:"carveout",label:"Carve-out"}]}]:[]).concat([{id:"budget",label:"Budget & coûts",icon:"€",color:"#FFB300",desc:"Coûts annuels/mensuels, OPEX/CAPEX, licences",widgets:[{id:"it_budget",label:"Budget & coûts IT"}]},{id:"patrimoine",label:"Patrimoine",icon:"☁",color:"#26A69A",desc:"Hébergement, type d'app, fin de service",widgets:[{id:"it_patrimoine",label:"Patrimoine applicatif"}]}]);
+    var toggleWidgetIds=function(ids,show){
+      var next=hiddenWidgets.filter(function(x){return!ids.includes(x);});
+      if(!show)next=next.concat(ids.filter(function(x){return!next.includes(x);}));
+      relayoutWith(next);
     };
     var getDefaultPos=function(id){
       var columns=window.innerWidth<940?1:2;
@@ -4947,10 +5030,9 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     var optimizeDashboard=function(){
       var columns=window.innerWidth<940?1:2;
       var columnWidth=columns===1?Math.min(600,Math.max(300,window.innerWidth-280)):Math.min(500,Math.max(300,(window.innerWidth-320)/2));
-      var next=buildDashboardLayout(columns,columnWidth);
+      var next=buildDashboardLayout(columns,columnWidth,hiddenWidgets);
       saveWidgetPos(next);
       saveWidgetSizes(Object.assign({},DEFAULT_SIZES));
-      setHiddenWidgets([]);
       setWZIndex({});
     };
     const wrapWidget=function(id,accentColor,title,extraHeader,content,chartSwitcher){
@@ -4968,6 +5050,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
           onMouseLeave={function(){setHovWid(null);}}>
           {/* Controls overlay */}
           <div style={{position:"fixed",top:16,right:16,zIndex:9910,display:"flex",gap:3,alignItems:"center"}}>
+            {DOM_FILTER_IDS.indexOf(id)>=0&&domSel(id)}
             {chartSwitcher}
             <button onClick={function(e){e.stopPropagation();setExpandedWidget(null);}}
               style={{background:"rgba(0,0,0,0.6)",border:"1px solid rgba(255,255,255,0.25)",borderRadius:4,padding:"4px 10px",fontSize:14,cursor:"pointer",color:"#fff",backdropFilter:"blur(4px)"}}
@@ -5011,19 +5094,22 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         }} style={{position:"absolute",top:12,left:12,zIndex:20,opacity:isHov?0.75:0,transition:"opacity 0.12s",pointerEvents:isHov?"all":"none",cursor:"grab",background:"rgba(0,0,0,0.45)",borderRadius:4,padding:"3px 5px",fontSize:13,color:"#fff",userSelect:"none",lineHeight:1,backdropFilter:"blur(4px)"}}
           title="Déplacer">⣿</div>
         {/* Controls */}
-        <div style={{position:"absolute",top:12,right:12,zIndex:20,display:"flex",gap:3,alignItems:"center",opacity:isHov?1:0,transition:"opacity 0.12s",pointerEvents:isHov?"all":"none"}}>
+        <div style={{position:"absolute",top:10,right:10,zIndex:20,display:"flex",gap:6,alignItems:"center",padding:4,borderRadius:12,background:T.bgCard+"E6",border:"1px solid "+T.border,boxShadow:"0 6px 20px rgba(0,0,0,0.28)",backdropFilter:"blur(10px)",opacity:(isHov||domFilters[id])?1:0,transition:"opacity 0.12s",pointerEvents:(isHov||domFilters[id])?"all":"none"}}>
+          {DOM_FILTER_IDS.indexOf(id)>=0&&domSel(id)}
           {chartSwitcher}
+          <div style={{display:"flex",background:T.bgAlt,border:"1px solid "+T.border,borderRadius:8,padding:2,gap:1}}>
           {[{k:"s",t:"Compact"},{k:"m",t:"Moyen"},{k:"l",t:"Large"}].map(function(sz){
             var isAct=size===sz.k;
             return <button key={sz.k} onClick={function(e){e.stopPropagation();var ns=Object.assign({},widgetSizes);ns[id]=sz.k;saveWidgetSizes(ns);}}
-              style={{background:isAct?"rgba(255,255,255,0.25)":"rgba(0,0,0,0.4)",border:"1px solid "+(isAct?"rgba(255,255,255,0.5)":"transparent"),borderRadius:4,padding:"2px 7px",fontSize:9,cursor:"pointer",color:"#fff",fontWeight:isAct?700:400,backdropFilter:"blur(4px)"}}
+              style={{background:isAct?"#6366F1":"transparent",border:"none",borderRadius:6,width:22,height:20,fontSize:9.5,cursor:"pointer",color:isAct?"#fff":T.fgMuted,fontWeight:700,transition:"all .15s"}}
               title={sz.t}>{sz.k.toUpperCase()}</button>;
           })}
+          </div>
           <button onClick={function(e){e.stopPropagation();setExpandedWidget(id);}}
-            style={{background:"rgba(0,0,0,0.4)",border:"1px solid transparent",borderRadius:4,padding:"2px 8px",fontSize:13,cursor:"pointer",color:"rgba(255,255,255,0.8)",backdropFilter:"blur(4px)"}}
-            title="Agrandir">⛶</button>
+            style={{background:T.bgAlt,border:"1px solid "+T.border,borderRadius:8,width:26,height:26,cursor:"pointer",color:T.fgMuted,display:"flex",alignItems:"center",justifyContent:"center",padding:0}} onMouseEnter={function(e){e.currentTarget.style.color="#818CF8";e.currentTarget.style.borderColor="#6366F1";}} onMouseLeave={function(e){e.currentTarget.style.color=T.fgMuted;e.currentTarget.style.borderColor=T.border;}}
+            title="Agrandir"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button>
           <button onClick={function(e){e.stopPropagation();setHiddenWidgets(function(p){return[...p,id];});}}
-            style={{background:"rgba(0,0,0,0.4)",border:"1px solid transparent",borderRadius:4,padding:"3px 7px",cursor:"pointer",color:"rgba(255,255,255,0.8)",backdropFilter:"blur(4px)",marginLeft:2,display:"flex",alignItems:"center",justifyContent:"center"}}
+            style={{background:T.bgAlt,border:"1px solid "+T.border,borderRadius:8,width:26,height:26,cursor:"pointer",color:T.fgMuted,display:"flex",alignItems:"center",justifyContent:"center",padding:0}} onMouseEnter={function(e){e.currentTarget.style.color="#818CF8";e.currentTarget.style.borderColor="#6366F1";}} onMouseLeave={function(e){e.currentTarget.style.color=T.fgMuted;e.currentTarget.style.borderColor=T.border;}}
             title="Masquer">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <ellipse cx="12" cy="12" rx="10" ry="6.5"/>
@@ -5067,17 +5153,56 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
         <div><h2 style={{fontSize:24,fontWeight:700,margin:0}}>Dashboard Interfaces</h2><p style={{color:T.fgMuted,fontSize:13,marginTop:4}}>Vue d'ensemble des domaines et flux applicatifs</p></div>
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
-          {hiddenWidgets.length>0&&<button onClick={function(){setHiddenWidgets([]);}} style={{background:T.bgAlt,border:"1px solid "+T.border,color:T.fg,borderRadius:9,padding:"8px 12px",fontSize:11,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>
+          <button onClick={function(){setShowCustom(function(p){return!p;});}} style={{background:showCustom?"linear-gradient(135deg,#2979FF,#00B8D4)":T.bgAlt,border:"1px solid "+(showCustom?"transparent":T.border),color:showCustom?"#fff":T.fg,borderRadius:9,padding:"8px 12px",fontSize:11,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6}} title="Choisir les thèmes et widgets affichés">
+            <span aria-hidden="true">⚙</span> Personnaliser
+            <span style={{background:showCustom?"rgba(255,255,255,.25)":"rgba(41,121,255,.15)",color:showCustom?"#fff":"#2979FF",borderRadius:10,padding:"1px 7px",fontSize:10}}>{ALL_WIDGETS_LIST.filter(function(id){return!hiddenWidgets.includes(id);}).length}/{ALL_WIDGETS_LIST.length}</span>
+          </button>
+          {hiddenWidgets.length>0&&<button onClick={function(){relayoutWith([]);}} style={{background:T.bgAlt,border:"1px solid "+T.border,color:T.fg,borderRadius:9,padding:"8px 12px",fontSize:11,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>
             👁 Afficher ({hiddenWidgets.length})
           </button>}
-          <button className="dashboard-optimize-button" onClick={optimizeDashboard} title="Réafficher tous les widgets et organiser automatiquement le cockpit">
+          <button className="dashboard-optimize-button" onClick={optimizeDashboard} title="Réorganiser automatiquement les widgets affichés">
             <span aria-hidden="true">✦</span> Optimiser le cockpit
           </button>
           <button onClick={function(){saveWidgetPos({});saveWidgetSizes(Object.assign({},DEFAULT_SIZES));setHiddenWidgets([]);setWZIndex({});}} style={{background:"transparent",border:"1px solid "+T.border,color:T.fgMuted,borderRadius:9,padding:"8px 12px",fontSize:11,cursor:"pointer"}} title="Réinitialiser la disposition">↺ Reset</button>
         </div>
       </div>
+      {showCustom&&<div style={{background:T.bgCard,border:"1px solid "+T.border,borderRadius:14,padding:18,marginBottom:20,boxShadow:T.shadow}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,gap:10,flexWrap:"wrap"}}>
+          <div><div style={{fontSize:14,fontWeight:700}}>Personnaliser le dashboard</div><div style={{fontSize:11,color:T.fgMuted,marginTop:2}}>Cochez les thèmes ou widgets à afficher — votre choix est mémorisé pour ce projet.</div></div>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={function(){relayoutWith([]);}} style={{background:T.bgAlt,border:"1px solid "+T.border,color:T.fg,borderRadius:8,padding:"6px 11px",fontSize:11,fontWeight:600,cursor:"pointer"}}>Tout afficher</button>
+            <button onClick={function(){relayoutWith(ALL_WIDGETS_LIST.concat(["kpi_bar"]));}} style={{background:T.bgAlt,border:"1px solid "+T.border,color:T.fg,borderRadius:8,padding:"6px 11px",fontSize:11,fontWeight:600,cursor:"pointer"}}>Tout masquer</button>
+            <button onClick={function(){setShowCustom(false);}} style={{background:"transparent",border:"1px solid "+T.border,color:T.fgMuted,borderRadius:8,padding:"6px 11px",fontSize:11,cursor:"pointer"}}>Fermer</button>
+          </div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:12}}>
+          {WIDGET_THEMES.map(function(th){
+            var ids=th.widgets.map(function(w){return w.id;});
+            var shown=ids.filter(function(i){return!hiddenWidgets.includes(i);}).length;
+            var allOn=shown===ids.length;
+            return <div key={th.id} style={{border:"1px solid "+(shown>0?th.color+"55":T.border),borderRadius:12,padding:12,background:shown>0?th.color+"0D":"transparent",opacity:shown>0?1:.7,transition:"all .2s"}}>
+              <div onClick={function(){toggleWidgetIds(ids,!allOn);}} style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}}>
+                <div style={{width:34,height:34,borderRadius:10,background:th.color+"22",color:th.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:700,flexShrink:0}}>{th.icon}</div>
+                <div style={{flex:1,minWidth:0}}><div style={{fontSize:12.5,fontWeight:700}}>{th.label}</div><div style={{fontSize:10.5,color:T.fgMuted}}>{th.desc}</div></div>
+                <div role="switch" aria-checked={shown>0} style={{width:34,height:19,borderRadius:10,background:shown>0?th.color:T.border,position:"relative",flexShrink:0,transition:"background .2s"}}>
+                  <div style={{position:"absolute",top:2,left:shown>0?17:2,width:15,height:15,borderRadius:"50%",background:"#fff",transition:"left .2s"}}/>
+                </div>
+              </div>
+              <div style={{marginTop:10,display:"flex",flexDirection:"column",gap:5}}>
+                {th.widgets.map(function(w){
+                  var on=!hiddenWidgets.includes(w.id);
+                  return <label key={w.id} style={{display:"flex",alignItems:"center",gap:8,fontSize:11.5,cursor:"pointer",padding:"4px 6px",borderRadius:7,background:on?th.color+"14":"transparent"}}>
+                    <input type="checkbox" checked={on} onChange={function(){toggleWidgetIds([w.id],!on);}} style={{accentColor:th.color}}/>
+                    <span style={{color:on?T.fg:T.fgMuted}}>{w.label}</span>
+                  </label>;
+                })}
+              </div>
+            </div>;
+          })}
+        </div>
+      </div>}
       {/* KPIs — barre horizontale unifiée */}
-      {function(){
+      {!hiddenWidgets.includes("kpi_bar")&&function(){
         var kpis=[
           {l:"Applications",v:tot,c:"#2979FF",glow:"rgba(41,121,255,0.18)",icon:"▣",key:""},
           {l:"Interfaces",v:totF,c:"#00C853",glow:"rgba(0,200,83,0.18)",icon:"⇄",key:""},
@@ -5103,7 +5228,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         </div>;
       }()}
       
-      <div style={{position:"relative",width:"100%",minHeight:Math.max(1800,...ALL_WIDGETS_LIST.map(function(id){var pos=widgetPos[id]||getDefaultPos(id);return(pos.y||0)+(pos.h||340)+64;}))}}>
+      <div style={{position:"relative",width:"100%",minHeight:Math.max(hiddenWidgets.length>=ALL_WIDGETS_LIST.length?300:1000,...ALL_WIDGETS_LIST.filter(function(id){return!hiddenWidgets.includes(id);}).map(function(id){var pos=widgetPos[id]||getDefaultPos(id);return(pos.y||0)+(pos.h||340)+64;}))}}>
       {ALL_WIDGETS_LIST.filter(function(id){return!hiddenWidgets.includes(id);}).map(function(sid){
         if(sid==="chart_apps")return wrapWidget(sid,"#7C4DFF","Apps par domaine",null,function(isExpanded,ww,wh){
           var barData=[...st].sort(function(a,b){return b.count-a.count;});
@@ -5400,6 +5525,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
           </div>;
         },mkChartSwitch(sid,[{k:"hbar",label:"Barres In/Out"}]));
         if(sid==="chart_owner")return wrapWidget(sid,"#6366F1","Apps par responsable",null,function(isExpanded,ww,wh){
+          var apps=domApps(sid);
           var ownerMap={};
           apps.forEach(function(a){var o=a.owner&&a.owner.trim()?a.owner.trim():"Non renseigné";ownerMap[o]=(ownerMap[o]||0)+1;});
           var allOwners=Object.entries(ownerMap).map(function(e){return{owner:e[0],count:e[1]};}).sort(function(a,b){return b.count-a.count;});
@@ -5526,6 +5652,33 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
               <div style={{flex:1}}><div style={{fontSize:12,fontWeight:750,color:T.fg}}>Criticité des applications</div><div style={{fontSize:9,color:T.fgMuted,marginTop:2}}>Répartition réelle du portefeuille</div></div>
               <div style={{textAlign:"right"}}><div style={{fontSize:20,fontWeight:800,color:"#EF4444",lineHeight:1}}>{totC}</div><div style={{fontSize:9,color:T.fgMuted,marginTop:3}}>haute · {criticalPct}%</div></div>
             </div>
+            {(chartTypes.chart_criticality==="matrix")?function(){
+              var isNR=function(a){return!["Haute","Moyenne","Basse"].includes(a.criticality);};
+              var inCell=function(r,c){return r.apps.filter(function(a){return c.label==="Non renseignée"?isNR(a):a.criticality===c.label;});};
+              var cols=levels.filter(function(l){return l.label!=="Non renseignée"||l.count>0;});
+              var rowsM=st.map(function(d){return{domain:d.domain,apps:d.apps};}).sort(function(a,b){return b.apps.length-a.apps.length;});
+              var maxCell=1;
+              rowsM.forEach(function(r){cols.forEach(function(c){var n=inCell(r,c).length;if(n>maxCell)maxCell=n;});});
+              return <div style={{overflow:"auto",flex:(isExpanded||wh)?1:undefined,minHeight:0}}>
+                <div style={{display:"grid",gridTemplateColumns:"minmax(80px,1.2fr) repeat("+cols.length+",minmax(56px,1fr))",gap:4,fontSize:10}}>
+                  <div/>
+                  {cols.map(function(c){return <div key={c.label} style={{textAlign:"center",fontWeight:800,color:c.color,padding:"4px 2px",fontSize:9.5}}>{c.label}</div>;})}
+                  {rowsM.map(function(r){
+                    return [<div key={r.domain+"-l"} style={{display:"flex",alignItems:"center",gap:6,color:T.fg,fontWeight:700,minWidth:0}}><span style={{width:7,height:7,borderRadius:2,background:(DC[r.domain]||DC.Autre).ac,flexShrink:0}}/><span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={r.domain}>{r.domain}</span></div>].concat(cols.map(function(c){
+                      var list=inCell(r,c);
+                      var alpha=list.length?(0.14+0.5*list.length/maxCell):0;
+                      return <div key={r.domain+c.label} title={list.length?c.label+" · "+r.domain+" : "+list.map(function(a){return a.name;}).join(", "):"Aucune application"}
+                        onClick={list.length?function(){setSelApp(list[0]);}:undefined}
+                        style={{minHeight:42,borderRadius:8,background:list.length?c.color+Math.round(alpha*255).toString(16).padStart(2,"0"):T.bgAlt,border:"1px solid "+(list.length?c.color+"55":T.border),display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"3px 2px",cursor:list.length?"pointer":"default"}}>
+                        <span style={{fontSize:15,fontWeight:850,color:list.length?T.fg:T.fgFaint}}>{list.length||"·"}</span>
+                        {list.length>0&&<span style={{fontSize:8,color:T.fgMuted,maxWidth:"100%",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{list.slice(0,2).map(function(a){return a.name;}).join(", ")}{list.length>2?" +"+(list.length-2):""}</span>}
+                      </div>;
+                    }));
+                  })}
+                </div>
+                <div style={{fontSize:9,color:T.fgMuted,marginTop:10}}>Domaine × criticité · cliquez une case pour ouvrir une application</div>
+              </div>;
+            }():<>
             <div style={{display:"flex",height:10,borderRadius:8,overflow:"hidden",background:T.border,marginBottom:16}}>
               {levels.map(function(level){return level.count>0&&<div key={level.label} title={level.label+": "+level.count} style={{width:level.pct+"%",background:"linear-gradient(90deg,"+level.color+"99,"+level.color+")",transition:"width .6s cubic-bezier(.16,1,.3,1)"}}/>;})}
             </div>
@@ -5537,9 +5690,9 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
                 </div>
                 <div className="dashboard-meter-track"><span style={{width:level.pct+"%",background:"linear-gradient(90deg,"+level.color+"99,"+level.color+")"}}/></div>
               </div>;})}
-            </div>
+            </div></>}
           </div>;
-        });
+        },mkChartSwitch("chart_criticality",null,[{k:"bars",label:"Répartition"},{k:"matrix",label:"Matrice"}]));
         if(sid==="critical_apps")return wrapWidget(sid,"#EF4444","Top 10 — Applications critiques",null,function(isExpanded,ww,wh){
           var severityWeight={Critique:4,Haute:3,Moyenne:2,Basse:1};
           var severityColor={Critique:"#B91C1C",Haute:"#EF4444",Moyenne:"#F59E0B",Basse:"#10B981"};
@@ -5586,116 +5739,16 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
             </>}
           </div>;
         });
-        if(sid==="chart_statut")return wrapWidget(sid,"#06B6D4","Répartition par statut",null,function(isExpanded,ww,wh){
-          var stMap={};
-          apps.forEach(function(a){var s=a.statut&&a.statut.trim()?a.statut.trim():"Non défini";stMap[s]=(stMap[s]||0)+1;});
-          var allStatuts=STATUT_OPTS.filter(function(v){return v;}).map(function(v){return{statut:v,count:stMap[v]||0};}).filter(function(d){return d.count>0;});
-          var undef=stMap["Non défini"]||0;
-          var displaySlices=allStatuts.concat(undef>0?[{statut:"Non défini",count:undef,isNA:true}]:[]);
-          var total5=apps.length||1;
-          var definedN=total5-undef;var definedPct=Math.round(definedN/total5*100);
-          var statutCount=allStatuts.length;
-          var ctype=chartTypes[sid]||"donut";
-          var stSlices=displaySlices.map(function(d){
-            return{name:d.statut,value:d.count,color:d.isNA?"#455A64":(STATUT_COLORS[d.statut]||"#9CA3AF"),isNA:d.isNA||false};
-          });
-          var cw=ww||500;var isNarrow=!isExpanded&&cw<420;
-          var donutSz=isExpanded?320:Math.min(140,Math.max(96,cw/2.6));
-          var donutR=Math.round(donutSz*0.434);var donutIr=Math.round(donutSz*0.276);
-          var donutCx=Math.round(donutSz/2);var donutCy=Math.round(donutSz/2);
-          var renderCircle=function(useHole){
-            var arcs=buildArcs(stSlices,total5,donutCx,donutCy,donutR,useHole?donutIr:0);
-            var isHovSt=hovSlice&&hovSlice.id==="statut";
-            return <div style={{display:"flex",flexDirection:isNarrow?"column":"row",gap:isExpanded?28:(isNarrow?6:12),alignItems:isNarrow?"flex-start":"flex-start",flex:isExpanded?1:undefined,minHeight:0}}>
-              <svg width={donutSz} height={donutSz} viewBox={"0 0 "+(donutCx*2)+" "+(donutCy*2)} style={{flexShrink:0}} onMouseLeave={function(){setHovSlice(null);clearTip();}}>
-                {arcs.map(function(p,i){
-                  var sl=stSlices[i]||{};
-                  var h=isHovSt&&hovSlice.idx===p.idx;
-                  var tx=h?Math.cos(p.mid)*6:0;var ty=h?Math.sin(p.mid)*6:0;
-                  var op=isHovSt?(h?1:0.2):(sl.isNA?0.38:0.88);
-                  return <path key={p.idx} d={p.d} fill={p.color} opacity={op} stroke={T.bg} strokeWidth="2.5"
-                    transform={"translate("+tx.toFixed(1)+","+ty.toFixed(1)+")"}
-                    style={{cursor:"pointer",transition:"opacity 0.12s"}}
-                    onMouseMove={function(e){setHovSlice({id:"statut",idx:p.idx});setChartTip({x:e.clientX,y:e.clientY,label:p.name,val:p.value+" apps",pct:sl.isNA?null:p.pct});}}
-                    onMouseLeave={function(){setHovSlice(null);clearTip();}}
-                    onClick={function(){setSelStatut(function(prev){return prev===sl.name?"":sl.name;});}}/>;
-                })}
-                {useHole&&<text x={donutCx} y={donutCy-3} textAnchor="middle" fill={T.fg} fontSize={isExpanded?34:Math.round(donutSz*0.17)} fontWeight="800">{statutCount}</text>}
-                {useHole&&<text x={donutCx} y={donutCy+Math.round(donutSz*0.1)} textAnchor="middle" fill={T.fgMuted} fontSize={Math.max(5,Math.round(donutSz*0.048))} letterSpacing="0.06em">STATUTS</text>}
-              </svg>
-              <div style={{flex:1,minWidth:0,maxHeight:isExpanded?360:(isNarrow?110:150),overflowY:"auto",paddingRight:2}}>
-                {stSlices.map(function(p){return <div key={p.name} onClick={function(){setSelStatut(function(prev){return prev===p.name?"":prev===""?p.name:prev;});}} style={{display:"flex",alignItems:"center",gap:5,marginBottom:isNarrow?3:5,cursor:"pointer"}}>
-                  <div style={{width:6,height:6,borderRadius:"50%",background:p.color,flexShrink:0,opacity:p.isNA?0.5:1}}/>
-                  <span style={{fontSize:10,color:p.isNA?T.fgMuted:T.fg,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontStyle:p.isNA?"italic":"normal"}}>{p.name}</span>
-                  <span style={{fontSize:10,fontWeight:700,color:p.color,opacity:p.isNA?0.7:1}}>{p.value}</span>
-                </div>;})}
-              </div>
-            </div>;
-          };
-          var renderBarV=function(){
-            var sorted=[...stSlices].sort(function(a,b){return b.value-a.value;});
-            var mx5=Math.max.apply(null,sorted.map(function(s){return s.value;}))||1;
-            var W=isExpanded?560:Math.max(160,cw-56);var H=isExpanded?300:180;
-            var pad={l:40,r:10,t:30,b:50};var n=sorted.length;
-            var bW=Math.max(6,Math.floor((W-pad.l-pad.r)/n*0.55));
-            var gap=(W-pad.l-pad.r)/n;
-            return <div style={{overflowX:"auto"}}>
-              <svg width={W} height={H} style={{overflow:"visible"}}>
-                <line x1={pad.l} y1={pad.t} x2={pad.l} y2={H-pad.b} stroke={T.border} strokeWidth="1"/>
-                <line x1={pad.l} y1={H-pad.b} x2={W-pad.r} y2={H-pad.b} stroke={T.border} strokeWidth="1"/>
-                {sorted.map(function(sl,i){
-                  var bh=Math.max(2,(sl.value/mx5)*(H-pad.t-pad.b));
-                  var x=pad.l+i*gap+gap/2-bW/2;var y=H-pad.b-bh;
-                  var label=sl.name;
-                  return <g key={sl.name} style={{cursor:"pointer"}}
-                    onMouseMove={function(e){setChartTip({x:e.clientX,y:e.clientY,label:sl.name,val:sl.value+" apps",pct:Math.round(sl.value/total5*100)});}}
-                    onMouseLeave={clearTip}
-                    onClick={function(){setSelStatut(function(prev){return prev===sl.name?"":sl.name;});}}>
-                    <rect x={x} y={y} width={bW} height={bh} fill={sl.color} rx="3" opacity={sl.isNA?0.38:0.85}/>
-                    <text x={x+bW/2} y={y-5} textAnchor="middle" fill={sl.color} fontSize="10" fontWeight="700">{sl.value}</text>
-                    <text x={x+bW/2} y={H-pad.b+14} textAnchor="middle" fill={T.fgMuted} fontSize="7" transform={"rotate(-30,"+(x+bW/2)+","+(H-pad.b+14)+")"}>{label.length>9?label.slice(0,8)+"…":label}</text>
-                  </g>;
-                })}
-              </svg>
-            </div>;
-          };
-          var renderArea=function(){
-            var sorted=[...stSlices].sort(function(a,b){return b.value-a.value;});
-            var W=isExpanded?560:280;var H=isExpanded?280:150;var n=sorted.length;var maxV=Math.max.apply(null,sorted.map(function(s){return s.value;}))||1;
-            if(n<2)return renderBarV();
-            var pts=sorted.map(function(sl,i){return{x:40+i*(W-80)/(n-1),y:(1-sl.value/maxV)*(H-60)+20,sl:sl};});
-            var areaD="M"+pts[0].x+" "+(H-30)+" L"+pts.map(function(p){return p.x+" "+p.y;}).join(" L ")+" L"+pts[pts.length-1].x+" "+(H-30)+" Z";
-            var lineD="M"+pts.map(function(p){return p.x+" "+p.y;}).join(" L ");
-            var gradId="stg_"+sid;
-            return <div style={{flex:isExpanded?1:undefined,minHeight:0}}>
-              <svg width={W} height={H} style={{overflow:"visible"}}>
-                <defs><linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#06B6D4" stopOpacity="0.5"/><stop offset="100%" stopColor="#06B6D4" stopOpacity="0.04"/></linearGradient></defs>
-                <path d={areaD} fill={"url(#"+gradId+")"} />
-                <path d={lineD} fill="none" stroke="#06B6D4" strokeWidth="2"/>
-                {pts.map(function(p,i){return <g key={i}>
-                  <circle cx={p.x} cy={p.y} r="4" fill={p.sl.color} stroke={T.bg} strokeWidth="2"
-                    onMouseMove={function(e){setChartTip({x:e.clientX,y:e.clientY,label:p.sl.name,val:p.sl.value+" apps",pct:Math.round(p.sl.value/total5*100)});}}
-                    onMouseLeave={clearTip}/>
-                  <text x={p.x} y={p.y-10} textAnchor="middle" fill={p.sl.color} fontSize="10" fontWeight="700">{p.sl.value}</text>
-                  <text x={p.x} y={H-14} textAnchor="middle" fill={T.fgMuted} fontSize="8">{p.sl.name.length>6?p.sl.name.slice(0,5)+"…":p.sl.name}</text>
-                </g>;})}
-              </svg>
-            </div>;
-          };
-          return <div style={{background:T.bgCard,borderRadius:12,padding:18,boxShadow:"0 1px 4px rgba(0,0,0,0.14), 0 0 0 1px "+T.border,height:(isExpanded||wh)?"100%":undefined,display:(isExpanded||wh)?"flex":undefined,flexDirection:(isExpanded||wh)?"column":undefined}}>
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
-              <div style={{width:3,height:15,borderRadius:2,background:"#06B6D4",flexShrink:0}}/>
-              <span style={{fontSize:12,fontWeight:700,color:T.fg}}>Répartition par statut</span>
-              <span style={{fontSize:9,color:T.fgMuted,marginLeft:"auto"}}>{definedN}/{total5} définies ({definedPct}%)</span>
-            </div>
-            <div style={{flex:isExpanded?1:undefined,minHeight:0}}>
-              {ctype==="donut"?renderCircle(true):ctype==="pie"?renderCircle(false):ctype==="bar"?renderBarV():renderArea()}
-            </div>
-          </div>;
-        },mkChartSwitch(sid));
+        if(sid==="it_budget")return wrapWidget(sid,"#10B981","Budget & coûts IT",null,function(isExpanded,ww,wh){
+          return <ItsiBudgetWidget apps={domApps("it_budget")} T={T} expanded={isExpanded} fillHeight={!!(isExpanded||wh)} colorOf={function(d){return (DC[d]||DC.Autre).ac;}} chartType={chartTypes.it_budget||"bars"}/>;
+        },mkChartSwitch("it_budget",null,ITSI_CHART_OPTS));
+        if(sid==="it_patrimoine")return wrapWidget(sid,"#6366F1","Patrimoine applicatif",null,function(isExpanded,ww,wh){
+          return <ItsiPatrimoineWidget apps={domApps("it_patrimoine")} T={T} expanded={isExpanded} fillHeight={!!(isExpanded||wh)} chartType={chartTypes.it_patrimoine||"bars"}/>;
+        },mkChartSwitch("it_patrimoine",null,ITSI_CHART_OPTS));
         if(sid==="carveout")return wrapWidget(sid,"#F59E0B","Trajectoires D1/D2",null,<div style={{background:T.bgCard,borderRadius:8,padding:20,border:"1px solid #F59E0B44"}}>
         <SectionHdr id="carveout" title="Trajectoires Carve-Out — Suivi Day 1 / Day 2"/>
         {!hiddenSections.includes("carveout")&&function(){
+          var apps=domApps("carveout");var flows=domFlows("carveout");
           var d1Def=apps.filter(function(a){return a.statusD1;});
           var d2Def=apps.filter(function(a){return a.statusD2;});
           var riskApps=apps.filter(function(a){return a.statusD1==="Abandon"&&flows.some(function(f){return f.from===a.id||f.to===a.id;});});
@@ -5866,32 +5919,57 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
                 ⬇ CSV
               </button>
             </div>
-            <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
-              <thead>
-                <tr style={{borderBottom:"2px solid "+T.border}}>
-                  <th style={{padding:"6px 8px",textAlign:"left",color:T.fgMuted,fontWeight:600,fontSize:9,textTransform:"uppercase"}}>ID</th>
-                  <th style={{padding:"6px 8px",textAlign:"left",color:T.fgMuted,fontWeight:600,fontSize:9,textTransform:"uppercase"}}>Source</th>
-                  <th style={{padding:"6px 2px",width:16}}></th>
-                  <th style={{padding:"6px 8px",textAlign:"left",color:T.fgMuted,fontWeight:600,fontSize:9,textTransform:"uppercase"}}>Cible</th>
-                  <th style={{padding:"6px 8px",textAlign:"center",color:T.fgMuted,fontWeight:600,fontSize:9,textTransform:"uppercase"}}>Protocole</th>
-                  <th style={{padding:"6px 8px",textAlign:"left",color:T.fgMuted,fontWeight:600,fontSize:9,textTransform:"uppercase"}}>Fréquence</th>
-                  <th style={{padding:"6px 8px",textAlign:"left",color:T.fgMuted,fontWeight:600,fontSize:9,textTransform:"uppercase"}}>Description</th>
-                </tr>
-              </thead>
-              <tbody>{filtered2.map(function(e){
-                var faAc=(DC[e.srcDom]||DC.Autre).ac;
-                var taAc=(DC[e.tgtDom]||DC.Autre).ac;
-                return <tr key={e.f.id} style={{borderBottom:"1px solid "+T.borderLight}}>
-                  <td style={{padding:"8px",color:T.fgDim,fontSize:10,fontFamily:"monospace"}}>{"F-"+(e.f.order||e.fi+1)}</td>
-                  <td style={{padding:"8px"}}><div style={{fontWeight:600,color:T.fg,fontSize:11}}>{e.srcName}</div><div style={{fontSize:9,color:faAc}}>{e.srcDom}</div></td>
-                  <td style={{padding:"2px",textAlign:"center",color:T.fgFaint,fontSize:12}}>→</td>
-                  <td style={{padding:"8px"}}><div style={{fontWeight:600,color:T.fg,fontSize:11}}>{e.tgtName}</div><div style={{fontSize:9,color:taAc}}>{e.tgtDom}</div></td>
-                  <td style={{padding:"8px",textAlign:"center"}}><span style={{background:faAc+"20",color:faAc,padding:"2px 8px",borderRadius:4,fontSize:9,fontWeight:600}}>{e.proto||"?"}</span></td>
-                  <td style={{padding:"8px",color:T.fg,fontSize:10}}>{e.freq||"\u2014"}</td>
-                  <td style={{padding:"8px",color:T.fgMuted,fontSize:10,maxWidth:180,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.desc||"\u2014"}</td>
-                </tr>;
-              })}</tbody>
-            </table></div>
+            {function(){
+              var protoCount={};enriched.forEach(function(e){if(e.proto)protoCount[e.proto]=(protoCount[e.proto]||0)+1;});
+              var protoList=Object.keys(protoCount).sort(function(x,y){return protoCount[y]-protoCount[x];}).slice(0,8);
+              var cols="52px minmax(0,1fr) 120px minmax(0,1fr) 84px";
+              var hd={fontSize:9,color:T.fgMuted,fontWeight:700,textTransform:"uppercase",letterSpacing:0.5};
+              var chip=function(active,col){return {background:active?col+"25":T.bgAlt,color:active?col:T.fgMuted,border:"1px solid "+(active?col:T.border),borderRadius:14,padding:"3px 10px",fontSize:10,fontWeight:600,cursor:"pointer"};};
+              var openApp=function(name,ev){ev.stopPropagation();var ap=apps.find(function(a){return a.name===name;});if(ap)setSelApp(ap);};
+              var domPill=function(dom,isSrc){var ac=(DC[dom]||DC.Autre).ac;var on=(isSrc?fSrcDom:fTgtDom)===dom;return <span title={"Filtrer : domaine "+dom} onClick={function(ev){ev.stopPropagation();if(isSrc)setFSrcDom(on?"":dom);else setFTgtDom(on?"":dom);}} style={{fontSize:9,fontWeight:700,color:ac,background:ac+(on?"40":"18"),border:"1px solid "+ac+(on?"":"40"),borderRadius:10,padding:"1px 7px",cursor:"pointer",whiteSpace:"nowrap"}}>{dom}</span>;};
+              return <div>
+                {protoList.length>0&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10,alignItems:"center"}}>
+                  <span style={{fontSize:9,color:T.fgMuted,fontWeight:700,textTransform:"uppercase"}}>Protocole</span>
+                  {protoList.map(function(pr){return <span key={pr} onClick={function(){setFProto(fProto===pr?"":pr);}} style={chip(fProto===pr,"#2979FF")}>{pr} <b style={{opacity:0.7}}>{protoCount[pr]}</b></span>;})}
+                </div>}
+                <div style={{border:"1px solid "+T.border,borderRadius:10,overflow:"hidden"}}>
+                  <div style={{display:"grid",gridTemplateColumns:cols,gap:8,padding:"8px 12px",background:T.bgAlt,borderBottom:"1px solid "+T.border}}>
+                    <span style={hd}>ID</span><span style={hd}>Source</span><span style={{...hd,textAlign:"center"}}>Échange</span><span style={hd}>Cible</span><span style={{...hd,textAlign:"right"}}>Fréquence</span>
+                  </div>
+                  <div style={{maxHeight:520,overflowY:"auto"}}>
+                    {filtered2.length===0&&<div style={{padding:28,textAlign:"center",color:T.fgMuted,fontSize:11}}>Aucun flux ne correspond aux filtres.{hasFilter&&<span> <a onClick={clearAll} style={{color:"#2979FF",cursor:"pointer"}}>Effacer les filtres</a></span>}</div>}
+                    {filtered2.map(function(e){
+                      var faAc=(DC[e.srcDom]||DC.Autre).ac;var taAc=(DC[e.tgtDom]||DC.Autre).ac;
+                      var open=expFlow===e.f.id;
+                      return <div key={e.f.id} style={{borderBottom:"1px solid "+T.borderLight,borderLeft:"3px solid "+faAc,background:open?T.bgAlt:"transparent"}}>
+                        <div onClick={function(){setExpFlow(open?null:e.f.id);}} onMouseEnter={function(ev){if(!open)ev.currentTarget.style.background=T.bgHover;}} onMouseLeave={function(ev){ev.currentTarget.style.background="transparent";}}
+                          style={{display:"grid",gridTemplateColumns:cols,gap:8,padding:"10px 12px",alignItems:"center",cursor:"pointer"}}>
+                          <span style={{color:T.fgDim,fontSize:10,fontFamily:"monospace"}}>{"F-"+(e.f.order||e.fi+1)}</span>
+                          <div style={{minWidth:0}}><div style={{fontWeight:700,color:T.fg,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.srcName}</div>{domPill(e.srcDom,true)}</div>
+                          <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
+                            <span style={{background:faAc+"20",color:faAc,padding:"1px 8px",borderRadius:10,fontSize:9,fontWeight:700,maxWidth:116,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.proto||"?"}</span>
+                            <div style={{display:"flex",alignItems:"center",width:"100%"}}><div style={{flex:1,height:2,background:"linear-gradient(90deg,"+faAc+","+taAc+")",borderRadius:1}}/><span style={{color:taAc,fontSize:10,lineHeight:1,marginLeft:-2}}>▶</span></div>
+                          </div>
+                          <div style={{minWidth:0}}><div style={{fontWeight:700,color:T.fg,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.tgtName}</div>{domPill(e.tgtDom,false)}</div>
+                          <span style={{textAlign:"right",color:T.fgMuted,fontSize:10,display:"flex",justifyContent:"flex-end",alignItems:"center",gap:6}}>{e.freq||"\u2014"}<span style={{color:T.fgDim,fontSize:9,transform:open?"rotate(90deg)":"none",transition:"transform .15s"}}>▶</span></span>
+                        </div>
+                        {open&&<div style={{padding:"4px 14px 14px 68px",display:"flex",flexDirection:"column",gap:8}}>
+                          <div style={{fontSize:11,color:T.fg,lineHeight:1.5}}>{e.desc||<span style={{color:T.fgMuted}}>Aucune description renseign?e.</span>}</div>
+                          <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+                            <span style={{fontSize:10,color:T.fgMuted}}>Protocole : <b style={{color:T.fg}}>{e.proto||"?"}</b></span>
+                            <span style={{fontSize:10,color:T.fgMuted}}>· Fréquence : <b style={{color:T.fg}}>{e.freq||"\u2014"}</b></span>
+                            <span style={{marginLeft:"auto",display:"flex",gap:6}}>
+                              <button onClick={function(ev){openApp(e.srcName,ev);}} style={{background:faAc+"20",color:faAc,border:"1px solid "+faAc+"55",borderRadius:6,padding:"4px 10px",fontSize:10,fontWeight:600,cursor:"pointer"}}>Ouvrir {e.srcName}</button>
+                              <button onClick={function(ev){openApp(e.tgtName,ev);}} style={{background:taAc+"20",color:taAc,border:"1px solid "+taAc+"55",borderRadius:6,padding:"4px 10px",fontSize:10,fontWeight:600,cursor:"pointer"}}>Ouvrir {e.tgtName}</button>
+                            </span>
+                          </div>
+                        </div>}
+                      </div>;
+                    })}
+                  </div>
+                </div>
+              </div>;
+            }()}
           </div></div>;
         }()}
       </div>);
@@ -5899,70 +5977,6 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       })}
       </div>
 
-      {/* Détail par domaine — navigation par onglets */}
-      {function(){
-        var curDom=activeDomain||st[0]?.domain;
-        var ds=st.find(function(d){return d.domain===curDom;})||st[0];
-        if(!ds) return null;
-        var c=DC[ds.domain]||DC.Autre;
-        var flt=dbFilter[ds.domain]||{criticality:"",search:""};
-        var setFlt=function(k,v){setDbFilter(function(p){var next=Object.assign({},p);next[ds.domain]=Object.assign({},flt);next[ds.domain][k]=v;return next;});};
-        var filtApps=ds.apps.filter(function(a){
-          if(flt.criticality&&a.criticality!==flt.criticality) return false;
-          if(flt.search&&!a.name.toLowerCase().includes(flt.search.toLowerCase())&&!(a.vendor||"").toLowerCase().includes(flt.search.toLowerCase())) return false;
-          if(quickFilter==="critiques"&&a.criticality!=="Haute") return false;
-          return true;
-        });
-        return <div>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-            <h3 style={{fontSize:16,fontWeight:700,margin:0}}>Détail par domaine</h3>
-            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-              {quickFilter&&<button onClick={function(){setQuickFilter("");}} style={{background:"#FF525215",color:"#FF5252",border:"1px solid #FF525240",borderRadius:5,padding:"4px 10px",fontSize:10,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>⚠ Critiques uniquement <span style={{opacity:0.6}}>✕</span></button>}
-            </div>
-          </div>
-          {/* Onglets */}
-          <div style={{display:"flex",gap:0,marginBottom:0,borderBottom:"2px solid "+T.border,overflowX:"auto",flexWrap:"nowrap"}}>
-            {st.map(function(d){
-              var dc=DC[d.domain]||DC.Autre;
-              var isActive=d.domain===curDom;
-              return <button key={d.domain} onClick={function(){setActiveDomain(d.domain);}} style={{background:"transparent",border:"none",borderBottom:isActive?"2px solid "+dc.ac:"2px solid transparent",marginBottom:-2,padding:"8px 14px",fontSize:11,fontWeight:isActive?700:500,color:isActive?dc.ac:T.fgMuted,cursor:"pointer",whiteSpace:"nowrap",transition:"color 0.15s",display:"flex",alignItems:"center",gap:5}}>
-                <span>{d.domain}</span>
-                <span style={{background:isActive?dc.ac+"20":T.border,color:isActive?dc.ac:T.fgDim,borderRadius:10,padding:"1px 6px",fontSize:9,fontWeight:700}}>{d.count}</span>
-              </button>;
-            })}
-          </div>
-          {/* Contenu de l'onglet actif */}
-          <div style={{background:T.bgCard,borderRadius:"0 0 8px 8px",padding:20,borderLeft:"3px solid "+c.ac,border:"1px solid "+T.border,borderTop:"none"}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-              <div>
-                <span style={{fontSize:14,fontWeight:700,color:c.ac}}>{ds.domain}</span>
-                <span style={{fontSize:11,color:T.fgMuted,marginLeft:10}}>{ds.count} apps · {ds.flows} flux · {ds.critical} critiques</span>
-              </div>
-            </div>
-            {/* Filtres */}
-            <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap",alignItems:"center"}}>
-              <input placeholder="Rechercher..." value={flt.search||""} onChange={function(e){setFlt("search",e.target.value);}} style={{...I,width:140,padding:"4px 8px",fontSize:11}}/>
-              <select value={flt.criticality||""} onChange={function(e){setFlt("criticality",e.target.value);}} style={{...I,width:110,padding:"4px 8px",fontSize:11}}>
-                <option value="">Toutes criticités</option>
-                {["Haute","Moyenne","Basse"].map(function(cr){return <option key={cr} value={cr}>{cr}</option>;})}
-              </select>
-              {(flt.criticality||flt.search)&&<button onClick={function(){setFlt("criticality","");setFlt("search","");}} style={{...B,padding:"3px 8px",fontSize:9,background:"#E06C7520",color:"#E06C75",borderRadius:3}}>✕</button>}
-              <span style={{fontSize:10,color:T.fgDim}}>{filtApps.length}/{ds.count}</span>
-            </div>
-            <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-              <thead><tr style={{borderBottom:"1px solid "+T.border}}>{["Application","Criticité","Éditeur","Responsable","Flux sortants"].map(function(h){return <th key={h} style={{padding:"6px 8px",textAlign:"left",color:T.fgMuted,fontWeight:600}}>{h}</th>;})}</tr></thead>
-              <tbody>{filtApps.map(function(app){var of2=flows.filter(function(f){return f.from===app.id;});return <tr key={app.id} style={{borderBottom:"1px solid "+T.borderLight}}>
-                <td style={{padding:"6px 8px",fontWeight:500}}>{app.name}</td>
-                <td style={{padding:"6px 8px",color:CC[app.criticality]}}>{app.criticality}</td>
-                <td style={{padding:"6px 8px",color:T.fgMuted}}>{app.vendor||"—"}</td>
-                <td style={{padding:"6px 8px",color:T.fgMuted}}>{app.owner||"—"}</td>
-                <td style={{padding:"6px 8px",color:"#548CA8"}}>{of2.length>0?of2.map(function(f){var n=(apps.find(function(a){return a.id===f.to;})||{}).name||"?";return f.label?n+" ("+f.label+")":n;}).join(", "):"—"}</td>
-              </tr>;})}
-              </tbody>
-            </table>
-          </div>
-        </div>;
-      }()}
     </div>;
   };
 
@@ -5998,113 +6012,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     {loadStatus.step==="error"&&<button onClick={()=>{setLoadStatus(null);setView("home");}} style={{...B,background:T.border,marginTop:24}}>← Retour</button>}
   </div></div>;
 
-  if(view==="home") return <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:isDark?"linear-gradient(160deg,#08080F 0%,#0D0D20 50%,#0A0A1A 100%)":"linear-gradient(160deg,#F0F0FF 0%,#F7F7FF 100%)",position:"relative",overflow:"hidden",padding:"40px 20px"}}>
-
-    {/* ── Réseau décoratif SVG en fond ── */}
-    <svg aria-hidden="true" style={{position:"fixed",inset:0,width:"100%",height:"100%",pointerEvents:"none",opacity:isDark?0.07:0.05}} viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice">
-      {[[80,90],[200,60],[340,120],[500,80],[650,130],[100,250],[260,210],[420,270],[580,220],[720,270],[60,400],[200,370],[360,420],[520,380],[680,410],[140,520],[320,500],[480,530],[640,490]].map(function(n,i){return <circle key={i} cx={n[0]} cy={n[1]} r={i<4?5:3.5} fill="#6366F1" fillOpacity={i<4?0.8:0.5}><animate attributeName="r" values={(i<4?5:3.5)+";"+(i<4?7:5)+";"+(i<4?5:3.5)} dur={(2.5+i*0.3)+"s"} repeatCount="indefinite"/></circle>;})}
-      {[[0,1],[1,2],[2,3],[3,4],[0,5],[1,6],[2,7],[3,8],[4,9],[5,6],[6,7],[7,8],[8,9],[5,10],[6,11],[7,12],[8,13],[9,14],[10,11],[11,12],[12,13],[13,14],[10,15],[11,16],[12,17],[13,18]].map(function(e,i){var ns=[[80,90],[200,60],[340,120],[500,80],[650,130],[100,250],[260,210],[420,270],[580,220],[720,270],[60,400],[200,370],[360,420],[520,380],[680,410],[140,520],[320,500],[480,530],[640,490]];return <line key={i} x1={ns[e[0]][0]} y1={ns[e[0]][1]} x2={ns[e[1]][0]} y2={ns[e[1]][1]} stroke="#6366F1" strokeWidth="0.8" strokeOpacity="0.4"><animate attributeName="strokeOpacity" values="0.15;0.6;0.15" dur={(3+i*0.2)+"s"} begin={(i*0.15)+"s"} repeatCount="indefinite"/></line>;})}
-    </svg>
-
-
-
-    {/* ── Logo SVG Cartographe ── */}
-    <div style={{marginBottom:20,position:"relative",zIndex:1}}>
-      <div style={{display:"inline-block",borderRadius:20,padding:5,background:"linear-gradient(135deg,rgba(99,102,241,0.25),rgba(139,92,246,0.25))",boxShadow:"0 0 0 0 rgba(99,102,241,0.4)",animation:"homePulse 3s ease-in-out infinite"}}>
-        <svg width="72" height="72" viewBox="0 0 64 64" fill="none" aria-label="Cartographe">
-          <defs>
-            <linearGradient id="hLg" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
-              <stop stopColor="#6366F1"/><stop offset="1" stopColor="#7C3AED"/>
-            </linearGradient>
-            <linearGradient id="hLb" x1="32" y1="1" x2="32" y2="31" gradientUnits="userSpaceOnUse">
-              <stop stopColor="white" stopOpacity="0.22"/><stop offset="1" stopColor="white" stopOpacity="0"/>
-            </linearGradient>
-          </defs>
-          <rect width="64" height="64" rx="18" fill="url(#hLg)"/>
-          <rect x="1" y="1" width="62" height="30" rx="17" fill="url(#hLb)"/>
-          <rect x="0" y="32" width="64" height="32" rx="17" fill="rgba(0,0,0,0.08)"/>
-          <line x1="32" y1="16" x2="16" y2="38" stroke="rgba(255,255,255,0.40)" strokeWidth="2" strokeLinecap="round"/>
-          <line x1="32" y1="16" x2="48" y2="38" stroke="rgba(255,255,255,0.40)" strokeWidth="2" strokeLinecap="round"/>
-          <line x1="16" y1="38" x2="48" y2="38" stroke="rgba(255,255,255,0.25)" strokeWidth="1.8" strokeLinecap="round"/>
-          <line x1="32" y1="16" x2="32" y2="50" stroke="rgba(255,255,255,0.18)" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="3 3.5"/>
-          <line x1="16" y1="38" x2="10" y2="50" stroke="rgba(255,255,255,0.20)" strokeWidth="1.4" strokeLinecap="round"/>
-          <line x1="48" y1="38" x2="54" y2="50" stroke="rgba(255,255,255,0.20)" strokeWidth="1.4" strokeLinecap="round"/>
-          <circle cx="32" cy="16" r="7" fill="white"/>
-          <circle cx="32" cy="16" r="3.5" fill="url(#hLg)" opacity="0.5"/>
-          <circle cx="16" cy="38" r="5.5" fill="rgba(255,255,255,0.92)"/>
-          <circle cx="48" cy="38" r="5.5" fill="rgba(255,255,255,0.92)"/>
-          <circle cx="32" cy="50" r="3.5" fill="rgba(255,255,255,0.65)"/>
-          <circle cx="10" cy="50" r="2.5" fill="rgba(255,255,255,0.45)"/>
-          <circle cx="54" cy="50" r="2.5" fill="rgba(255,255,255,0.45)"/>
-        </svg>
-      </div>
-    </div>
-
-    {/* ── Titre ── */}
-    <div style={{textAlign:"center",marginBottom:8,position:"relative",zIndex:1}}>
-      <h1 style={{fontSize:32,fontWeight:900,letterSpacing:"-0.04em",marginBottom:6,color:isDark?"#FFFFFF":T.fg}}>Cartographe</h1>
-      <p style={{color:T.fgMuted,fontSize:13,lineHeight:1.7,maxWidth:440,margin:"0 auto"}}>Cartographie applicative pour due diligence IT &amp; audit.<br/>Choisissez comment démarrer votre projet.</p>
-    </div>
-
-
-    {/* ── Cartes d'action ── */}
-    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:14,width:"100%",maxWidth:780,position:"relative",zIndex:1,marginBottom:20}}>
-
-      {/* Carte 1 — Import fichier */}
-      <label style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:10,padding:"22px 20px",background:isDark?"rgba(41,121,255,0.10)":"rgba(41,121,255,0.07)",border:"1.5px solid "+(isDark?"rgba(41,121,255,0.35)":"rgba(41,121,255,0.3)"),borderRadius:14,cursor:"pointer",transition:"all 0.2s",position:"relative",overflow:"hidden"}}>
-        <div style={{position:"absolute",inset:0,background:"linear-gradient(135deg,rgba(41,121,255,0.08),transparent)",pointerEvents:"none"}}/>
-        <div style={{width:42,height:42,borderRadius:12,background:"linear-gradient(135deg,#2979FF,#1565C0)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,boxShadow:"0 4px 16px rgba(41,121,255,0.4)",flexShrink:0,color:"#fff"}}>⬆</div>
-        <div>
-          <div style={{fontSize:14,fontWeight:700,color:T.fg,marginBottom:4}}>Importer un fichier</div>
-          <div style={{fontSize:11,color:T.fgMuted,lineHeight:1.5}}>Excel, CSV, TSV, ODS — mappage automatique des colonnes</div>
-        </div>
-        <div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:2}}>
-          {["XLSX","CSV","XLS","ODS","TSV"].map(function(f){return <span key={f} style={{fontSize:9,padding:"2px 7px",background:"rgba(41,121,255,0.15)",borderRadius:4,color:"#64B5F6",border:"1px solid rgba(41,121,255,0.25)",fontWeight:700,letterSpacing:"0.05em"}}>{f}</span>;})}
-        </div>
-        <input type="file" accept=".csv,.tsv,.txt,.xlsx,.xls,.xlsm,.xlsb,.ods" style={{display:"none"}} onChange={function(e){e.target.files[0]&&handleFile(e.target.files[0]);}}/>
-      </label>
-
-      {/* Carte 2 — From scratch */}
-      <button onClick={function(){setApps([]);setFlows([]);setView("mapping");}} style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:10,padding:"22px 20px",background:isDark?"rgba(99,102,241,0.10)":"rgba(99,102,241,0.07)",border:"1.5px solid rgba(99,102,241,0.35)",borderRadius:14,cursor:"pointer",transition:"all 0.2s",position:"relative",overflow:"hidden",textAlign:"left",fontFamily:"inherit"}}>
-        <div style={{position:"absolute",inset:0,background:"linear-gradient(135deg,rgba(99,102,241,0.08),transparent)",pointerEvents:"none"}}/>
-        <div style={{width:42,height:42,borderRadius:12,background:"linear-gradient(135deg,#6366F1,#4F46E5)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,boxShadow:"0 4px 16px rgba(99,102,241,0.4)",flexShrink:0,color:"#fff"}}>✦</div>
-        <div>
-          <div style={{fontSize:14,fontWeight:700,color:T.fg,marginBottom:4}}>Créer from scratch</div>
-          <div style={{fontSize:11,color:T.fgMuted,lineHeight:1.5}}>Canvas vierge — ajoutez vos applications manuellement</div>
-        </div>
-        <div style={{marginTop:"auto",fontSize:11,color:"#818CF8",fontWeight:600}}>Canvas vide →</div>
-      </button>
-
-      {/* Carte 3 — Charger JSON */}
-      <label style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:10,padding:"22px 20px",background:isDark?"rgba(0,191,165,0.08)":"rgba(0,191,165,0.06)",border:"1.5px solid "+(isDark?"rgba(0,191,165,0.30)":"rgba(0,191,165,0.25)"),borderRadius:14,cursor:"pointer",transition:"all 0.2s",position:"relative",overflow:"hidden"}}>
-        <div style={{position:"absolute",inset:0,background:"linear-gradient(135deg,rgba(0,191,165,0.06),transparent)",pointerEvents:"none"}}/>
-        <div style={{width:42,height:42,borderRadius:12,background:"linear-gradient(135deg,#00BFA5,#00897B)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,boxShadow:"0 4px 16px rgba(0,191,165,0.3)",flexShrink:0}}>📂</div>
-        <div>
-          <div style={{fontSize:14,fontWeight:700,color:T.fg,marginBottom:4}}>Charger un export</div>
-          <div style={{fontSize:11,color:T.fgMuted,lineHeight:1.5}}>Reprendre un projet sauvegardé au format .json</div>
-        </div>
-        <div style={{marginTop:"auto",fontSize:11,color:"#4DB6AC",fontWeight:600}}>Fichier .json →</div>
-        <input type="file" accept=".json" style={{display:"none"}} onChange={function(e){e.target.files[0]&&loadJSON(e.target.files[0]);}}/>
-      </label>
-    </div>
-
-    {/* ── Template d'import ── */}
-    <div style={{width:"100%",maxWidth:780,position:"relative",zIndex:1,padding:"16px 18px",background:T.bgCard,borderRadius:12,border:"1px solid "+T.border,display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
-      <div>
-        <div style={{fontSize:12,fontWeight:700,color:"#52B788",marginBottom:3}}>📋 Template Excel</div>
-        <div style={{fontSize:11,color:T.fgMuted}}>Pré-formaté avec exemples &amp; instructions</div>
-      </div>
-      <button onClick={()=>downloadTemplate(projectType)} style={{...B,background:"#52B788",padding:"8px 14px",whiteSpace:"nowrap",fontSize:11,flexShrink:0}}>⬇ .xlsx</button>
-    </div>
-
-    {/* ── Bouton thème ── */}
-    <div style={{marginTop:24,position:"relative",zIndex:1}}>
-      <button onClick={toggleTheme} style={{background:T.bgCard,color:T.fg,border:"1px solid "+T.border,padding:"8px 16px",borderRadius:20,fontSize:12,cursor:"pointer",fontFamily:"inherit",fontWeight:600,boxShadow:T.shadow,transition:"all 0.2s"}}>{isDark?"☀️ Mode clair":"🌙 Mode sombre"}</button>
-    </div>
-
-    {/* ── Keyframes ── */}
-    <style>{"@keyframes homePulse{0%,100%{box-shadow:0 0 0 0 rgba(99,102,241,0.4)}50%{box-shadow:0 0 0 12px rgba(99,102,241,0)}}"}</style>
-  </div>;
+  if(view==="home") return <CanvasHome isDark={isDark} onToggleTheme={toggleTheme} projectType={projectType} onImportFile={handleFile} onScratch={function(){setApps([]);setFlows([]);setView("mapping");}} onLoadJson={loadJSON} onDownloadTemplate={function(){downloadTemplate(projectType);}}/>;
 
   if(showSP&&shts.length>0) return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{background:T.bgCard,borderRadius:8,padding:32,width:420,textAlign:"center"}}>
     <div style={{fontSize:32,marginBottom:12}}>📑</div><h2 style={{fontSize:18,fontWeight:700,marginBottom:4}}>Fichier multi-feuilles</h2>
@@ -6122,10 +6030,11 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
           <div key={k.l} style={{textAlign:"center"}}><div style={{fontSize:20,fontWeight:700,color:k.c}}>{k.v}</div><div style={{fontSize:10,color:T.fgMuted,marginTop:2}}>{k.l}</div></div>)}
       </div>
       {loadStatus.stats.domainList&&<div style={{marginTop:10,display:"flex",gap:6,flexWrap:"wrap"}}>{loadStatus.stats.domainList.map(d=>{const c=DC[d]||DC.Autre;return <span key={d} style={{fontSize:10,padding:"2px 8px",background:c.ac+"20",color:c.ac,borderRadius:4,border:"1px solid "+c.ac+"40"}}>{d} ({rawData?.filter(r=>r[cMap.domain]===d).length||0})</span>;})}</div>}
+      {loadStatus.stats.ignored&&loadStatus.stats.ignored.length>0&&<div style={{marginTop:12,padding:"8px 10px",borderRadius:6,background:"#F59E0B14",border:"1px solid #F59E0B40",fontSize:11,color:T.fgMuted,lineHeight:1.5}}><strong style={{color:"#F59E0B"}}>Colonnes non utilisées pour ce type de projet :</strong> {loadStatus.stats.ignored.map(x=>x.header).join(", ")}. Elles correspondent à un autre type de projet ({projectType==='deal'?"IT/SI":"Deal IT/TECH"}) et sont ignorées à l'import.</div>}
     </div>}
     <h2 style={{fontSize:20,fontWeight:700,marginBottom:4}}>Mapping des colonnes</h2>
     <p style={{color:T.fgMuted,fontSize:12,marginBottom:24}}>{fName&&<><strong style={{color:"#548CA8"}}>{fName}</strong> · </>}{rawData?.length} lignes · Vérifiez ou ajustez le mapping</p>
-    <div style={{background:T.bgCard,borderRadius:8,padding:24}}>{(projectType==='deal'?FIELDS:FIELDS.filter(f=>f.key!=="statusD1"&&f.key!=="statusD2")).map(({key,label,req})=><div key={key} style={{display:"flex",alignItems:"center",marginBottom:12,gap:16}}><div style={{width:200,fontSize:12,color:req?"#E8E8E8":"#888"}}>{label}{req&&<span style={{color:"#E06C75"}}> *</span>}</div><select value={cMap[key]||""} onChange={e=>setCMap(p=>({...p,[key]:e.target.value}))} style={{...I,flex:1,borderColor:cMap[key]?"#52B78860":"#333"}}><option value="">— Ignorer —</option>{rawHdr.map(h=><option key={h} value={h}>{h}</option>)}</select>{cMap[key]&&<span style={{color:"#52B788",fontSize:12}}>✓</span>}</div>)}</div>
+    <div style={{background:T.bgCard,borderRadius:8,padding:24}}>{fieldsFor(projectType).map(({key,label,req})=><div key={key} style={{display:"flex",alignItems:"center",marginBottom:12,gap:16}}><div style={{width:200,fontSize:12,color:req?"#E8E8E8":"#888"}}>{label}{req&&<span style={{color:"#E06C75"}}> *</span>}</div><select value={cMap[key]||""} onChange={e=>setCMap(p=>({...p,[key]:e.target.value}))} style={{...I,flex:1,borderColor:cMap[key]?"#52B78860":"#333"}}><option value="">— Ignorer —</option>{rawHdr.map(h=><option key={h} value={h}>{h}</option>)}</select>{cMap[key]&&<span style={{color:"#52B788",fontSize:12}}>✓</span>}</div>)}</div>
     <div style={{marginTop:24,background:T.bgCard,borderRadius:8,padding:16,overflowX:"auto"}}>
       <div style={{fontSize:11,fontWeight:700,color:"#548CA8",marginBottom:8}}>APERÇU (5 premières lignes)</div>
       <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}><thead><tr>{rawHdr.map(h=><th key={h} style={{padding:"4px 8px",textAlign:"left",color:T.fgMuted,borderBottom:"1px solid "+T.border}}>{h}</th>)}</tr></thead>
@@ -6947,8 +6856,11 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
           {id:"d1",label:"Day 1",sel:selD1?[selD1]:[],setSel:function(updater){var prev=selD1?[selD1]:[];var next=typeof updater==="function"?updater(prev):updater;setSelD1(next.length?next[next.length-1]:"");},items:[{v:"Transfert TSA",label:"TSA",color:"#F59E0B"},{v:"Maintien",label:"Maintien",color:"#10B981"},{v:"Rebuild",label:"Rebuild",color:"#6366F1"},{v:"Abandon",label:"Abandon",color:"#EF4444"}]},
           {id:"d2",label:"Day 2",sel:selD2?[selD2]:[],setSel:function(updater){var prev=selD2?[selD2]:[];var next=typeof updater==="function"?updater(prev):updater;setSelD2(next.length?next[next.length-1]:"");},items:[{v:"Clone & Clean",label:"Clone",color:"#3B82F6"},{v:"Transfert",label:"Transfert",color:"#10B981"},{v:"Abandon",label:"Abandon",color:"#EF4444"},{v:"Rebuild",label:"Rebuild",color:"#8B5CF6"}]}
         ]:[
-          {id:"statut",label:"Statut",sel:selStatut?[selStatut]:[],setSel:function(updater){var prev=selStatut?[selStatut]:[];var next=typeof updater==="function"?updater(prev):updater;setSelStatut(next.length?next[next.length-1]:"");},items:STATUT_OPTS.filter(v=>v).map(v=>({v,label:v,color:STATUT_COLORS[v]||"#888"}))}
-        ])
+          {id:"statut",label:"Statut",sel:selStatut?[selStatut]:[],setSel:function(updater){var prev=selStatut?[selStatut]:[];var next=typeof updater==="function"?updater(prev):updater;setSelStatut(next.length?next[next.length-1]:"");},          items:STATUT_OPTS.filter(v=>v).map(v=>({v,label:v,color:STATUT_COLORS[v]||"#888"}))}
+        ]),
+        {id:"hosting",label:"Hébergement",sel:selHost,setSel:setSelHost,items:HOSTING_OPTS.map(v=>({v,label:v,color:HOSTING_COLORS[v]||"#888"}))},
+                    {id:"apptype",label:"Type d'app",sel:selAType,setSel:setSelAType,items:APPTYPE_OPTS.map(v=>({v,label:v,color:APPTYPE_COLORS[v]||"#888"}))},
+                    {id:"eos",label:"Fin de service",sel:selEos,setSel:setSelEos,items:EOS_BUCKETS.map(b=>({v:b.id,label:b.label,color:b.color}))}
       ].map(flt=>{
         const isOpen=openFilter===flt.id;
         const count=flt.sel.length;
@@ -6965,7 +6877,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
             </div>
             {flt.items.map(it=>{
               const on=flt.sel.includes(it.v);
-              const appCount=apps.filter(a=>flt.id==="domain"?a.domain===it.v:flt.id==="category"?a.category===it.v:flt.id==="d1"?a.statusD1===it.v:flt.id==="d2"?a.statusD2===it.v:flt.id==="statut"?a.statut===it.v:a.criticality===it.v).length;
+              const appCount=apps.filter(a=>flt.id==="domain"?a.domain===it.v:flt.id==="category"?a.category===it.v:flt.id==="d1"?a.statusD1===it.v:flt.id==="d2"?a.statusD2===it.v:flt.id==="statut"?a.statut===it.v:flt.id==="hosting"?a.hosting===it.v:flt.id==="apptype"?a.appType===it.v:flt.id==="eos"?eosBucket(a.endOfService)===it.v:a.criticality===it.v).length;
               return <div key={it.v} className="mapping-menu-option" aria-selected={on} onMouseDown={e=>{e.stopPropagation();flt.setSel(p=>on?p.filter(x=>x!==it.v):[...p,it.v]);}} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",borderRadius:4,cursor:"pointer",background:on?it.color+"18":"transparent",transition:"background 0.1s"}}
                 onMouseEnter={e=>{if(!on)e.currentTarget.style.background="#ffffff08";}} onMouseLeave={e=>{e.currentTarget.style.background=on?it.color+"18":"transparent";}}>
                 <div style={{width:14,height:14,borderRadius:4,border:`2px solid ${on?it.color:"#444"}`,background:on?it.color:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{on&&<span style={{color:"#fff",fontSize:9}}>✓</span>}</div>
@@ -6975,7 +6887,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
               </div>;})}
           </div>}
         </div>;})}
-      {activeFilters&&<button onMouseDown={e=>{e.stopPropagation();setSelDom([]);setSelCat([]);setSelCrit([]);}} style={{...B,padding:"4px 8px",fontSize:11,background:"#FF525220",color:"#FF5252",borderRadius:4}}>✕</button>}
+      {activeFilters&&<button onMouseDown={e=>{e.stopPropagation();setSelDom([]);setSelCat([]);setSelCrit([]);setSelHost([]);setSelAType([]);setSelEos([]);}} style={{...B,padding:"4px 8px",fontSize:11,background:"#FF525220",color:"#FF5252",borderRadius:4}}>✕</button>}
       <div style={{flex:1}}/>
       <button className="mapping-trigger mapping-trigger-primary" onMouseDown={e=>{e.stopPropagation();applyStarLayout();}} title="Regroupe les applications par catégorie, rapproche les domaines les plus connectés et cadre la carte. Les fonctions d’édition restent disponibles." style={{...B,padding:"7px 11px",fontSize:9.5,background:"linear-gradient(120deg,#4F46E5,#6366F1 58%,#0EA5E9)",color:"#fff",border:"1px solid rgba(165,180,252,.45)",borderRadius:11,display:"flex",alignItems:"center",gap:6,fontWeight:800,boxShadow:"0 6px 16px rgba(79,70,229,.28)"}}><span style={{fontSize:13}}>✦</span> Optimiser la disposition</button>
       {/* ── Navigation menu (mouse icon) ── */}
@@ -7177,6 +7089,17 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
             </span>
           </div>
         </div>}
+        {function(){
+          var eb=EOS_BUCKETS.find(function(b){return b.id===eosBucket(selApp.endOfService);});
+          var rows=[["Coût annuel",typeof selApp.budget==="number"&&selApp.budget>0?formatEuro(selApp.budget):""],["Coût mensuel",typeof selApp.monthlyCost==="number"&&selApp.monthlyCost>0?formatEuro(selApp.monthlyCost):""],["Type de coût",selApp.costType],["Nb licences",selApp.licenses>0?selApp.licenses.toLocaleString("fr-FR"):""],["Hébergement",selApp.hosting],["Type d'application",selApp.appType]];
+          return <div style={{marginTop:12,padding:"11px 12px",borderRadius:10,background:T.bgCard,border:"1px solid "+T.borderLight,borderLeft:"3px solid #10B981"}}>
+            <div style={{fontSize:9,color:"#10B981",marginBottom:8,textTransform:"uppercase",letterSpacing:0.7,fontWeight:800}}>Patrimoine &amp; coûts</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
+              {rows.map(function(r){return <div key={r[0]} style={{minWidth:0}}><div style={{fontSize:9,color:T.fgDim,marginBottom:2}}>{r[0]}</div><div style={{fontSize:12,fontWeight:r[1]?650:400,color:r[1]?T.fg:T.fgFaint,fontStyle:r[1]?"normal":"italic",overflowWrap:"anywhere"}}>{r[1]||"Non renseigné"}</div></div>;})}
+              <div style={{minWidth:0}}><div style={{fontSize:9,color:T.fgDim,marginBottom:2}}>Fin de mise en service</div>{selApp.endOfService?<span style={{display:"inline-block",fontSize:10,fontWeight:700,color:eb.color,background:eb.color+"1F",border:"1px solid "+eb.color+"40",borderRadius:99,padding:"2px 8px"}}>{formatDateFr(selApp.endOfService)} · {eb.label}</span>:<div style={{fontSize:12,color:T.fgFaint,fontStyle:"italic"}}>Non renseignée</div>}</div>
+            </div>
+          </div>;
+        }()}
         <div style={{marginTop:12,padding:"11px 12px",borderRadius:10,background:T.bgCard,border:"1px solid "+T.borderLight,borderLeft:"3px solid "+(DC[selApp.domain]||DC.Autre).ac}}>
           <div style={{fontSize:9,color:(DC[selApp.domain]||DC.Autre).ac,marginBottom:5,textTransform:"uppercase",letterSpacing:0.7,fontWeight:800}}>Description fonctionnelle</div>
           <div style={{fontSize:12,color:selApp.description?T.fg:T.fgFaint,lineHeight:1.55,fontStyle:selApp.description?"normal":"italic"}}>{selApp.description||"Aucune description renseignée"}</div>
@@ -7276,13 +7199,27 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
               <datalist id="domlist">{ALLDOM.map(d=><option key={d} value={d}/>)}</datalist></div>
             {[{k:"criticality",l:"Criticité",o:["Haute","Moyenne","Basse"]}].map(({k,l,o})=><div key={k}><label style={{fontSize:11,color:T.fgMuted,display:"block",marginBottom:3}}>{l}</label><select value={eApp[k]||""} onChange={e=>setEApp(p=>({...p,[k]:e.target.value}))} style={I}>{o.map(v=><option key={v} value={v}>{v}</option>)}</select></div>)}
       {projectType==='cartographie'?(
+        <>
         <div style={{background:T.bgAlt,borderRadius:8,padding:10,marginTop:8}}>
           <div style={{fontSize:10,fontWeight:700,color:T.fgMuted,textTransform:"uppercase",letterSpacing:1,marginBottom:6}}>Statut</div>
           <div><label style={{fontSize:11,color:T.fgMuted,display:"block",marginBottom:3}}>Statut</label><select value={eApp.statut||""} onChange={e=>setEApp(a=>({...a,statut:e.target.value}))} style={I}>{STATUT_OPTS.map(v=><option key={v} value={v}>{v||"— Non défini —"}</option>)}</select></div>
         </div>
-      ):(
+                  </>
+                ):(
         <div style={{background:T.bgAlt,borderRadius:8,padding:10,marginTop:8}}><div style={{fontSize:10,fontWeight:700,color:T.fgMuted,textTransform:"uppercase",letterSpacing:1,marginBottom:6}}>Trajectoire Carve-Out</div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><div><label style={{fontSize:11,color:T.fgMuted,display:"block",marginBottom:3}}>Day 1</label><select value={eApp.statusD1||""} onChange={e=>setEApp(p=>({...p,statusD1:e.target.value}))} style={I}>{D1_OPTS.map(v=><option key={v} value={v}>{v||"Non défini"}</option>)}</select></div><div><label style={{fontSize:11,color:T.fgMuted,display:"block",marginBottom:3}}>Day 2</label><select value={eApp.statusD2||""} onChange={e=>setEApp(p=>({...p,statusD2:e.target.value}))} style={I}>{D2_OPTS.map(v=><option key={v} value={v}>{v||"Non défini"}</option>)}</select></div></div></div>
       )}
+                  <div style={{gridColumn:"1 / -1",background:T.bgAlt,borderRadius:8,padding:10}}>
+                    <div style={{fontSize:10,fontWeight:700,color:T.fgMuted,textTransform:"uppercase",letterSpacing:1,marginBottom:6}}>Patrimoine &amp; coûts</div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                      <div><label style={{fontSize:11,color:T.fgMuted,display:"block",marginBottom:3}}>Coût annuel (€)</label><input type="number" min="0" step="100" value={eApp.budget??""} onChange={e=>setEApp(p=>({...p,budget:e.target.value===""?null:parseFloat(e.target.value),monthlyCost:e.target.value===""?null:Math.round(parseFloat(e.target.value)/12*100)/100}))} style={I}/></div>
+                      <div><label style={{fontSize:11,color:T.fgMuted,display:"block",marginBottom:3}}>Coût mensuel (€)</label><input type="number" min="0" step="10" value={eApp.monthlyCost??""} onChange={e=>setEApp(p=>({...p,monthlyCost:e.target.value===""?null:parseFloat(e.target.value),budget:e.target.value===""?null:Math.round(parseFloat(e.target.value)*12*100)/100}))} style={I}/></div>
+                      <div><label style={{fontSize:11,color:T.fgMuted,display:"block",marginBottom:3}}>Type de coût</label><select value={eApp.costType||""} onChange={e=>setEApp(p=>({...p,costType:e.target.value}))} style={I}><option value="">— Non défini —</option>{COST_TYPES.map(v=><option key={v} value={v}>{v}</option>)}</select></div>
+                      <div><label style={{fontSize:11,color:T.fgMuted,display:"block",marginBottom:3}}>Nb licences</label><input type="number" min="0" value={eApp.licenses||""} onChange={e=>setEApp(p=>({...p,licenses:parseInt(e.target.value)||0}))} style={I}/></div>
+                      <div><label style={{fontSize:11,color:T.fgMuted,display:"block",marginBottom:3}}>Fin de mise en service</label><input type="date" value={eApp.endOfService||""} onChange={e=>setEApp(p=>({...p,endOfService:e.target.value}))} style={I}/></div>
+                      <div><label style={{fontSize:11,color:T.fgMuted,display:"block",marginBottom:3}}>Hébergement</label><select value={eApp.hosting||""} onChange={e=>setEApp(p=>({...p,hosting:e.target.value}))} style={I}><option value="">— Non défini —</option>{eApp.hosting&&!HOSTING_OPTS.includes(eApp.hosting)&&<option value={eApp.hosting}>{eApp.hosting}</option>}{HOSTING_OPTS.map(v=><option key={v} value={v}>{v}</option>)}</select></div>
+                      <div><label style={{fontSize:11,color:T.fgMuted,display:"block",marginBottom:3}}>Type d'application</label><select value={eApp.appType||""} onChange={e=>setEApp(p=>({...p,appType:e.target.value}))} style={I}><option value="">— Non défini —</option>{eApp.appType&&!APPTYPE_OPTS.includes(eApp.appType)&&<option value={eApp.appType}>{eApp.appType}</option>}{APPTYPE_OPTS.map(v=><option key={v} value={v}>{v}</option>)}</select></div>
+                    </div>
+                  </div>
       </div>
       <div style={{display:"flex",gap:8,marginTop:16,justifyContent:"flex-end"}}><button onClick={()=>setShowAM(false)} style={{...B,background:T.border}}>Annuler</button><button onClick={()=>{if(!eApp.name)return alert("Nom requis");
                 // Auto-create domain color if new
