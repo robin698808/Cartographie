@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import ThemeToggle from './components/ThemeToggle';
 import { AuthProvider } from './api/AuthContext';
 import ProtectedRoute, { AdminRoute } from './components/ProtectedRoute';
 import { loadSavedTheme } from './utils/themes';
@@ -12,10 +13,18 @@ import ProjectAdmin from './pages/ProjectAdmin';
 import AdminUsers from './pages/AdminUsers';
 import ResetPassword from './pages/ResetPassword';
 
+// Le toggle est int?gr? aux en-t?tes de Projets et du canvas ; flottant ailleurs
+function FloatingToggle() {
+  const { pathname } = useLocation();
+  if (pathname === '/' || pathname.startsWith('/canvas/')) return null;
+  return <ThemeToggle floating />;
+}
+
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <FloatingToggle />
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/reset-password" element={<ResetPassword />} />

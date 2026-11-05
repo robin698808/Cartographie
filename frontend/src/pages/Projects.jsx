@@ -5,6 +5,7 @@ import { useAuth } from '../api/AuthContext';
 import BrandLockup from '../components/BrandLockup';
 import ProfileModal from '../components/ProfileModal';
 import ThemePicker from '../components/ThemePicker';
+import ThemeToggle from '../components/ThemeToggle';
 import ProjectAppearancePicker, { getIconComponent } from '../components/ProjectAppearancePicker';
 import {
   Users, Trash2, FolderOpen, Share2, Handshake, Map as MapIcon, Search, X, ArrowUpDown,
@@ -229,6 +230,7 @@ export default function Projects() {
         <BrandLockup size={30} tone="dark" />
 
         <div className="row g3">
+          <ThemeToggle />
           <ThemePicker />
           {user?.role === 'admin' && (
             <button onClick={() => navigate('/admin/users')} className="btn btn-s btn-sm pj-btn-ic">

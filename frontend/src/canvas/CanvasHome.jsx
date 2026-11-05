@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { LogoMark } from '../components/Logo';
 import {
-  Upload, Sparkles, FolderOpen, FileSpreadsheet, Download, Sun, Moon, ArrowRight,
+  Upload, Sparkles, FolderOpen, FileSpreadsheet, Download, ArrowRight,
   ScanSearch, Columns3, Network, GitCompareArrows, MousePointerClick,
 } from 'lucide-react';
 import './CanvasHome.css';
@@ -90,12 +90,6 @@ export default function CanvasHome({ isDark, onToggleTheme, projectType, onImpor
         <i className="ch-blob ch-blob-a" /><i className="ch-blob ch-blob-b" /><i className="ch-blob ch-blob-c" />
         <span className="ch-grid" />
       </div>
-
-      <button type="button" className="ch-theme" onClick={onToggleTheme} role="switch" aria-checked={isDark} aria-label="Basculer entre mode clair et mode sombre">
-        <span className={`ch-theme-knob ${isDark ? 'is-dark' : ''}`} />
-        <span className={!isDark ? 'on' : ''}><Sun size={14} /> Clair</span>
-        <span className={isDark ? 'on' : ''}><Moon size={14} /> Sombre</span>
-      </button>
 
       <main className="ch-main">
         <header className="ch-hero">

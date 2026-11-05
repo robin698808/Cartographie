@@ -4,6 +4,7 @@ import { getLatestSnapshot, saveSnapshot, getProjects } from '../api/client';
 import { useAuth } from '../api/AuthContext';
 import { LogoMark } from '../components/Logo';
 import ProfileModal from '../components/ProfileModal';
+import ThemeToggle from '../components/ThemeToggle';
 
 const CanvasApp = lazy(() => import('../canvas/CanvasApp'));
 
@@ -161,6 +162,7 @@ export default function Canvas() {
             </span>
           )}
           <div ref={setViewsSlot} style={{ display:'flex' }} />
+          <ThemeToggle />
           <button onClick={handleSave} disabled={saving} style={{ background:'linear-gradient(135deg,#6366F1,#8B5CF6)', color:'#fff', border:'none', padding:'6px 14px', borderRadius:6, fontSize:12, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:6, fontFamily:'inherit', opacity: saving ? 0.5 : 1 }}>
             {saving ? <span style={{ width:12, height:12, border:'2px solid rgba(255,255,255,0.3)', borderTopColor:'#fff', borderRadius:'50%', display:'inline-block', animation:'_spin 0.6s linear infinite' }} /> : '💾'} Sauvegarder
           </button>

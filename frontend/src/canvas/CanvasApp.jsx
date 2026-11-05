@@ -3,6 +3,7 @@ import CanvasHome from './CanvasHome';
 import { ItsiBudgetWidget, ItsiPatrimoineWidget } from './ItsiWidgets';
 import { routeFlows, pathToD, placeLabels } from './flowRouting';
 import ViewsMenu from './ViewsMenu';
+import { getMode, setMode, toggleMode } from '../utils/mode';
 import { createPortal } from 'react-dom';
 import {
   COST_TYPES, COST_COLORS, HOSTING_OPTS, HOSTING_COLORS, APPTYPE_OPTS, APPTYPE_COLORS, EOS_BUCKETS, ITSI_FIELDS, DEAL_ONLY_PATTERNS,
@@ -494,15 +495,20 @@ var AppCtx=React.createContext(null);
 function App({ initialSnapshot, onSave, wsMessage, projectId, onThemeChange, topOffset = 0, projectType = "deal", viewsSlot = null }) {
   var _stateKey = projectId ? "carto_state_" + projectId : "carto_state";
   var snapshotApplied = useRef(false);
-  var _tk=useState(function(){try{return localStorage.getItem("carto_theme")||"dark";}catch(e){return "dark";}});
+  var _tk=useState(getMode);
   var themeKey=_tk[0],setThemeKey=_tk[1];
   var T=THEMES[themeKey]||THEMES.dark;
   var isDark=themeKey==="dark";
-  var toggleTheme=function(){setThemeKey(function(p){return p==="dark"?"light":"dark";});};
+  var toggleTheme=function(){toggleMode();};
+  useEffect(function(){
+    var h=function(e){setThemeKey(e.detail);};
+    window.addEventListener("carto:mode-change",h);
+    return function(){window.removeEventListener("carto:mode-change",h);};
+  },[]);
   useEffect(function(){
     document.body.style.background=T.bg;
     document.body.style.color=T.fg;
-    try{localStorage.setItem("carto_theme",themeKey);}catch(e){}
+    setMode(themeKey);
     if(onThemeChange) onThemeChange(isDark);
     return function(){ document.body.style.background=""; document.body.style.color=""; };
   },[themeKey]);
@@ -6540,7 +6546,7 @@ if(view==="urbanisme"){
               var open=function(){setUrbZone(dom.name);setUrbSelApp(null);setUrbFlowPair(null);setUrbExpanded(false);};
               var stat=function(label,val,col){return <div style={{flex:1,textAlign:"center",padding:"9px 4px",borderRadius:10,background:urbDark?"rgba(148,163,184,.06)":"#f6f8fc"}}><div style={{fontSize:20,fontWeight:850,lineHeight:1,color:col||T.fg,fontVariantNumeric:"tabular-nums"}}>{val}</div><div style={{fontSize:11,color:urbMuted,marginTop:5}}>{label}</div></div>;};
               return <div key={dom.name} role="button" tabIndex={0} onClick={open} onKeyDown={function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();open();}}}
-                style={{...urbPanel,position:"relative",overflow:"hidden",padding:"18px 18px 16px",cursor:"pointer",borderTop:"4px solid "+dc.ac,transition:"transform .22s cubic-bezier(.2,.8,.2,1),border-color .2s,box-shadow .2s",animation:"cardIn .3s cubic-bezier(.16,1,.3,1) both",animationDelay:Math.min(di,10)*.03+"s"}}
+                style={{...urbPanel,position:"relative",overflow:"hidden",padding:"18px 18px 16px",cursor:"pointer",borderTopWidth:4,borderTopColor:dc.ac,transition:"transform .22s cubic-bezier(.2,.8,.2,1),border-color .2s,box-shadow .2s",animation:"cardIn .3s cubic-bezier(.16,1,.3,1) both",animationDelay:Math.min(di,10)*.03+"s"}}
                 onMouseEnter={function(e){e.currentTarget.style.transform="translateY(-3px)";e.currentTarget.style.boxShadow="0 18px 38px "+dc.ac+"26";}}
                 onMouseLeave={function(e){e.currentTarget.style.transform="";e.currentTarget.style.boxShadow=urbPanel.boxShadow;}}>
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
@@ -7075,11 +7081,6 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
         <button className="mapping-trigger" aria-haspopup="true" aria-expanded={openMenu==="edit"} onClick={function(){setOpenMenu(openMenu==="edit"?null:"edit");}} style={{...B,background:openMenu==="edit"?"linear-gradient(135deg,#8B5CF626,#6366F116)":toolbarSurface,color:openMenu==="edit"?"#C4B5FD":T.fgMuted,padding:"7px 11px",fontSize:10,letterSpacing:0.1,borderRadius:10,border:"1px solid "+(openMenu==="edit"?"#8B5CF655":T.border),boxShadow:"0 3px 10px rgba(0,0,0,.12)"}}><span style={{width:20,height:20,borderRadius:7,display:"grid",placeItems:"center",background:"rgba(139,92,246,.16)",fontSize:12,marginRight:1}}>✎</span>Édition ▾</button>
         {openMenu==="edit"&&<div className="mapping-menu" style={{position:"fixed",top:toolbarH+topOffset+8,right:12,background:T.bgCard,border:"1px solid "+T.border,borderRadius:14,padding:14,width:340,maxHeight:"78vh",overflowY:"auto",boxShadow:"0 18px 46px rgba(0,0,0,.36)",zIndex:250}}>
           <div className="mapping-menu-header"><div className="mapping-menu-title">Affichage & édition</div><div className="mapping-menu-subtitle">Personnalisez la lecture de votre cartographie</div></div>
-          <div className="mapping-menu-section-title">Apparence</div>
-          <div className="mapping-segmented">
-            <button aria-pressed={!isDark} onClick={function(){setThemeKey("light");}} style={{...B,flex:1,padding:"8px 10px",fontSize:11,background:!isDark?"linear-gradient(135deg,#6366F1,#8B5CF6)":"transparent",color:!isDark?"#fff":T.fgMuted,border:!isDark?"1px solid #818CF8":"1px solid transparent",borderRadius:8}}>☀ Clair</button>
-            <button aria-pressed={isDark} onClick={function(){setThemeKey("dark");}} style={{...B,flex:1,padding:"8px 10px",fontSize:11,background:isDark?"linear-gradient(135deg,#6366F1,#8B5CF6)":"transparent",color:isDark?"#fff":T.fgMuted,border:isDark?"1px solid #818CF8":"1px solid transparent",borderRadius:8}}>☾ Sombre</button>
-          </div>
           <div className="mapping-menu-section-title">Comportement des flux</div>
           <div className="mapping-segmented">
             <button aria-pressed={flowDisplayMode==="dynamic"} onClick={function(){setFlowDisplayMode("dynamic");setFlowSuppressed(false);setFocusApp(null);setSelFlow(null);}} style={{...B,flex:1,padding:"8px 10px",fontSize:11,background:flowDisplayMode==="dynamic"?"linear-gradient(135deg,#2563EB,#0EA5E9)":"transparent",color:flowDisplayMode==="dynamic"?"#fff":T.fgMuted,border:flowDisplayMode==="dynamic"?"1px solid #38BDF8":"1px solid transparent",borderRadius:8}}>Au survol</button>
