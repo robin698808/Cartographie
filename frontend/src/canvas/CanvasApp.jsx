@@ -3,6 +3,7 @@ import CanvasHome from './CanvasHome';
 import { ItsiBudgetWidget, ItsiPatrimoineWidget } from './ItsiWidgets';
 import { routeFlows, pathToD, placeLabels } from './flowRouting';
 import ViewsMenu from './ViewsMenu';
+import { createPortal } from 'react-dom';
 import {
   COST_TYPES, COST_COLORS, HOSTING_OPTS, HOSTING_COLORS, APPTYPE_OPTS, APPTYPE_COLORS, EOS_BUCKETS, ITSI_FIELDS, DEAL_ONLY_PATTERNS,
   normText, parseAmount, parseDate, canonOption, eosBucket, formatEuro, formatDateFr,
@@ -490,7 +491,7 @@ function UrbFlowArrow({ color = "#38bdf8", width = 28 }){
 // ═══ APP CONTEXT ═══
 var AppCtx=React.createContext(null);
 
-function App({ initialSnapshot, onSave, wsMessage, projectId, onThemeChange, topOffset = 0, projectType = "deal" }) {
+function App({ initialSnapshot, onSave, wsMessage, projectId, onThemeChange, topOffset = 0, projectType = "deal", viewsSlot = null }) {
   var _stateKey = projectId ? "carto_state_" + projectId : "carto_state";
   var snapshotApplied = useRef(false);
   var _tk=useState(function(){try{return localStorage.getItem("carto_theme")||"dark";}catch(e){return "dark";}});
@@ -7092,7 +7093,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
           <button onClick={function(){setOpenMenu(null);applyStarLayout();}} style={{...B,width:"100%",marginTop:8,padding:"7px 10px",fontSize:10,background:"#6366F1",color:"#fff"}}>⟳ Appliquer le réagencement auto</button>
         </div>}
       </div>
-      {projectId&&<ViewsMenu projectId={projectId} T={T} B={B} toolbarSurface={toolbarSurface} open={openMenu==="views"} onToggle={function(){setOpenMenu(openMenu==="views"?null:"views");}} getViewState={getViewState} applyViewState={applyViewState}/>}
+      {projectId&&viewsSlot&&createPortal(<ViewsMenu projectId={projectId} T={T} B={B} toolbarSurface={toolbarSurface} open={openMenu==="views"} onToggle={function(){setOpenMenu(openMenu==="views"?null:"views");}} getViewState={getViewState} applyViewState={applyViewState}/>,viewsSlot)}
       {/* ── MENU: Flux & Domaines ── */}
       <div className="mapping-trigger-anchor" style={{position:"relative"}}>
         <button className="mapping-trigger" aria-haspopup="true" aria-expanded={openMenu==="flux"} onClick={function(){setOpenMenu(openMenu==="flux"?null:"flux");}} style={{...B,background:openMenu==="flux"?"linear-gradient(135deg,#38BDF826,#06B6D416)":toolbarSurface,color:openMenu==="flux"?"#7DD3FC":T.fgMuted,border:"1px solid "+(openMenu==="flux"?"#38BDF855":T.border),padding:"7px 11px",fontSize:10,letterSpacing:0.1,borderRadius:10,boxShadow:"0 3px 10px rgba(0,0,0,.12)"}}><span style={{width:20,height:20,borderRadius:7,display:"grid",placeItems:"center",background:"rgba(56,189,248,.15)",fontSize:12,marginRight:1}}>&#8644;</span>Flux ▾</button>

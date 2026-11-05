@@ -104,8 +104,8 @@ export default function ViewsMenu({ projectId, T, B, open, onToggle, toolbarSurf
     <div className="mapping-trigger-anchor" style={{ position: 'relative' }}>
       <button className="mapping-trigger" aria-haspopup="true" aria-expanded={open} onClick={onToggle}
         style={{ ...B, background: open ? 'linear-gradient(135deg,#A78BFA26,#6366F116)' : toolbarSurface, color: open ? '#C4B5FD' : T.fgMuted,
-          border: '1px solid ' + (open ? '#A78BFA55' : T.border), padding: '7px 11px', fontSize: 10, letterSpacing: 0.1, borderRadius: 10, boxShadow: '0 3px 10px rgba(0,0,0,.12)' }}>
-        <span style={{ width: 20, height: 20, borderRadius: 7, display: 'grid', placeItems: 'center', background: 'rgba(167,139,250,.16)', fontSize: 12, marginRight: 1 }}>🗂</span>Vues ▾
+          border: '1px solid ' + (open ? '#A78BFA55' : T.border), padding: '4px 10px', fontSize: 12, fontWeight: 600, letterSpacing: 0, borderRadius: 6, height: 28, display: 'flex', alignItems: 'center', gap: 5 }}>
+        <span style={{ fontSize: 13, display: 'grid', placeItems: 'center', background: 'rgba(167,139,250,.16)', fontSize: 12, marginRight: 1 }}>🗂</span>Vues ▾
       </button>
       {open && (
         <div className="mapping-menu" style={{ position: 'absolute', top: '100%', right: 0, marginTop: 6, background: T.bgCard, border: '1px solid ' + T.border,

@@ -21,6 +21,7 @@ export default function Canvas() {
 
   const [project,         setProject]         = useState(null);
   const [saving,          setSaving]          = useState(false);
+  const [viewsSlot,       setViewsSlot]       = useState(null);
   const [lastSaved,       setLastSaved]       = useState(null);
   const [presence,        setPresence]        = useState([]);
   const [initialSnapshot, setInitialSnapshot] = useState(null);
@@ -113,7 +114,7 @@ export default function Canvas() {
         background: ctxBg,
         backdropFilter:'blur(10px)', WebkitBackdropFilter:'blur(10px)',
         borderBottom:`1px solid ${ctxBd}`,
-        zIndex:10,
+        position:'relative', zIndex:500,
       }}>
         <button onClick={() => navigate('/')} style={{ ...btnStyle, display:'flex', alignItems:'center', gap:6, padding:'4px 10px', borderRadius:6, fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
           <span>Projets</span>
@@ -159,6 +160,7 @@ export default function Canvas() {
               <span style={{ width:6, height:6, borderRadius:'50%', background:'currentColor', display:'inline-block' }} /> Non sauvegardé
             </span>
           )}
+          <div ref={setViewsSlot} style={{ display:'flex' }} />
           <button onClick={handleSave} disabled={saving} style={{ background:'linear-gradient(135deg,#6366F1,#8B5CF6)', color:'#fff', border:'none', padding:'6px 14px', borderRadius:6, fontSize:12, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:6, fontFamily:'inherit', opacity: saving ? 0.5 : 1 }}>
             {saving ? <span style={{ width:12, height:12, border:'2px solid rgba(255,255,255,0.3)', borderTopColor:'#fff', borderRadius:'50%', display:'inline-block', animation:'_spin 0.6s linear infinite' }} /> : '💾'} Sauvegarder
           </button>
@@ -198,6 +200,7 @@ export default function Canvas() {
             onThemeChange={setCanvasDark}
             topOffset={topOffset}
             projectType={project?.project_type || 'deal'}
+            viewsSlot={viewsSlot}
           />
         </Suspense>
       </div>
