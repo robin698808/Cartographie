@@ -5045,7 +5045,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     const domFlows=function(id){var d=domFilters[id];if(!d)return flows;var ids={};apps.forEach(function(a){if(a.domain===d)ids[a.id]=1;});return flows.filter(function(f){return ids[f.from]||ids[f.to];});};
     const DOM_FILTER_IDS=["chart_owner","it_budget","it_patrimoine","carveout"];
     const CHEV="url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%239aa4c7' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E\")";
-    const WIDGET_SEL_STYLE={background:T.bgAlt+" "+CHEV+" no-repeat right 7px center",color:T.fg,border:"1px solid "+T.border,borderRadius:8,padding:"0 22px 0 10px",fontSize:10.5,fontWeight:600,cursor:"pointer",outline:"none",height:26,boxSizing:"border-box",appearance:"none",WebkitAppearance:"none",maxWidth:150,transition:"border-color .15s, background-color .15s"};
+    const WIDGET_SEL_STYLE={background:T.bgAlt+" "+CHEV+" no-repeat right 7px center",color:T.fg,border:"1px solid "+T.border,borderRadius:8,padding:"0 22px 0 10px",fontSize:10.5,fontWeight:600,cursor:"pointer",outline:"none",height:26,boxSizing:"border-box",appearance:"none",WebkitAppearance:"none",maxWidth:118,minWidth:0,transition:"border-color .15s, background-color .15s"};
     const domSel=function(id){
       var cur=domFilters[id]||"";
       return <select value={cur} title="Filtrer par domaine" onClick={function(e){e.stopPropagation();}} onMouseDown={function(e){e.stopPropagation();}}
@@ -5158,7 +5158,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       var size=widgetSizes[id]||DEFAULT_SIZES[id]||"m";
       var isHov=hovWid===id||isExpanded;
       var span={s:4,m:6,l:12}[size]||6;
-      var ww=Math.round(Math.max(320,window.innerWidth-360)*span/12);
+      var ww=Math.round(Math.max(320,(window.innerWidth<=900?window.innerWidth-80:window.innerWidth-329)-220)/12*span+(span-1)*20);
       var wh=undefined;
       var resolvedContent=typeof content==="function"?content(isExpanded,ww,wh):content;
       if(isExpanded){
@@ -5180,9 +5180,8 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       }
       var spanCols={s:4,m:6,l:12}[size]||6;
       return <div key={id} data-wid={id} className="dash-cell" style={{gridColumn:"span "+spanCols,minWidth:0,display:"flex",flexDirection:"column",gap:8}}>
-        <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"nowrap",minHeight:30}}>
-          <div style={{width:4,height:16,borderRadius:2,background:accentColor||"#6366F1",flexShrink:0}}/>
-          <span style={{fontSize:12.5,fontWeight:700,color:T.fg,flex:1,minWidth:40,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{title}</span>
+        <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"nowrap",justifyContent:"flex-end",minHeight:30}}>
+          <div style={{flex:1}}/>
           {DOM_FILTER_IDS.indexOf(id)>=0&&domSel(id)}
           {chartSwitcher}
           <div style={{display:"flex",background:T.bgAlt,border:"1px solid "+T.border,borderRadius:8,padding:2,gap:1}}>
@@ -5214,8 +5213,8 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         <span style={{fontWeight:700}}>{chartTip.label}</span>
         {" · "}<span style={{color:T.fgMuted}}>{chartTip.val}{chartTip.pct!=null?" ("+chartTip.pct+"%)" :""}</span>
       </div>}
-      <div style={{position:"sticky",top:0,zIndex:50,margin:"-24px -32px 20px",padding:"14px 32px",background:T.bg+"EE",backdropFilter:"blur(10px)",borderBottom:"1px solid "+T.border,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}}>
-        <div><h2 style={{fontSize:20,fontWeight:800,margin:0}}>Dashboard</h2><p style={{color:T.fgMuted,fontSize:12,margin:"2px 0 0"}}>Vue d'ensemble des domaines et flux applicatifs</p></div>
+      <div style={{position:"sticky",top:0,zIndex:50,margin:"-24px -32px 16px",padding:"8px 32px",background:T.bg+"EE",backdropFilter:"blur(10px)",borderBottom:"1px solid "+T.border,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+        <div><h2 style={{fontSize:17,fontWeight:800,margin:0,display:"flex",alignItems:"baseline",gap:10}}>Dashboard<span style={{color:T.fgMuted,fontSize:12,fontWeight:500}}>Vue d'ensemble des domaines et flux applicatifs</span></h2></div>
         <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
           <button onClick={function(){setShowCustom(function(p){return!p;});}} style={{background:showCustom?"linear-gradient(135deg,#2979FF,#00B8D4)":T.bgAlt,border:"1px solid "+(showCustom?"transparent":T.border),color:showCustom?"#fff":T.fg,borderRadius:9,padding:"8px 12px",fontSize:11,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6}} title="Choisir les thèmes et widgets affichés">
             <span aria-hidden="true">⚙</span> Personnaliser
