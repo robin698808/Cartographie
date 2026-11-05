@@ -688,6 +688,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   const [flowDomFilter,setFlowDomFilter]=useState("");
   const [flowProto,setFlowProto]=useState("");
   const [flowCrit,setFlowCrit]=useState("");
+  const [flowDir,setFlowDir]=useState(""); // "" | "in" | "out" | "bi"
   const [showFluxListModal,setShowFluxListModal]=useState(null);
   const [flowThickness,setFlowThickness]=useState(2);
   const [flowFontSize,setFlowFontSize]=useState(13);
@@ -4627,8 +4628,42 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     pres.writeFile({fileName:"Cartographie_Applicative.pptx"});
   };
 
-  const filtered=useMemo(()=>{let r=apps;if(selDom.length)r=r.filter(a=>selDom.includes(a.domain));if(selCat.length)r=r.filter(a=>selCat.includes(a.category||""));if(selCrit.length)r=r.filter(a=>selCrit.includes(a.criticality));if(projectType==='deal'){if(selD1)r=r.filter(a=>a.statusD1===selD1);if(selD2)r=r.filter(a=>a.statusD2===selD2);}else{if(selStatut)r=r.filter(a=>a.statut===selStatut);if(selHost.length)r=r.filter(a=>selHost.includes(a.hosting||""));if(selAType.length)r=r.filter(a=>selAType.includes(a.appType||""));if(selEos.length)r=r.filter(a=>selEos.includes(eosBucket(a.endOfService)));}if(search){const s=search.toLowerCase();r=r.filter(a=>a.name.toLowerCase().includes(s)||a.domain.toLowerCase().includes(s)||(a.vendor||"").toLowerCase().includes(s));}return r;},[apps,selDom,selCat,selCrit,selD1,selD2,selStatut,selHost,selAType,selEos,projectType,search]);
-  const activeFilters=(selDom.length+selCat.length+selCrit.length+selHost.length+selAType.length+selEos.length)>0;
+  const appFiltered=useMemo(()=>{let r=apps;if(selDom.length)r=r.filter(a=>selDom.includes(a.domain));if(selCat.length)r=r.filter(a=>selCat.includes(a.category||""));if(selCrit.length)r=r.filter(a=>selCrit.includes(a.criticality));if(projectType==='deal'){if(selD1)r=r.filter(a=>a.statusD1===selD1);if(selD2)r=r.filter(a=>a.statusD2===selD2);}else{if(selStatut)r=r.filter(a=>a.statut===selStatut);if(selHost.length)r=r.filter(a=>selHost.includes(a.hosting||""));if(selAType.length)r=r.filter(a=>selAType.includes(a.appType||""));if(selEos.length)r=r.filter(a=>selEos.includes(eosBucket(a.endOfService)));}if(search){const s=search.toLowerCase();r=r.filter(a=>a.name.toLowerCase().includes(s)||a.domain.toLowerCase().includes(s)||(a.vendor||"").toLowerCase().includes(s));}return r;},[apps,selDom,selCat,selCrit,selD1,selD2,selStatut,selHost,selAType,selEos,projectType,search]);
+  // Flux visibles selon les filtres (apps visibles aux deux extrémités). refApp = application survolée/sélectionnée.
+  const computeVisFlows=useCallback((refApp)=>{
+    const ids={};appFiltered.forEach(a=>{ids[a.id]=a;});
+    const rev={};flows.forEach(f=>{rev[f.from+"|"+f.to]=true;});
+    const doms=selDom.length?selDom:(flowDomFilter?[flowDomFilter]:[]);
+    return flows.filter(f=>{
+      const fa=ids[f.from],ta=ids[f.to];
+      if(!fa||!ta)return false;
+      if(flowDomFilter&&fa.domain!==flowDomFilter&&ta.domain!==flowDomFilter)return false;
+      if(flowProto&&f.protocol!==flowProto)return false;
+      if(flowCrit&&fa.criticality!==flowCrit&&ta.criticality!==flowCrit)return false;
+      if(flowDir){
+        const bi=!!rev[f.to+"|"+f.from];
+        if(flowDir==="bi"){if(!bi)return false;}
+        else{
+          if(bi)return false;
+          if(refApp){if(flowDir==="in"&&f.to!==refApp)return false;if(flowDir==="out"&&f.from!==refApp)return false;}
+          else if(doms.length){
+            const fi=doms.includes(fa.domain),ti=doms.includes(ta.domain);
+            if(flowDir==="in"&&!(ti&&!fi))return false;
+            if(flowDir==="out"&&!(fi&&!ti))return false;
+          }
+        }
+      }
+      return true;
+    });
+  },[appFiltered,flows,selDom,flowDomFilter,flowProto,flowCrit,flowDir]);
+  // Quand un filtre de flux est actif, seules les applications concernées restent affichées.
+  const flowFilterActive=!!(flowDir||flowProto||flowCrit||flowDomFilter);
+  const filtered=useMemo(()=>{
+    if(!flowFilterActive)return appFiltered;
+    const keep={};computeVisFlows(null).forEach(f=>{keep[f.from]=true;keep[f.to]=true;});
+    return appFiltered.filter(a=>keep[a.id]||(flowDomFilter&&a.domain===flowDomFilter));
+  },[appFiltered,flowFilterActive,computeVisFlows,flowDomFilter]);
+  const activeFilters=(selDom.length+selCat.length+selCrit.length+selHost.length+selAType.length+selEos.length)>0||!!(selD1||selD2||selStatut||flowDir);
   const cats=[...new Set(apps.map(a=>a.category).filter(Boolean))];
   const doms=[...new Set(apps.map(a=>a.domain))];
 
@@ -4707,13 +4742,10 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   const FlowLines=()=>{
     const staticMode=flowDisplayMode==="static";
     if(flowSuppressed&&!staticMode)return null;
-    if(!staticMode&&!focusApp&&!flowDomFilter)return null;
-    var visFlows=flows;
-    if(flowDomFilter){visFlows=visFlows.filter(function(f){var fa=apps.find(function(a){return a.id===f.from;});var ta=apps.find(function(a){return a.id===f.to;});return(fa&&fa.domain===flowDomFilter)||(ta&&ta.domain===flowDomFilter);});}
+    if(!staticMode&&!focusApp&&!flowDomFilter&&!flowDir&&!flowProto&&!flowCrit)return null;
+    var visFlows=computeVisFlows(!staticMode?focusApp:null);
     if(!staticMode&&focusApp){visFlows=visFlows.filter(function(f){return f.from===focusApp||f.to===focusApp;});}
     if(!staticMode&&selFlow){visFlows=visFlows.filter(function(f){return f.id===selFlow;});}
-    if(!staticMode&&flowProto)visFlows=visFlows.filter(function(f){return f.protocol===flowProto;});
-    if(!staticMode&&flowCrit)visFlows=visFlows.filter(function(f){var fa=apps.find(function(a){return a.id===f.from;});var ta=apps.find(function(a){return a.id===f.to;});return(fa&&fa.criticality===flowCrit)||(ta&&ta.criticality===flowCrit);});
     var defCol=staticMode?(isDark?"#B9C4FF":"#334155"):(isDark?"#548CA8":"#3D7A9E");
     var lineCol=flowColorCustom||defCol;
     var dashVal=flowDash==="dashed"?"8 4":flowDash==="dotted"?"3 3":"none";
@@ -4729,7 +4761,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     var lblScale=Math.min(1/Math.max(0.08,zm),1.6);
     var routed={},labelPos={};
     if(visFlows.length>0&&visFlows.length<=250){
-      var cards=apps.map(cardDims);
+      var cards=filtered.map(cardDims);
       var links=visFlows.map(function(f){return{id:f.id,from:f.from,to:f.to};});
       var sig=cards.map(function(c){return c.id+":"+Math.round(c.x)+","+Math.round(c.y)+","+Math.round(c.w);}).join("|")+"#"+links.map(function(l){return l.id+l.from+l.to;}).join("|");
       var rc=routeCacheRef.current;
@@ -6933,6 +6965,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
         ]:[
           {id:"statut",label:"Statut",sel:selStatut?[selStatut]:[],setSel:function(updater){var prev=selStatut?[selStatut]:[];var next=typeof updater==="function"?updater(prev):updater;setSelStatut(next.length?next[next.length-1]:"");},          items:STATUT_OPTS.filter(v=>v).map(v=>({v,label:v,color:STATUT_COLORS[v]||"#888"}))}
         ]),
+        {id:"flowdir",label:"Direction du flux",sel:flowDir?[flowDir]:[],setSel:function(updater){var prev=flowDir?[flowDir]:[];var next=typeof updater==="function"?updater(prev):updater;setFlowDir(next.length?next[next.length-1]:"");},items:[{v:"in",label:"Entrants",color:"#10B981"},{v:"out",label:"Sortants",color:"#F59E0B"},{v:"bi",label:"Bi-directionnels",color:"#6366F1"}]},
         {id:"hosting",label:"Hébergement",sel:selHost,setSel:setSelHost,items:HOSTING_OPTS.map(v=>({v,label:v,color:HOSTING_COLORS[v]||"#888"}))},
                     {id:"apptype",label:"Type d'app",sel:selAType,setSel:setSelAType,items:APPTYPE_OPTS.map(v=>({v,label:v,color:APPTYPE_COLORS[v]||"#888"}))},
                     {id:"eos",label:"Fin de service",sel:selEos,setSel:setSelEos,items:EOS_BUCKETS.map(b=>({v:b.id,label:b.label,color:b.color}))}
@@ -6958,11 +6991,11 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
                 <div style={{width:14,height:14,borderRadius:4,border:`2px solid ${on?it.color:"#444"}`,background:on?it.color:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{on&&<span style={{color:"#fff",fontSize:9}}>✓</span>}</div>
                 <div style={{width:8,height:8,borderRadius:2,background:it.color,flexShrink:0}}/>
                 <span style={{fontSize:11,color:T.fg,flex:1}}>{it.label}</span>
-                <span style={{fontSize:11,color:T.fgDim}}>{appCount}</span>
+                <span style={{fontSize:11,color:T.fgDim}}>{flt.id==="flowdir"?"":appCount}</span>
               </div>;})}
           </div>}
         </div>;})}
-      {activeFilters&&<button onMouseDown={e=>{e.stopPropagation();setSelDom([]);setSelCat([]);setSelCrit([]);setSelHost([]);setSelAType([]);setSelEos([]);}} style={{...B,padding:"4px 8px",fontSize:11,background:"#FF525220",color:"#FF5252",borderRadius:4}}>✕</button>}
+      {activeFilters&&<button onMouseDown={e=>{e.stopPropagation();setSelDom([]);setSelCat([]);setSelCrit([]);setSelHost([]);setSelAType([]);setSelEos([]);setSelD1("");setSelD2("");setSelStatut("");setFlowDir("");}} style={{...B,padding:"4px 8px",fontSize:11,background:"#FF525220",color:"#FF5252",borderRadius:4}}>✕</button>}
       <div style={{flex:1}}/>
       <button className="mapping-trigger mapping-trigger-primary" onMouseDown={e=>{e.stopPropagation();applyStarLayout();}} title="Regroupe les applications par catégorie, rapproche les domaines les plus connectés et cadre la carte. Les fonctions d’édition restent disponibles." style={{...B,padding:"7px 11px",fontSize:9.5,background:"linear-gradient(120deg,#4F46E5,#6366F1 58%,#0EA5E9)",color:"#fff",border:"1px solid rgba(165,180,252,.45)",borderRadius:11,display:"flex",alignItems:"center",gap:6,fontWeight:800,boxShadow:"0 6px 16px rgba(79,70,229,.28)"}}><span style={{fontSize:13}}>✦</span> Optimiser la disposition</button>
       {/* ── Navigation menu (mouse icon) ── */}
