@@ -4952,6 +4952,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     const [showCustom,setShowCustom]=useState(false);
     const [critFilter,setCritFilter]=useState("");
     const [ownCrit,setOwnCrit]=useState("");
+    const [flowSort,setFlowSort]=useState({k:"id",dir:1});
     const [ficheId,setFicheId]=useState(null);
     const [widgetPos,setWidgetPos]=useState(function(){try{var s=localStorage.getItem("dash_pos_v2_"+(projectId||"default"));if(s)return JSON.parse(s);}catch(e){}return{};});
     const saveWidgetPos=function(p){setWidgetPos(p);try{localStorage.setItem("dash_pos_v2_"+(projectId||"default"),JSON.stringify(p));}catch(e){}};
@@ -6024,6 +6025,19 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
               </div>
             </div>}
             <div style={{flex:1,minWidth:0}}>
+            {function(){
+              var pc={};enriched.forEach(function(e){if(e.proto)pc[e.proto]=(pc[e.proto]||0)+1;});
+              var topP=Object.keys(pc).sort(function(x,y){return pc[y]-pc[x];})[0];
+              var involved={};enriched.forEach(function(e){involved[e.srcName]=1;involved[e.tgtName]=1;});
+              var kp=[{l:"Flux affich\u00e9s",v:filtered2.length+" / "+enriched.length,c:"#2979FF"},{l:"Applications connect\u00e9es",v:Object.keys(involved).length,c:"#8B5CF6"},{l:"Protocoles distincts",v:uProto.length,c:"#06B6D4"},{l:"Protocole dominant",v:topP||"\u2014",c:"#10B981",h:topP?pc[topP]+" flux":""}];
+              return <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:10,marginBottom:14}}>
+                {kp.map(function(k){return <div key={k.l} style={{padding:"11px 14px",borderRadius:12,background:k.c+"12",border:"1px solid "+k.c+"30",borderLeft:"4px solid "+k.c,minWidth:0}}>
+                  <div style={{fontSize:11,color:T.fgMuted,fontWeight:700}}>{k.l}</div>
+                  <div style={{fontSize:22,fontWeight:850,color:T.fg,marginTop:5,lineHeight:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{k.v}</div>
+                  {k.h&&<div style={{fontSize:11,color:T.fgMuted,marginTop:5}}>{k.h}</div>}
+                </div>;})}
+              </div>;
+            }()}
             <div style={{display:"flex",gap:6,marginBottom:10,alignItems:"center",flexWrap:"wrap"}}>
               <input placeholder="Rechercher..." value={flxSearch} onChange={function(e){setFlxSearch(e.target.value);}} style={{...I,width:280,maxWidth:"100%",padding:"9px 13px",fontSize:13,borderRadius:10}}/>
               <button onClick={function(){setShowFlxFilter(function(p){return !p;});}} style={{background:showFlxFilter?"#2979FF20":T.bgAlt,color:showFlxFilter?"#2979FF":T.fg,border:"1px solid "+(showFlxFilter?"#2979FF":T.border),borderRadius:9,padding:"9px 14px",fontSize:12.5,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>
@@ -6043,52 +6057,66 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
             {function(){
               var protoCount={};enriched.forEach(function(e){if(e.proto)protoCount[e.proto]=(protoCount[e.proto]||0)+1;});
               var protoList=Object.keys(protoCount).sort(function(x,y){return protoCount[y]-protoCount[x];}).slice(0,8);
-              var cols="56px minmax(0,1fr) 130px minmax(0,1fr) 100px";
+              var cols="48px minmax(100px,1fr) 88px minmax(100px,1fr) 96px minmax(100px,1fr)";
               var hd={fontSize:11,color:T.fgMuted,fontWeight:700,textTransform:"uppercase",letterSpacing:0.5};
               var chip=function(active,col){return {background:active?col+"25":T.bgAlt,color:active?col:T.fgMuted,border:"1px solid "+(active?col:T.border),borderRadius:14,padding:"5px 13px",fontSize:12.5,fontWeight:600,cursor:"pointer"};};
-              var openApp=function(name,ev){ev.stopPropagation();var ap=apps.find(function(a){return a.name===name;});if(ap){setSelApp(ap);setPanelOpen(true);}};
+              var openApp=function(name,ev){ev.stopPropagation();var ap=apps.find(function(a){return a.name===name;});if(ap)setFicheId(ap.id);};
               var domPill=function(dom,isSrc){var ac=(DC[dom]||DC.Autre).ac;var on=(isSrc?fSrcDom:fTgtDom)===dom;return <span title={"Filtrer : domaine "+dom} onClick={function(ev){ev.stopPropagation();if(isSrc)setFSrcDom(on?"":dom);else setFTgtDom(on?"":dom);}} style={{display:"inline-block",fontSize:11,fontWeight:700,color:ac,background:ac+(on?"40":"18"),border:"1px solid "+ac+(on?"":"40"),borderRadius:10,padding:"2px 9px",cursor:"pointer",whiteSpace:"nowrap"}}>{dom}</span>;};
               return <div>
                 {protoList.length>0&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10,alignItems:"center"}}>
                   <span style={{fontSize:11,color:T.fgMuted,fontWeight:700,textTransform:"uppercase"}}>Protocole</span>
                   {protoList.map(function(pr){return <span key={pr} onClick={function(){setFProto(fProto===pr?"":pr);}} style={chip(fProto===pr,"#2979FF")}>{pr} <b style={{opacity:0.7}}>{protoCount[pr]}</b></span>;})}
                 </div>}
-                <div style={{border:"1px solid "+T.border,borderRadius:10,overflow:"hidden"}}>
-                  <div style={{display:"grid",gridTemplateColumns:cols,gap:8,padding:"11px 14px",background:T.bgAlt,borderBottom:"1px solid "+T.border}}>
-                    <span style={hd}>ID</span><span style={hd}>Source</span><span style={{...hd,textAlign:"center"}}>Échange</span><span style={hd}>Cible</span><span style={{...hd,textAlign:"right"}}>Fréquence</span>
-                  </div>
-                  <div style={{maxHeight:640,overflowY:"auto"}}>
-                    {filtered2.length===0&&<div style={{padding:28,textAlign:"center",color:T.fgMuted,fontSize:11}}>Aucun flux ne correspond aux filtres.{hasFilter&&<span> <a onClick={clearAll} style={{color:"#2979FF",cursor:"pointer"}}>Effacer les filtres</a></span>}</div>}
-                    {filtered2.map(function(e){
-                      var faAc=(DC[e.srcDom]||DC.Autre).ac;var taAc=(DC[e.tgtDom]||DC.Autre).ac;
-                      var open=expFlow===e.f.id;
-                      return <div key={e.f.id} style={{borderBottom:"1px solid "+T.borderLight,borderLeft:"3px solid "+faAc,background:open?T.bgAlt:"transparent"}}>
-                        <div onClick={function(){setExpFlow(open?null:e.f.id);}} onMouseEnter={function(ev){if(!open)ev.currentTarget.style.background=T.bgHover;}} onMouseLeave={function(ev){ev.currentTarget.style.background="transparent";}}
-                          style={{display:"grid",gridTemplateColumns:cols,gap:8,padding:"13px 14px",alignItems:"center",cursor:"pointer"}}>
-                          <span style={{color:T.fgMuted,fontSize:12.5,fontFamily:"monospace"}}>{"F-"+(e.f.order||e.fi+1)}</span>
-                          <div style={{minWidth:0}}><div style={{fontWeight:700,color:T.fg,fontSize:14,marginBottom:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.srcName}</div>{domPill(e.srcDom,true)}</div>
-                          <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
-                            <span style={{background:faAc+"20",color:faAc,padding:"3px 10px",borderRadius:10,fontSize:11.5,fontWeight:700,maxWidth:124,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.proto||"?"}</span>
-                            <div style={{display:"flex",alignItems:"center",width:"100%"}}><div style={{flex:1,height:2,background:"linear-gradient(90deg,"+faAc+","+taAc+")",borderRadius:1}}/><span style={{color:taAc,fontSize:10,lineHeight:1,marginLeft:-2}}>▶</span></div>
+                {function(){
+                  var dirv=flowSort.dir;
+                  var keyOf={id:function(e){return e.f.order||e.fi+1;},src:function(e){return e.srcName.toLowerCase();},proto:function(e){return e.proto.toLowerCase();},tgt:function(e){return e.tgtName.toLowerCase();},freq:function(e){return e.freq.toLowerCase();},desc:function(e){return e.desc.toLowerCase();}}[flowSort.k];
+                  var rowsS=filtered2.slice().sort(function(x,y){var kx=keyOf(x),ky=keyOf(y);return(kx<ky?-1:kx>ky?1:0)*dirv;});
+                  var th=function(k,label,align){var on=flowSort.k===k;return <span onClick={function(){setFlowSort(on?{k:k,dir:-flowSort.dir}:{k:k,dir:1});}} style={Object.assign({},hd,{cursor:"pointer",userSelect:"none",textAlign:align||"left",color:on?"#2979FF":T.fgMuted,display:"flex",alignItems:"center",gap:4,justifyContent:align==="center"?"center":"flex-start"})}>{label}<span style={{fontSize:9,opacity:on?1:0.35}}>{on?(flowSort.dir>0?"\u25b2":"\u25bc"):"\u21c5"}</span></span>;};
+                  var appCell=function(name,dom,ac,isSrc){return <div style={{minWidth:0,display:"flex",alignItems:"center",gap:9}}>
+                    <span style={{width:4,alignSelf:"stretch",minHeight:30,borderRadius:3,background:ac,flexShrink:0}}/>
+                    <div style={{minWidth:0}}><div style={{fontWeight:700,color:T.fg,fontSize:13.5,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={name}>{name}</div><div style={{marginTop:3}}>{domPill(dom,isSrc)}</div></div>
+                  </div>;};
+                  return <div style={{border:"1px solid "+T.border,borderRadius:12,overflow:"hidden"}}>
+                  <div style={{overflowX:"auto"}}><div style={{minWidth:620}}>
+                    <div style={{display:"grid",gridTemplateColumns:cols,gap:10,padding:"11px 14px",background:T.bgAlt,borderBottom:"1px solid "+T.border}}>
+                      {th("id","ID")}{th("src","Source")}{th("proto","Protocole","center")}{th("tgt","Cible")}{th("freq","Fr\u00e9quence")}{th("desc","Description")}
+                    </div>
+                    <div style={{maxHeight:640,overflowY:"auto"}}>
+                      {rowsS.length===0&&<div style={{padding:28,textAlign:"center",color:T.fgMuted,fontSize:13}}>Aucun flux ne correspond aux filtres.{hasFilter&&<span> <a onClick={clearAll} style={{color:"#2979FF",cursor:"pointer"}}>Effacer les filtres</a></span>}</div>}
+                      {rowsS.map(function(e,ri){
+                        var faAc=(DC[e.srcDom]||DC.Autre).ac;var taAc=(DC[e.tgtDom]||DC.Autre).ac;
+                        var open=expFlow===e.f.id;
+                        var zebra=ri%2?T.bgAlt+"66":"transparent";
+                        return <div key={e.f.id} style={{borderBottom:"1px solid "+T.borderLight,background:open?T.bgAlt:zebra}}>
+                          <div onClick={function(){setExpFlow(open?null:e.f.id);}} onMouseEnter={function(ev){if(!open)ev.currentTarget.style.background=T.bgHover;}} onMouseLeave={function(ev){ev.currentTarget.style.background="transparent";}}
+                            style={{display:"grid",gridTemplateColumns:cols,gap:10,padding:"12px 14px",alignItems:"center",cursor:"pointer"}}>
+                            <span style={{color:T.fgMuted,fontSize:12,fontFamily:"monospace",fontWeight:700}}>{"F-"+(e.f.order||e.fi+1)}</span>
+                            {appCell(e.srcName,e.srcDom,faAc,true)}
+                            <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                              <span style={{background:faAc+"20",color:faAc,padding:"3px 10px",borderRadius:10,fontSize:11.5,fontWeight:700,maxWidth:124,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.proto||"Non pr\u00e9cis\u00e9"}</span>
+                              <div style={{display:"flex",alignItems:"center",width:"100%"}}><div style={{flex:1,height:2,background:"linear-gradient(90deg,"+faAc+","+taAc+")",borderRadius:1}}/><span style={{color:taAc,fontSize:10,lineHeight:1,marginLeft:-2}}>▶</span></div>
+                            </div>
+                            {appCell(e.tgtName,e.tgtDom,taAc,false)}
+                            <span style={{minWidth:0}}>{e.freq?<span style={{fontSize:11.5,fontWeight:700,color:T.fg,background:T.bgAlt,border:"1px solid "+T.border,borderRadius:99,padding:"3px 10px",whiteSpace:"nowrap"}}>{e.freq}</span>:<span style={{color:T.fgFaint}}>—</span>}</span>
+                            <span style={{display:"flex",alignItems:"center",gap:6,minWidth:0}}><span style={{flex:1,minWidth:0,fontSize:12.5,color:e.desc?T.fg:T.fgFaint,fontStyle:e.desc?"normal":"italic",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={e.desc}>{e.desc||"Non renseign\u00e9e"}</span><span style={{color:T.fgDim,fontSize:9,transform:open?"rotate(90deg)":"none",transition:"transform .15s"}}>▶</span></span>
                           </div>
-                          <div style={{minWidth:0}}><div style={{fontWeight:700,color:T.fg,fontSize:14,marginBottom:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.tgtName}</div>{domPill(e.tgtDom,false)}</div>
-                          <span style={{textAlign:"right",color:T.fgMuted,fontSize:12.5,display:"flex",justifyContent:"flex-end",alignItems:"center",gap:6}}>{e.freq||"\u2014"}<span style={{color:T.fgDim,fontSize:9,transform:open?"rotate(90deg)":"none",transition:"transform .15s"}}>▶</span></span>
-                        </div>
-                        {open&&<div style={{padding:"4px 14px 14px 68px",display:"flex",flexDirection:"column",gap:8}}>
-                          <div style={{fontSize:13.5,color:T.fg,lineHeight:1.55}}>{e.desc||<span style={{color:T.fgMuted}}>Aucune description renseign?e.</span>}</div>
-                          <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
-                            <span style={{fontSize:12.5,color:T.fgMuted}}>Protocole : <b style={{color:T.fg}}>{e.proto||"?"}</b></span>
-                            <span style={{fontSize:12.5,color:T.fgMuted}}>· Fréquence : <b style={{color:T.fg}}>{e.freq||"\u2014"}</b></span>
-                            <span style={{marginLeft:"auto",display:"flex",gap:6}}>
-                              <button onClick={function(ev){openApp(e.srcName,ev);}} style={{background:faAc+"20",color:faAc,border:"1px solid "+faAc+"55",borderRadius:6,padding:"7px 13px",fontSize:12.5,fontWeight:600,cursor:"pointer"}}>Ouvrir {e.srcName}</button>
-                              <button onClick={function(ev){openApp(e.tgtName,ev);}} style={{background:taAc+"20",color:taAc,border:"1px solid "+taAc+"55",borderRadius:6,padding:"7px 13px",fontSize:12.5,fontWeight:600,cursor:"pointer"}}>Ouvrir {e.tgtName}</button>
-                            </span>
-                          </div>
-                        </div>}
-                      </div>;
-                    })}
-                  </div>
-                </div>
+                          {open&&<div style={{padding:"4px 16px 16px 76px",display:"flex",flexDirection:"column",gap:10}}>
+                            <div style={{fontSize:13.5,color:T.fg,lineHeight:1.55}}>{e.desc||<span style={{color:T.fgMuted}}>Aucune description renseignée.</span>}</div>
+                            <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
+                              <span style={{fontSize:12.5,color:T.fgMuted}}>Protocole : <b style={{color:T.fg}}>{e.proto||"Non pr\u00e9cis\u00e9"}</b></span>
+                              <span style={{fontSize:12.5,color:T.fgMuted}}>· Fréquence : <b style={{color:T.fg}}>{e.freq||"\u2014"}</b></span>
+                              <span style={{marginLeft:"auto",display:"flex",gap:6,flexWrap:"wrap"}}>
+                                <button onClick={function(ev){openApp(e.srcName,ev);}} style={{background:faAc+"20",color:faAc,border:"1px solid "+faAc+"55",borderRadius:8,padding:"7px 13px",fontSize:12.5,fontWeight:600,cursor:"pointer"}}>Ouvrir {e.srcName}</button>
+                                <button onClick={function(ev){openApp(e.tgtName,ev);}} style={{background:taAc+"20",color:taAc,border:"1px solid "+taAc+"55",borderRadius:8,padding:"7px 13px",fontSize:12.5,fontWeight:600,cursor:"pointer"}}>Ouvrir {e.tgtName}</button>
+                              </span>
+                            </div>
+                          </div>}
+                        </div>;
+                      })}
+                    </div>
+                  </div></div>
+                  </div>;
+                }()}
               </div>;
             }()}
           </div></div>;
