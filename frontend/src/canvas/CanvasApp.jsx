@@ -6686,6 +6686,9 @@ if(view==="urbanisme"){
   var selectedAppPairs=filteredPairList.length;
   var selectedAppStatusColor=urbSelApp&&urbSelApp.criticality==="Haute"?"#fb7185":urbSelApp&&urbSelApp.criticality==="Moyenne"?"#fbbf24":"#34d399";
   var selectedPairColor="#38bdf8";
+  var urbPanel={background:urbDark?"#10131f":"#FBFCFF",border:"1px solid "+urbLine,borderRadius:18,boxShadow:urbDark?"0 18px 50px rgba(0,0,0,0.2)":"0 14px 34px rgba(51,65,85,0.08)"};
+  var zoneHigh=zoneApps.filter(function(a){return a.criticality==="Haute";}).length;
+  var pairGrid="minmax(0,1fr) 30px minmax(0,1fr) 46px";
 
   return <AppCtx.Provider value={ctxValue}><div style={{height:"100vh",display:"flex",overflow:"hidden"}}><Sidebar/><div className="view-container" style={{flex:1,display:"flex",flexDirection:"column",background:T.bg,minWidth:0}}>
     <UrbTopbar/>
@@ -6696,27 +6699,24 @@ if(view==="urbanisme"){
         <div style={{position:"relative",overflow:"hidden",borderRadius:18,marginBottom:17,padding:"23px clamp(18px,3vw,30px)",background:urbDark?"linear-gradient(112deg,"+zoneCC.ac+"35, #10131f 70%)":"linear-gradient(112deg,"+zoneCC.ac+"22, #FBFCFF 72%)",border:"1px solid "+zoneCC.ac+(urbDark?"45":"55"),boxShadow:urbDark?"0 18px 46px "+zoneCC.ac+"12":"0 16px 38px rgba(30,41,59,.08), 0 0 0 1px "+zoneCC.ac+"0A",animation:"cardIn .25s cubic-bezier(.16,1,.3,1)"}}>
           <div style={{position:"absolute",width:220,height:220,right:-85,top:-118,borderRadius:"50%",background:"radial-gradient(circle,"+zoneCC.ac+"35,transparent 70%)",pointerEvents:"none"}}/>
           <div style={{position:"relative",display:"flex",alignItems:"center",justifyContent:"space-between",gap:20,flexWrap:"wrap"}}>
-            <div><div style={{fontSize:10,fontWeight:800,letterSpacing:".14em",textTransform:"uppercase",color:zoneCC.ac,marginBottom:8}}>02 · Domaine métier</div><div style={{fontSize:"clamp(24px,3vw,34px)",fontWeight:850,letterSpacing:"-.04em",color:T.fg,lineHeight:1.05}}>{urbZone}</div><div style={{display:"flex",gap:7,alignItems:"center",marginTop:12,flexWrap:"wrap"}}><span style={{fontSize:10,color:urbMuted}}>{zoneApps.length} applications</span><span style={{color:urbLine}}>·</span><span style={{fontSize:10,color:urbMuted}}>{zoneFlowsOut.length+zoneFlowsIn.length} flux associés</span><span style={{color:urbLine}}>·</span><span style={{fontSize:10,color:urbMuted}}>{pairList.length} connexions</span></div></div>
-            <div style={{display:"flex",gap:10,alignItems:"center"}}>
-            <button onClick={function(e){e.stopPropagation();setUrbExpanded(function(p){return !p;});}} title={urbExpanded?"Reduire":"Agrandir"} style={{background:"rgba(255,255,255,0.18)",border:"1px solid rgba(255,255,255,0.3)",color:"#fff",borderRadius:6,padding:"3px 8px",cursor:"pointer",fontSize:11,display:"flex",alignItems:"center",gap:4,transition:"background 0.12s"}}
-              onMouseEnter={function(e){e.currentTarget.style.background="rgba(255,255,255,0.28)";}}
-              onMouseLeave={function(e){e.currentTarget.style.background="rgba(255,255,255,0.18)";}}>
-              {urbExpanded
-                ?<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/><polyline points="9 18 3 12 9 6"/></svg>
-                :<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18"/><polyline points="15 6 21 12 15 18"/></svg>}
-              {urbExpanded?"Réduire":"Élargir"}
-            </button>
+            <div style={{minWidth:0}}><div style={{fontSize:11,fontWeight:800,letterSpacing:".14em",textTransform:"uppercase",color:zoneCC.ac,marginBottom:8}}>Domaine métier</div><div style={{fontSize:"clamp(26px,3vw,36px)",fontWeight:850,letterSpacing:"-.04em",color:T.fg,lineHeight:1.05}}>{urbZone}</div></div>
+            <div style={{display:"flex",gap:10,alignItems:"stretch",flexWrap:"wrap"}}>
+              {[["Applications",zoneApps.length,T.fg],["Flux associés",zoneFlowsOut.length+zoneFlowsIn.length,T.fg],["Connexions",pairList.length,T.fg],["Criticité haute",zoneHigh,zoneHigh>0?"#fb7185":T.fg]].map(function(k){return <div key={k[0]} style={{minWidth:104,padding:"10px 14px",borderRadius:12,background:urbDark?"rgba(2,6,23,.35)":"rgba(255,255,255,.78)",border:"1px solid "+urbLine,textAlign:"center"}}><div style={{fontSize:22,fontWeight:850,color:k[2],lineHeight:1,fontVariantNumeric:"tabular-nums"}}>{k[1]}</div><div style={{fontSize:10,color:urbMuted,marginTop:6,fontWeight:600,whiteSpace:"nowrap"}}>{k[0]}</div></div>;})}
+              <button onClick={function(e){e.stopPropagation();setUrbExpanded(function(p){return !p;});}} title={urbExpanded?"Réduire la largeur":"Élargir la largeur"} style={{alignSelf:"center",background:urbDark?"rgba(148,163,184,.12)":"#fff",border:"1px solid "+urbLine,color:T.fg,borderRadius:10,padding:"8px 12px",cursor:"pointer",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",gap:6}}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">{urbExpanded?<><polyline points="15 18 9 12 15 6"/><polyline points="9 18 3 12 9 6"/></>:<><polyline points="9 6 15 12 9 18"/><polyline points="15 6 21 12 15 18"/></>}</svg>
+                {urbExpanded?"Réduire":"Élargir"}
+              </button>
             </div>
           </div>
         </div>
 
         {/* Workspace à trois étapes : application → connexion → détail du flux */}
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,270px),1fr))",gap:14,alignItems:"start",transition:"grid-template-columns .25s ease"}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,300px),1fr))",gap:16,alignItems:"stretch",transition:"grid-template-columns .25s ease"}}>
 
           {/* Left: quartiers */}
           <div style={{...urbPanel,padding:16,minWidth:0}}>
             <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}><span style={{width:28,height:28,borderRadius:9,display:"grid",placeItems:"center",background:zoneCC.ac+"20",color:zoneCC.ac,fontSize:11,fontWeight:850}}>01</span><div><div style={{fontSize:13,fontWeight:800,color:T.fg}}>Applications</div><div style={{fontSize:10,color:urbMuted,marginTop:3}}>{urbSelApp?"Point de départ sélectionné":"Choisissez une application"}</div></div><span style={{marginLeft:"auto",fontSize:9,color:urbMuted,background:urbDark?"rgba(148,163,184,.08)":"#f1f5f9",padding:"5px 7px",borderRadius:7}}>{zoneApps.length}</span></div>
-            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            <div style={{display:"flex",flexDirection:"column",gap:10,maxHeight:"calc(100vh - 330px)",minHeight:200,overflowY:"auto",paddingRight:4}}>
               {quartierList.map(function(entry,qi){
                 var cat=entry[0];var catApps=entry[1];
                 var isOtherCategory=cat==="Autre";
@@ -6733,7 +6733,7 @@ if(view==="urbanisme"){
                         <span style={{width:25,height:25,flexShrink:0,borderRadius:8,display:"grid",placeItems:"center",background:zoneCC.ac+"20",color:zoneCC.ac,fontSize:11,fontWeight:800}}>▦</span>
                         <span style={{minWidth:0,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{app.name}</span>
                         {app.criticality&&<span style={{width:7,height:7,borderRadius:99,background:app.criticality==="Haute"?"#fb7185":app.criticality==="Moyenne"?"#fbbf24":"#34d399",boxShadow:app.criticality==="Haute"?"0 0 8px #fb718580":"none"}} title={"Criticité "+app.criticality}/>}
-                        <span style={{fontSize:9,color:urbMuted,background:urbDark?"rgba(148,163,184,.1)":"#f1f5f9",padding:"4px 6px",borderRadius:7,whiteSpace:"nowrap"}}>{nFlux} flux</span>
+                        <span style={{fontSize:10,fontWeight:650,color:urbMuted,background:urbDark?"rgba(148,163,184,.1)":"#f1f5f9",padding:"4px 8px",borderRadius:7,whiteSpace:"nowrap",minWidth:52,textAlign:"center",fontVariantNumeric:"tabular-nums",flexShrink:0}}>{nFlux} flux</span>
                       </div>;
                     })}
                   </div>
@@ -6754,7 +6754,8 @@ if(view==="urbanisme"){
 
             {filteredPairList.length===0&&<div style={{fontSize:11,color:urbMuted,fontStyle:"italic",padding:"20px 12px",textAlign:"center",border:"1px dashed "+urbLine,borderRadius:11,marginTop:12}}>{urbSelApp?"Aucun flux pour cette application":"Aucun flux pour ce domaine"}</div>}
 
-            {!detailFlows&&<div style={{display:"flex",flexDirection:"column",gap:6}}>
+            {filteredPairList.length>0&&<div style={{display:"grid",gridTemplateColumns:pairGrid,columnGap:8,padding:"0 12px 8px",fontSize:10,fontWeight:800,letterSpacing:".08em",textTransform:"uppercase",color:urbMuted}}><span>Émetteur</span><span/><span>Récepteur</span><span style={{textAlign:"right"}}>Flux</span></div>}
+            <div style={{display:"flex",flexDirection:"column",gap:8,maxHeight:"calc(100vh - 360px)",minHeight:200,overflowY:"auto",paddingRight:4}}>
               {filteredPairList.map(function(pair,pi){
                 var fa=pair.from;var ta=pair.to;
                 var faCC=DC[fa.domain]||DC.Autre;
@@ -6762,24 +6763,20 @@ if(view==="urbanisme"){
                 var isSameZone=fa.domain===urbZone&&ta.domain===urbZone;
                 var pairKey=fa.id+">>"+ta.id;
                 var pairIsSelected=urbFlowPair===pairKey;
-                return <div key={pi} onClick={function(){setUrbFlowPair(pairKey);}}
-                  style={{background:pairIsSelected?(urbDark?"rgba(56,189,248,.12)":"rgba(14,165,233,.08)"):(urbDark?"rgba(148,163,184,.045)":"#f8fafc"),borderRadius:12,padding:"12px 12px",border:"1px solid "+(pairIsSelected?"rgba(56,189,248,.52)":urbLine),cursor:"pointer",transition:"transform .16s,background .16s,border-color .16s,box-shadow .16s",animation:"cardIn .18s ease both",animationDelay:(pi*.025)+"s"}}
-                  onMouseEnter={function(e){e.currentTarget.style.transform="translateY(-1px)";e.currentTarget.style.background=urbDark?"rgba(56,189,248,.1)":"#f0f9ff";e.currentTarget.style.borderColor="rgba(56,189,248,.52)";e.currentTarget.style.boxShadow="0 6px 18px rgba(14,165,233,.09)";}}
-                  onMouseLeave={function(e){e.currentTarget.style.transform="";e.currentTarget.style.background=pairIsSelected?(urbDark?"rgba(56,189,248,.12)":"rgba(14,165,233,.08)"):(urbDark?"rgba(148,163,184,.045)":"#f8fafc");e.currentTarget.style.borderColor=pairIsSelected?"rgba(56,189,248,.52)":urbLine;e.currentTarget.style.boxShadow="";}}>
-                  <div style={{display:"flex",alignItems:"center",gap:6}}>
-                    <span style={{fontSize:12,fontWeight:700,color:T.fg,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{fa.name}</span>
-                    <UrbFlowArrow color={pairIsSelected?"#22d3ee":"#818cf8"} width={26}/>
-                    <span style={{fontSize:12,fontWeight:700,color:T.fg,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textAlign:"right"}}>{ta.name}</span>
-                    <span style={{fontSize:10,background:"rgba(56,189,248,.12)",color:"#38bdf8",border:"1px solid rgba(56,189,248,.22)",borderRadius:8,padding:"3px 7px",fontWeight:800,flexShrink:0}}>{pair.count}</span>
-                  </div>
-                  <div style={{display:"flex",justifyContent:"space-between",marginTop:6}}>
-                    <span style={{fontSize:10,color:faCC.ac,fontWeight:600}}>{isSameZone?"interne":fa.domain}</span>
-                    <span style={{fontSize:10,color:urbMuted}}>{pair.flows.length} flux métier</span>
-                    <span style={{fontSize:10,color:taCC.ac,fontWeight:600}}>{isSameZone?"":ta.domain}</span>
-                  </div>
+                var restBg=pairIsSelected?(urbDark?"rgba(56,189,248,.12)":"rgba(14,165,233,.08)"):(urbDark?"rgba(148,163,184,.045)":"#f8fafc");
+                var chip=function(a,cc){return <span style={{display:"inline-flex",alignItems:"center",gap:5,minWidth:0,fontSize:10.5,fontWeight:650,color:cc.ac}}><span style={{width:6,height:6,borderRadius:99,background:cc.ac,flexShrink:0}}/><span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{isSameZone?(a.category&&a.category!=="Autre"?a.category:"Interne"):a.domain}</span></span>;};
+                return <div key={pi} role="button" tabIndex={0} onClick={function(){setUrbFlowPair(pairKey);}} onKeyDown={function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();setUrbFlowPair(pairKey);}}}
+                  style={{display:"grid",gridTemplateColumns:pairGrid,columnGap:8,rowGap:6,alignItems:"center",background:restBg,borderRadius:12,padding:"12px",border:"1px solid "+(pairIsSelected?"rgba(56,189,248,.6)":urbLine),cursor:"pointer",transition:"transform .16s,background .16s,border-color .16s,box-shadow .16s",animation:"cardIn .18s ease both",animationDelay:Math.min(pi,12)*.02+"s"}}
+                  onMouseEnter={function(e){e.currentTarget.style.transform="translateY(-1px)";e.currentTarget.style.borderColor="rgba(56,189,248,.6)";e.currentTarget.style.boxShadow="0 6px 18px rgba(14,165,233,.09)";}}
+                  onMouseLeave={function(e){e.currentTarget.style.transform="";e.currentTarget.style.borderColor=pairIsSelected?"rgba(56,189,248,.6)":urbLine;e.currentTarget.style.boxShadow="";}}>
+                  <span title={fa.name} style={{fontSize:12.5,fontWeight:750,color:T.fg,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{fa.name}</span>
+                  <span style={{display:"grid",placeItems:"center"}}><UrbFlowArrow color={pairIsSelected?"#22d3ee":"#818cf8"} width={24}/></span>
+                  <span title={ta.name} style={{fontSize:12.5,fontWeight:750,color:T.fg,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ta.name}</span>
+                  <span style={{gridColumn:4,gridRow:"1 / span 2",justifySelf:"end",alignSelf:"center",minWidth:30,textAlign:"center",fontSize:11,background:"rgba(56,189,248,.12)",color:"#38bdf8",border:"1px solid rgba(56,189,248,.25)",borderRadius:8,padding:"4px 8px",fontWeight:800,fontVariantNumeric:"tabular-nums"}}>{pair.count}</span>
+                  {chip(fa,faCC)}<span/>{chip(ta,taCC)}
                 </div>;
               })}
-            </div>}
+            </div>
 
           </div>
 
