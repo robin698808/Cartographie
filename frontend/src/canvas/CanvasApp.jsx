@@ -6057,7 +6057,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
             {function(){
               var protoCount={};enriched.forEach(function(e){if(e.proto)protoCount[e.proto]=(protoCount[e.proto]||0)+1;});
               var protoList=Object.keys(protoCount).sort(function(x,y){return protoCount[y]-protoCount[x];}).slice(0,8);
-              var cols="48px minmax(100px,1fr) 88px minmax(100px,1fr) 96px minmax(100px,1fr)";
+              var cols="48px minmax(100px,1fr) minmax(96px,0.7fr) minmax(100px,1fr) 96px minmax(100px,1fr)";
               var hd={fontSize:11,color:T.fgMuted,fontWeight:700,textTransform:"uppercase",letterSpacing:0.5};
               var chip=function(active,col){return {background:active?col+"25":T.bgAlt,color:active?col:T.fgMuted,border:"1px solid "+(active?col:T.border),borderRadius:14,padding:"5px 13px",fontSize:12.5,fontWeight:600,cursor:"pointer"};};
               var openApp=function(name,ev){ev.stopPropagation();var ap=apps.find(function(a){return a.name===name;});if(ap)setFicheId(ap.id);};
@@ -6071,15 +6071,17 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
                   var dirv=flowSort.dir;
                   var keyOf={id:function(e){return e.f.order||e.fi+1;},src:function(e){return e.srcName.toLowerCase();},proto:function(e){return e.proto.toLowerCase();},tgt:function(e){return e.tgtName.toLowerCase();},freq:function(e){return e.freq.toLowerCase();},desc:function(e){return e.desc.toLowerCase();}}[flowSort.k];
                   var rowsS=filtered2.slice().sort(function(x,y){var kx=keyOf(x),ky=keyOf(y);return(kx<ky?-1:kx>ky?1:0)*dirv;});
-                  var th=function(k,label,align){var on=flowSort.k===k;return <span onClick={function(){setFlowSort(on?{k:k,dir:-flowSort.dir}:{k:k,dir:1});}} style={Object.assign({},hd,{cursor:"pointer",userSelect:"none",textAlign:align||"left",color:on?"#2979FF":T.fgMuted,display:"flex",alignItems:"center",gap:4,justifyContent:align==="center"?"center":"flex-start"})}>{label}<span style={{fontSize:9,opacity:on?1:0.35}}>{on?(flowSort.dir>0?"\u25b2":"\u25bc"):"\u21c5"}</span></span>;};
-                  var appCell=function(name,dom,ac,isSrc){return <div style={{minWidth:0,display:"flex",alignItems:"center",gap:9}}>
-                    <span style={{width:4,alignSelf:"stretch",minHeight:30,borderRadius:3,background:ac,flexShrink:0}}/>
+                  var th=function(k,label,align){var on=flowSort.k===k;return <span onClick={function(){setFlowSort(on?{k:k,dir:-flowSort.dir}:{k:k,dir:1});}} style={Object.assign({},hd,{cursor:"pointer",userSelect:"none",textAlign:align||"left",color:on?"#2979FF":T.fgMuted,display:"flex",alignItems:"center",gap:4,justifyContent:align==="center"?"center":(align==="right"?"flex-end":"flex-start")})}>{label}<span style={{fontSize:9,opacity:on?1:0.35}}>{on?(flowSort.dir>0?"\u25b2":"\u25bc"):"\u21c5"}</span></span>;};
+                  var appCell=function(name,dom,ac,isSrc){var bar=<span style={{width:4,alignSelf:"stretch",minHeight:30,borderRadius:3,background:ac,flexShrink:0}}/>;
+                    return <div style={{minWidth:0,display:"flex",alignItems:"center",gap:9,justifyContent:isSrc?"flex-end":"flex-start",textAlign:isSrc?"right":"left"}}>
+                    {!isSrc&&bar}
                     <div style={{minWidth:0}}><div style={{fontWeight:700,color:T.fg,fontSize:13.5,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={name}>{name}</div><div style={{marginTop:3}}>{domPill(dom,isSrc)}</div></div>
+                    {isSrc&&bar}
                   </div>;};
                   return <div style={{border:"1px solid "+T.border,borderRadius:12,overflow:"hidden"}}>
                   <div style={{overflowX:"auto"}}><div style={{minWidth:620}}>
                     <div style={{display:"grid",gridTemplateColumns:cols,gap:10,padding:"11px 14px",background:T.bgAlt,borderBottom:"1px solid "+T.border}}>
-                      {th("id","ID")}{th("src","Source")}{th("proto","Protocole","center")}{th("tgt","Cible")}{th("freq","Fr\u00e9quence")}{th("desc","Description")}
+                      {th("id","ID")}{th("src","Source","right")}{th("proto","Protocole","center")}{th("tgt","Cible")}{th("freq","Fr\u00e9quence")}{th("desc","Description")}
                     </div>
                     <div style={{maxHeight:640,overflowY:"auto"}}>
                       {rowsS.length===0&&<div style={{padding:28,textAlign:"center",color:T.fgMuted,fontSize:13}}>Aucun flux ne correspond aux filtres.{hasFilter&&<span> <a onClick={clearAll} style={{color:"#2979FF",cursor:"pointer"}}>Effacer les filtres</a></span>}</div>}
