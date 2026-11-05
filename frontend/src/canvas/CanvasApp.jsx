@@ -5216,14 +5216,20 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         <span style={{fontWeight:700}}>{chartTip.label}</span>
         {" · "}<span style={{color:T.fgMuted}}>{chartTip.val}{chartTip.pct!=null?" ("+chartTip.pct+"%)" :""}</span>
       </div>}
-      <div style={{position:"sticky",top:0,zIndex:50,margin:"-24px -32px 16px",padding:"8px 32px",background:T.bg+"EE",backdropFilter:"blur(10px)",borderBottom:"1px solid "+T.border,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}}>
-        <div><h2 style={{fontSize:17,fontWeight:800,margin:0,display:"flex",alignItems:"baseline",gap:10}}>Dashboard<span style={{color:T.fgMuted,fontSize:12,fontWeight:500}}>Vue d'ensemble des domaines et flux applicatifs</span></h2></div>
+      <div style={{position:"sticky",top:0,zIndex:50,margin:"-24px -32px 16px",padding:"10px 20px",background:T.bgAlt,borderBottom:"1px solid "+T.border,display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+        <div>
+          <div style={{fontSize:15,fontWeight:800,color:T.fg,letterSpacing:"-0.02em",lineHeight:1}}>Dashboard</div>
+          <div style={{fontSize:11,color:T.fgMuted,marginTop:3}}>Vue d'ensemble des domaines et flux applicatifs</div>
+        </div>
         <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
           <button onClick={function(){setShowCustom(function(p){return!p;});}} style={{background:showCustom?"linear-gradient(135deg,#2979FF,#00B8D4)":T.bgAlt,border:"1px solid "+(showCustom?"transparent":T.border),color:showCustom?"#fff":T.fg,borderRadius:9,padding:"8px 12px",fontSize:11,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6}} title="Choisir les thèmes et widgets affichés">
             <span aria-hidden="true">⚙</span> Personnaliser
             <span style={{background:showCustom?"rgba(255,255,255,.25)":"rgba(41,121,255,.15)",color:showCustom?"#fff":"#2979FF",borderRadius:10,padding:"1px 7px",fontSize:10}}>{ALL_WIDGETS_LIST.filter(function(id){return!hiddenWidgets.includes(id);}).length}/{ALL_WIDGETS_LIST.length}</span>
           </button>
           <button onClick={function(){saveWidgetPos({});saveWidgetSizes(Object.assign({},DEFAULT_SIZES));setHiddenWidgets([]);setWZIndex({});}} style={{background:"transparent",border:"1px solid "+T.border,color:T.fgMuted,borderRadius:9,padding:"8px 12px",fontSize:11,cursor:"pointer"}} title="Réinitialiser la disposition">↺ Réinitialiser</button>
+          <button onClick={function(){setView("mapping");setTimeout(fitCanvas,50);}} style={{...B,background:"#6366F1",padding:"5px 12px",fontSize:11,borderRadius:8,display:"flex",alignItems:"center",gap:5}}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Cartographie
+          </button>
         </div>
       </div>
       {hiddenWidgets.some(function(id){return ALL_WIDGETS_LIST.includes(id);})&&<div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:16}}>
@@ -6981,16 +6987,6 @@ if(view==="urbanisme"){
   }
 
 if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{height:"100vh",display:"flex",overflow:"hidden"}}><Sidebar/><div style={{flex:1,display:"flex",flexDirection:"column"}}>
-      <div style={{background:T.bgAlt,borderBottom:"1px solid "+T.border,padding:"10px 20px",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
-        <div>
-          <div style={{fontSize:15,fontWeight:800,color:T.fg,letterSpacing:"-0.02em",lineHeight:1}}>Dashboard</div>
-          <div style={{fontSize:11,color:T.fgMuted,marginTop:3}}>Indicateurs clés du portefeuille applicatif</div>
-        </div>
-        <div style={{flex:1}}/>
-        <button onClick={function(){setView("mapping");setTimeout(fitCanvas,50);}} style={{...B,background:"#6366F1",padding:"5px 12px",fontSize:11,borderRadius:8,display:"flex",alignItems:"center",gap:5}}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Cartographie
-        </button>
-      </div>
       <div style={{overflowY:"auto",flex:1}}><Dashboard/></div>
     </div></div></AppCtx.Provider>;
 
