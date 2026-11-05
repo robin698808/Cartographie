@@ -101,3 +101,19 @@ class Snapshot(Base):
 
     project = relationship("Project", back_populates="snapshots")
     created_by_user = relationship("User", back_populates="snapshots")
+
+
+class MapView(Base):
+    """Vue de cartographie nommée (disposition + réglages), privée ou partagée."""
+    __tablename__ = "map_views"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False, index=True)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    name = Column(String, nullable=False)
+    shared = Column(Boolean, default=False, nullable=False)
+    data = Column(Text, default="{}")  # JSON string
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    owner = relationship("User")

@@ -128,6 +128,28 @@ class SnapshotCreate(BaseModel):
     dom_colors: Any       # dict of domain colors
     label: Optional[str] = ""
 
+class MapViewCreate(BaseModel):
+    name: str
+    shared: bool = False
+    data: Any
+
+class MapViewUpdate(BaseModel):
+    name: Optional[str] = None
+    shared: Optional[bool] = None
+    data: Optional[Any] = None
+
+class MapViewOut(BaseModel):
+    id: int
+    project_id: int
+    name: str
+    shared: bool
+    data: Any
+    owner_id: int
+    owner_name: str = ""
+    mine: bool = False
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
 class SnapshotOut(BaseModel):
     id: int
     project_id: int

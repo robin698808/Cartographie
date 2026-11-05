@@ -52,6 +52,12 @@ export const saveSnapshot = (projectId, data) =>
 export const getSnapshots = (projectId) =>
   API.get(`/projects/${projectId}/snapshots`);
 
+// ── Vues de cartographie ──
+export const getViews   = (projectId)             => API.get(`/projects/${projectId}/views`);
+export const createView = (projectId, data)       => API.post(`/projects/${projectId}/views`, data);
+export const updateView = (projectId, id, data)   => API.patch(`/projects/${projectId}/views/${id}`, data);
+export const deleteView = (projectId, id)         => API.delete(`/projects/${projectId}/views/${id}`);
+
 // ─── Members ─────────────────────────────────────────────
 export const getMembers       = (projectId)              => API.get(`/projects/${projectId}/members`);
 export const inviteMember     = (projectId, email, role) => API.post(`/projects/${projectId}/members`, { email, role });
