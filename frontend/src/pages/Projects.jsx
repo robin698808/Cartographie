@@ -259,7 +259,7 @@ export default function Projects() {
         <section className="pj-hero">
           <div className="pj-hero-main">
             <p className="pj-eyebrow"><Sparkles size={13} /> Espace de travail</p>
-            <h1 className="pj-title">{greeting()}{displayName ? `, ${displayName}` : ''} 👋</h1>
+            <h1 className="pj-title">{`${greeting()}${displayName ? `, ${displayName}` : ''} 👋`}</h1>
             <p className="pj-sub">
               {loading ? 'Chargement de vos projets…'
                 : projects.length === 0 ? 'Créez votre premier projet pour démarrer une cartographie.'

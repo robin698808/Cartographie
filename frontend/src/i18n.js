@@ -50,8 +50,8 @@ const NUM_RE = /\d+(?:[.,]\d+)*/g;
 const IDENT = new Set(['applications', 'application', 'apps', 'app', 'widgets', 'widget', 'top', 'dashboard', 'hub', 'saas', 'api', 'sla', 'ia', 'it']);
 
 const RULES = [
-  [/^Bonjour, (.*)$/i, (m) => `Good morning, ${m[1]}`],
-  [/^Bonsoir, (.*)$/i, (m) => `Good evening, ${m[1]}`],
+  [/^Bonjour(?:, (.*?))?(\s*\S*)$/i, (m) => `Good morning${m[1] ? ', ' + m[1] : ''}${m[2] || ''}`],
+  [/^Bonsoir(?:, (.*?))?(\s*\S*)$/i, (m) => `Good evening${m[1] ? ', ' + m[1] : ''}${m[2] || ''}`],
   [/^Supprimer (.+)$/, (m) => `Delete ${m[1]}`],
   [/^Modifier (.+)$/, (m) => `Edit ${m[1]}`],
   [/^(\d{1,2}) (janv\.|févr\.|mars|avr\.|mai|juin|juil\.|août|sept\.|oct\.|nov\.|déc\.) (\d{4})$/i, (m) => `${MONTHS[m[2].toLowerCase()]} ${parseInt(m[1], 10)}, ${m[3]}`],
