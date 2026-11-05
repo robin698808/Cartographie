@@ -4936,7 +4936,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     const clearTip=function(){setChartTip(null);};
     const hexToRgbCo=function(hex){var r=parseInt(hex.slice(1,3),16)||102,g=parseInt(hex.slice(3,5),16)||102,b=parseInt(hex.slice(5,7),16)||102;return r+","+g+","+b;};
     const toggleSection=(id)=>setHiddenSections(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
-    const DEFAULT_SIZES={chart_apps:"m",flow_matrix:"l",critical_apps:"l",chart_owner:"m",carveout:"l",it_budget:"m",it_patrimoine:"m",flowreg:"l"};
+    const DEFAULT_SIZES={chart_apps:"m",flow_matrix:"l",critical_apps:"l",chart_owner:"m",carveout:"l",it_budget:"l",it_patrimoine:"l",flowreg:"l"};
     const [widgetSizes,setWidgetSizes]=useState(function(){try{var s=localStorage.getItem("dash_sizes_"+(projectId||"default"));if(s)return Object.assign({},DEFAULT_SIZES,JSON.parse(s));}catch(e){}return Object.assign({},DEFAULT_SIZES);});
     const saveWidgetSizes=(sz)=>{setWidgetSizes(sz);try{localStorage.setItem("dash_sizes_"+(projectId||"default"),JSON.stringify(sz));}catch(e){}};
     const [hovWid,setHovWid]=useState(null);
