@@ -4936,7 +4936,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     const clearTip=function(){setChartTip(null);};
     const hexToRgbCo=function(hex){var r=parseInt(hex.slice(1,3),16)||102,g=parseInt(hex.slice(3,5),16)||102,b=parseInt(hex.slice(5,7),16)||102;return r+","+g+","+b;};
     const toggleSection=(id)=>setHiddenSections(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
-    const DEFAULT_SIZES={chart_apps:"m",flow_matrix:"l",critical_apps:"l",chart_criticality:"m",chart_owner:"m",carveout:"l",it_budget:"m",it_patrimoine:"m",flowreg:"l"};
+    const DEFAULT_SIZES={chart_apps:"m",flow_matrix:"l",critical_apps:"l",chart_owner:"m",carveout:"l",it_budget:"m",it_patrimoine:"m",flowreg:"l"};
     const [widgetSizes,setWidgetSizes]=useState(function(){try{var s=localStorage.getItem("dash_sizes_"+(projectId||"default"));if(s)return Object.assign({},DEFAULT_SIZES,JSON.parse(s));}catch(e){}return Object.assign({},DEFAULT_SIZES);});
     const saveWidgetSizes=(sz)=>{setWidgetSizes(sz);try{localStorage.setItem("dash_sizes_"+(projectId||"default"),JSON.stringify(sz));}catch(e){}};
     const [hovWid,setHovWid]=useState(null);
@@ -4950,6 +4950,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       });
     };
     const [showCustom,setShowCustom]=useState(false);
+    const [critFilter,setCritFilter]=useState("");
     const [widgetPos,setWidgetPos]=useState(function(){try{var s=localStorage.getItem("dash_pos_v2_"+(projectId||"default"));if(s)return JSON.parse(s);}catch(e){}return{};});
     const saveWidgetPos=function(p){setWidgetPos(p);try{localStorage.setItem("dash_pos_v2_"+(projectId||"default"),JSON.stringify(p));}catch(e){}};
     const [dragInfo,setDragInfo]=useState(null);
@@ -5035,7 +5036,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     const [flowMatrixMode,setFlowMatrixMode]=useState("heatmap");
     const [selectedFlowCell,setSelectedFlowCell]=useState(null);
     const [selectedCriticalApp,setSelectedCriticalApp]=useState(null);
-    const CHART_TYPES_DEF={chart_apps:"bar",chart_owner:"donut",it_budget:"bars",it_patrimoine:"bars",chart_criticality:"bars"};
+    const CHART_TYPES_DEF={chart_apps:"bar",chart_owner:"donut",it_budget:"bars",it_patrimoine:"bars"};
     const [chartTypes,setChartTypes]=useState(Object.assign({},CHART_TYPES_DEF));
     const setChartType=function(id,t){setChartTypes(function(p){return Object.assign({},p,{[id]:t});});};
     const dm=[...new Set(apps.map(a=>a.domain))];
@@ -5095,11 +5096,11 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         {opts.map(function(o){return <option key={o.k} value={o.k} style={{background:T.bgCard,color:T.fg}}>{o.label}</option>;})}
       </select>;
     };
-    var ALL_WIDGETS_LIST=["chart_apps","chart_criticality","critical_apps","flow_matrix","chart_owner",...(projectType==='deal'?["carveout"]:[]),"it_budget","it_patrimoine","flowreg"];
-    var getWidgetH=function(id){return{chart_apps:280,chart_criticality:320,critical_apps:480,flow_matrix:460,chart_owner:260,carveout:760,it_budget:560,it_patrimoine:680,flowreg:720}[id]||300;};
+    var ALL_WIDGETS_LIST=["chart_apps","critical_apps","flow_matrix","chart_owner",...(projectType==='deal'?["carveout"]:[]),"it_budget","it_patrimoine","flowreg"];
+    var getWidgetH=function(id){return{chart_apps:280,critical_apps:480,flow_matrix:460,chart_owner:260,carveout:760,it_budget:560,it_patrimoine:680,flowreg:720}[id]||300;};
     var buildDashboardLayout=function(columns,columnWidth,hidden){
       var hid=hidden||[];
-      var rows=[{ids:["chart_apps","chart_criticality"]},{ids:["critical_apps"],wide:true},{ids:["flow_matrix"],wide:true},{ids:["chart_owner"]},{ids:["it_budget","it_patrimoine"]}];
+      var rows=[{ids:["chart_apps"]},{ids:["critical_apps"],wide:true},{ids:["flow_matrix"],wide:true},{ids:["chart_owner"]},{ids:["it_budget","it_patrimoine"]}];
       var fullWidth=columns===1?columnWidth:columnWidth*2+20;
       var layout={};var y=16;
       rows.forEach(function(row){
@@ -5128,7 +5129,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     };
     var WIDGET_THEMES=[
       {id:"kpi",label:"Indicateurs clés",icon:"◎",color:"#2979FF",desc:"Synthèse chiffrée du périmètre",widgets:[{id:"kpi_bar",label:"Bandeau d'indicateurs"}]},
-      {id:"overview",label:"Vue d'ensemble",icon:"▣",color:"#7C4DFF",desc:"Répartition du patrimoine applicatif",widgets:[{id:"chart_apps",label:"Apps par domaine"},{id:"chart_criticality",label:"Criticité"}]},
+      {id:"overview",label:"Vue d'ensemble",icon:"▣",color:"#7C4DFF",desc:"Répartition du patrimoine applicatif",widgets:[{id:"chart_apps",label:"Apps par domaine"}]},
       {id:"risk",label:"Risques & criticité",icon:"⚠",color:"#FF5252",desc:"Applications sensibles à surveiller",widgets:[{id:"critical_apps",label:"Applications critiques"}]},
       {id:"flows",label:"Flux & interfaces",icon:"⇄",color:"#00C853",desc:"Échanges entre domaines et registre",widgets:[{id:"flow_matrix",label:"Matrice des flux"},{id:"flowreg",label:"Registre des flux"}]},
       {id:"org",label:"Organisation",icon:"◉",color:"#00B8D4",desc:"Répartition par responsable",widgets:[{id:"chart_owner",label:"Par responsable"}]}
@@ -5298,12 +5299,14 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       <div style={{display:"grid",gridTemplateColumns:"repeat(12,minmax(0,1fr))",gap:"22px 20px",gridAutoFlow:"row dense",alignItems:"stretch",width:"100%"}}>
       {ALL_WIDGETS_LIST.filter(function(id){return!hiddenWidgets.includes(id);}).map(function(sid){
         if(sid==="chart_apps")return wrapWidget(sid,"#7C4DFF","Apps par domaine",null,function(isExpanded,ww,wh){
-          var barData=[...st].sort(function(a,b){return b.count-a.count;});
+          var critMatch=function(a){return!critFilter||(critFilter==="Non renseignée"?!["Haute","Moyenne","Basse"].includes(a.criticality):a.criticality===critFilter);};
+          var barData=st.map(function(d){var fa=d.apps.filter(critMatch);return Object.assign({},d,{count:fa.length,apps:fa});}).filter(function(d){return d.count>0;}).sort(function(a,b){return b.count-a.count;});
           var mx2=Math.max.apply(null,barData.map(function(d){return d.count;}))||1;
           var ctype=chartTypes[sid]||"bar";
           var appSlices=barData.map(function(d){return{name:d.domain,value:d.count,color:(DC[d.domain]||DC.Autre).ac};});
-          var totalApps=apps.length||1;
+          var totalApps=apps.filter(critMatch).length||1;
           var cw=ww||500;var svgW=isExpanded?560:Math.max(160,cw-56);var svgH=isExpanded?300:250;
+          if(!barData.length)return <div style={{background:T.bgCard,borderRadius:12,padding:40,textAlign:"center",color:T.fgMuted,fontSize:13,boxShadow:"0 0 0 1px "+T.border}}>Aucune application ne correspond à ce niveau de criticité.</div>;
           var renderBarV=function(){
             var W=svgW;var H=svgH;
             var pad={l:40,r:10,t:30,b:50};var n=barData.length;
@@ -5393,7 +5396,14 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
               {ctype==="bar"?renderBarV():ctype==="donut"?renderCircle(true):ctype==="pie"?renderCircle(false):renderArea()}
             </div>
           </div>;
-        },mkChartSwitch(sid));
+        },<>
+          <select value={critFilter} title="Filtrer par criticité" onClick={function(e){e.stopPropagation();}} onChange={function(e){setCritFilter(e.target.value);}}
+            style={Object.assign({},WIDGET_SEL_STYLE,critFilter?{border:"1px solid #EF4444",color:"#EF4444",background:"rgba(239,68,68,0.12) "+CHEV+" no-repeat right 7px center"}:{})}>
+            <option value="" style={{background:T.bgCard,color:T.fg}}>Toutes criticités</option>
+            {["Haute","Moyenne","Basse","Non renseignée"].map(function(c){return <option key={c} value={c} style={{background:T.bgCard,color:T.fg}}>{c}</option>;})}
+          </select>
+          {mkChartSwitch("chart_apps")}
+        </>);
         if(sid==="flow_matrix")return wrapWidget(sid,"#06B6D4","Matrice des flux inter-domaines",null,function(isExpanded,ww,wh){
           var matrixDomains=dm.map(function(domain){
             var outgoing=dm.reduce(function(sum,target){return sum+(mtx[domain+"→"+target]||0);},0);
@@ -5699,90 +5709,6 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
             </div>
           </div>;
         },mkChartSwitch(sid));
-        if(sid==="chart_criticality")return wrapWidget(sid,"#EF4444","Criticité du portefeuille",null,function(isExpanded,ww,wh){
-          var totalPortfolio=apps.length||1;
-          var levels=[
-            {label:"Haute",color:"#EF4444"},
-            {label:"Moyenne",color:"#F59E0B"},
-            {label:"Basse",color:"#10B981"},
-            {label:"Non renseignée",color:"#94A3B8"},
-          ].map(function(level){
-            var count=level.label==="Non renseignée"
-              ?apps.filter(function(a){return !["Haute","Moyenne","Basse"].includes(a.criticality);}).length
-              :apps.filter(function(a){return a.criticality===level.label;}).length;
-            return Object.assign({},level,{count:count,pct:Math.round(count/totalPortfolio*100)});
-          });
-          var criticalPct=Math.round((totC/totalPortfolio)*100);
-          return <div className="dashboard-widget-surface" style={{background:T.bgCard,borderRadius:16,padding:18,boxShadow:"0 8px 24px rgba(30,27,75,.07), 0 0 0 1px "+T.border,height:(isExpanded||wh)?"100%":undefined,display:(isExpanded||wh)?"flex":undefined,flexDirection:(isExpanded||wh)?"column":undefined}}>
-            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:18}}>
-              <div style={{width:34,height:34,borderRadius:11,display:"grid",placeItems:"center",background:"linear-gradient(145deg,#EF444426,#EF44440A)",color:"#EF4444",fontSize:16}}>⚑</div>
-              <div style={{flex:1}}><div style={{fontSize:15,fontWeight:800,color:T.fg}}>Criticité des applications</div><div style={{fontSize:12,color:T.fgMuted,marginTop:3}}>Répartition réelle du portefeuille</div></div>
-              <div style={{textAlign:"right"}}><div style={{fontSize:26,fontWeight:800,color:"#EF4444",lineHeight:1}}>{totC}</div><div style={{fontSize:12,color:T.fgMuted,marginTop:4}}>haute · {criticalPct}%</div></div>
-            </div>
-            {(chartTypes.chart_criticality==="matrix")?function(){
-              var isNR=function(a){return!["Haute","Moyenne","Basse"].includes(a.criticality);};
-              var inCell=function(r,c){return r.apps.filter(function(a){return c.label==="Non renseignée"?isNR(a):a.criticality===c.label;});};
-              var cols=levels.filter(function(l){return l.label!=="Non renseignée"||l.count>0;});
-              var rowsM=st.map(function(d){return{domain:d.domain,apps:d.apps};}).sort(function(a,b){return b.apps.length-a.apps.length;});
-              var maxCell=1;
-              rowsM.forEach(function(r){cols.forEach(function(c){var n=inCell(r,c).length;if(n>maxCell)maxCell=n;});});
-              return <div style={{overflow:"auto",flex:(isExpanded||wh)?1:undefined,minHeight:0}}>
-                <div style={{display:"grid",gridTemplateColumns:"minmax(80px,1.2fr) repeat("+cols.length+",minmax(56px,1fr))",gap:5,fontSize:12}}>
-                  <div/>
-                  {cols.map(function(c){return <div key={c.label} style={{textAlign:"center",fontWeight:800,color:c.color,padding:"4px 2px",fontSize:12}}>{c.label}</div>;})}
-                  {rowsM.map(function(r){
-                    return [<div key={r.domain+"-l"} style={{display:"flex",alignItems:"center",gap:6,color:T.fg,fontWeight:700,minWidth:0}}><span style={{width:7,height:7,borderRadius:2,background:(DC[r.domain]||DC.Autre).ac,flexShrink:0}}/><span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={r.domain}>{r.domain}</span></div>].concat(cols.map(function(c){
-                      var list=inCell(r,c);
-                      var alpha=list.length?(0.14+0.5*list.length/maxCell):0;
-                      return <div key={r.domain+c.label} title={list.length?c.label+" · "+r.domain+" : "+list.map(function(a){return a.name;}).join(", "):"Aucune application"}
-                        onClick={list.length?function(){setSelApp(list[0]);setPanelOpen(true);}:undefined}
-                        style={{minHeight:54,borderRadius:8,background:list.length?c.color+Math.round(alpha*255).toString(16).padStart(2,"0"):T.bgAlt,border:"1px solid "+(list.length?c.color+"55":T.border),display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"3px 2px",cursor:list.length?"pointer":"default"}}>
-                        <span style={{fontSize:18,fontWeight:850,color:list.length?T.fg:T.fgFaint}}>{list.length||"·"}</span>
-                        {list.length>0&&<span style={{fontSize:10.5,color:T.fgMuted,maxWidth:"100%",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{list.slice(0,2).map(function(a){return a.name;}).join(", ")}{list.length>2?" +"+(list.length-2):""}</span>}
-                      </div>;
-                    }));
-                  })}
-                </div>
-                <div style={{fontSize:12,color:T.fgMuted,marginTop:10}}>Domaine × criticité · cliquez une case pour ouvrir une application</div>
-              </div>;
-            }():function(){
-              var segs=levels.filter(function(l){return l.count>0;});
-              var segTotal=segs.reduce(function(t,l){return t+l.count;},0)||1;
-              var arcs=segs.length>1?buildArcs(segs.map(function(l){return{name:l.label,value:l.count,color:l.color};}),segTotal,65,65,60,40):[];
-              var byDom=st.map(function(d){var c=function(k){return d.apps.filter(function(a){return a.criticality===k;}).length;};return{domain:d.domain,h:c("Haute"),m:c("Moyenne"),b:c("Basse"),n:d.count};}).sort(function(a,b){return b.h-a.h||b.n-a.n;}).slice(0,isExpanded?12:6);
-              return <div style={{display:"flex",flexDirection:"column",gap:16,flex:1}}>
-                <div style={{display:"flex",gap:16,alignItems:"center",flexWrap:"wrap"}}>
-                  <svg width="112" height="112" viewBox="0 0 130 130" style={{flexShrink:0,width:112,height:112}}>
-                    {segs.length===1&&<circle cx="65" cy="65" r="50" fill="none" stroke={segs[0].color} strokeWidth="20"/>}
-                    {arcs.map(function(p){return <path key={p.idx} d={p.d} fill={p.color} stroke={T.bgCard} strokeWidth="2"><title>{p.name+" : "+p.value+" ("+p.pct+"%)"}</title></path>;})}
-                    <text x="65" y="68" textAnchor="middle" fill={T.fg} fontSize="28" fontWeight="800">{apps.length}</text>
-                    <text x="65" y="84" textAnchor="middle" fill={T.fgMuted} fontSize="9" letterSpacing="0.5">APPS</text>
-                  </svg>
-                  <div style={{flex:1,minWidth:170,display:"grid",gap:6}}>
-                    {levels.filter(function(l){return l.count>0||l.label!=="Non renseignée";}).map(function(level){return <div key={level.label} style={{display:"grid",gridTemplateColumns:"14px minmax(0,1fr) auto 44px",alignItems:"center",gap:10,padding:"5px 12px",borderRadius:10,background:level.count?level.color+"12":T.bgAlt,border:"1px solid "+(level.count?level.color+"33":T.border),opacity:level.count?1:0.6}}>
-                      <span style={{width:12,height:12,borderRadius:4,background:level.color}}/>
-                      <span style={{fontSize:14,fontWeight:600,color:T.fg}}>{level.label}</span>
-                      <b style={{fontSize:18,color:T.fg,fontVariantNumeric:"tabular-nums"}}>{level.count}</b>
-                      <span style={{fontSize:13,color:T.fgMuted,textAlign:"right",fontVariantNumeric:"tabular-nums"}}>{level.pct}%</span>
-                    </div>;})}
-                  </div>
-                </div>
-                {byDom.length>0&&<div>
-                  <div style={{fontSize:13,fontWeight:700,color:T.fg,marginBottom:10}}>Criticité par domaine</div>
-                  <div style={{display:"grid",gap:9}}>
-                    {byDom.map(function(d){return <div key={d.domain} style={{display:"grid",gridTemplateColumns:"minmax(70px,120px) minmax(0,1fr) 28px",alignItems:"center",gap:10}}>
-                      <span title={d.domain} style={{fontSize:13,color:T.fg,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{d.domain}</span>
-                      <div style={{display:"flex",height:14,borderRadius:7,overflow:"hidden",background:T.border}}>
-                        {[{v:d.h,c:"#EF4444",l:"Haute"},{v:d.m,c:"#F59E0B",l:"Moyenne"},{v:d.b,c:"#10B981",l:"Basse"}].map(function(x){return x.v>0&&<div key={x.l} title={x.l+" : "+x.v} style={{width:(x.v/d.n*100)+"%",background:x.c}}/>;})}
-                      </div>
-                      <b style={{fontSize:13,color:T.fgMuted,textAlign:"right"}}>{d.n}</b>
-                    </div>;})}
-                  </div>
-                </div>}
-              </div>;
-            }()}
-          </div>;
-        },mkChartSwitch("chart_criticality",null,[{k:"bars",label:"Répartition"},{k:"matrix",label:"Matrice"}]));
         if(sid==="critical_apps")return wrapWidget(sid,"#EF4444","Top 10 — Applications critiques",null,function(isExpanded,ww,wh){
           var severityWeight={Critique:4,Haute:3,Moyenne:2,Basse:1};
           var severityColor={Critique:"#B91C1C",Haute:"#EF4444",Moyenne:"#F59E0B",Basse:"#10B981"};
