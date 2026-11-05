@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import CanvasHome from './CanvasHome';
 import { ItsiBudgetWidget, ItsiPatrimoineWidget } from './ItsiWidgets';
+import { routeFlows, pathToD, placeLabels } from './flowRouting';
 import {
   COST_TYPES, COST_COLORS, HOSTING_OPTS, HOSTING_COLORS, APPTYPE_OPTS, APPTYPE_COLORS, EOS_BUCKETS, ITSI_FIELDS, DEAL_ONLY_PATTERNS,
   normText, parseAmount, parseDate, canonOption, eosBucket, formatEuro, formatDateFr,
@@ -534,6 +535,7 @@ function App({ initialSnapshot, onSave, wsMessage, projectId, onThemeChange, top
   const [selFlow,setSelFlow]=useState(null);// selected flow (click)
   const [flowCtx,setFlowCtx]=useState(null);// context menu {flow, x, y}
   const [drag,setDrag]=useState(null); // {id,ox,oy} for app or {domain,ox,oy,appIds} for domain group
+  const routeCacheRef=useRef({sig:"",paths:null});
   const dragRef=useRef(null); // mirror of drag for always-current access in event handlers
   const startDrag=(val)=>{dragRef.current=val;setDrag(val);};
   const stopDrag=()=>{dragRef.current=null;setDrag(null);};
@@ -557,6 +559,8 @@ function App({ initialSnapshot, onSave, wsMessage, projectId, onThemeChange, top
   const [fFrom,setFFrom]=useState(null);
   const [cMode,setCMode]=useState(false);
 const [multiSel,setMultiSel]=useState([]);
+const lassoRef=useRef(null);
+const [lasso,setLasso]=useState(null);
 const [selMode,setSelMode]=useState(false); // toggle select mode
   const [shts,setShts]=useState([]);
   const [wbR,setWbR]=useState(null);
@@ -680,6 +684,8 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   const [focusApp,setFocusApp]=useState(null);
   const [flowSuppressed,setFlowSuppressed]=useState(false);
   const [flowDomFilter,setFlowDomFilter]=useState("");
+  const [flowProto,setFlowProto]=useState("");
+  const [flowCrit,setFlowCrit]=useState("");
   const [showFluxListModal,setShowFluxListModal]=useState(null);
   const [flowThickness,setFlowThickness]=useState(2);
   const [flowFontSize,setFlowFontSize]=useState(9);
@@ -1024,11 +1030,24 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     const isApp=e.target.closest&&e.target.closest('[data-app]');
     const tag=e.target.tagName;
     if(!isApp&&tag!=="BUTTON"&&tag!=="INPUT"&&tag!=="SELECT"&&tag!=="A"&&tag!=="LABEL"&&tag!=="TEXTAREA"){
-      setPan(true);pRef.current={x:e.clientX-off.x,y:e.clientY-off.y};setSelApp(null);setFocusApp(null);setSelFlow(null);setFlowSuppressed(true);
+      if((e.shiftKey||selMode)&&cvRef.current&&!cMode){
+        const r=cvRef.current.getBoundingClientRect();
+        const wx=(e.clientX-r.left-off.x)/zm,wy=(e.clientY-r.top-off.y)/zm;
+        lassoRef.current={x0:wx,y0:wy,add:e.shiftKey};
+        setLasso({x0:wx,y0:wy,x1:wx,y1:wy});setSelApp(null);setFocusApp(null);setSelFlow(null);
+        return;
+      }
+      setPan(true);pRef.current={x:e.clientX-off.x,y:e.clientY-off.y};setSelApp(null);setFocusApp(null);setSelFlow(null);setFlowSuppressed(true);setMultiSel([]);
     }
   };
   const onCM=e=>{
     if(pan)setOff({x:e.clientX-pRef.current.x,y:e.clientY-pRef.current.y});
+    if(lassoRef.current&&cvRef.current){
+      const r=cvRef.current.getBoundingClientRect();
+      const l=lassoRef.current;
+      setLasso({x0:l.x0,y0:l.y0,x1:(e.clientX-r.left-off.x)/zm,y1:(e.clientY-r.top-off.y)/zm});
+      return;
+    }
     const dr=dragRef.current;
     if(dr){
       if(dr.resizeCat){
@@ -1068,6 +1087,22 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   };
   const onCU=e=>{
     setPan(false);
+    if(lassoRef.current){
+      const l=lassoRef.current;
+      const box=lasso;
+      lassoRef.current=null;setLasso(null);
+      if(box){
+        const bx1=Math.min(box.x0,box.x1),bx2=Math.max(box.x0,box.x1),by1=Math.min(box.y0,box.y1),by2=Math.max(box.y0,box.y1);
+        if(bx2-bx1>4/zm||by2-by1>4/zm){
+          const hit=apps.filter(function(a){
+            const k=AW_BASE*globalScale*(domScales[a.domain]||1)*Math.max(0.7,fontScale),kh=AH_BASE*globalScale*(domScales[a.domain]||1)*Math.max(0.7,fontScale);
+            return a.x<bx2&&a.x+k>bx1&&a.y<by2&&a.y+kh>by1;
+          }).map(function(a){return a.id;});
+          setMultiSel(function(p){return l.add?Array.from(new Set(p.concat(hit))):hit;});
+        }else if(!l.add)setMultiSel([]);
+      }
+      return;
+    }
     const dr=dragRef.current;
     // Check if app was dropped onto a different domain zone
     if(dr&&dr.id&&!dr.domain&&e){
@@ -1104,7 +1139,8 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     if(layoutApps.length===0)return;
     const cW=Math.round(AW_BASE*globalScale*Math.max(0.7,fontScale));
     const cH=Math.round(AH_BASE*globalScale*Math.max(0.7,fontScale));
-    const cGx=18+appSpacing,cGy=14+appSpacing,domPad=44,domSide=22,domGap=flowDisplayMode==="static"?Math.max(domainSpacing,220):domainSpacing;
+    const hasFlowsToRoute=flows.length>0;
+    const cGx=Math.max(18+appSpacing,hasFlowsToRoute?46:0),cGy=Math.max(14+appSpacing,hasFlowsToRoute?40:0),domPad=44,domSide=22,domGap=flowDisplayMode==="static"?Math.max(domainSpacing,220):domainSpacing;
     // 1. Compter les flux inter-domaines
     const domFlows={};
     const pairFlows={};
@@ -1165,13 +1201,26 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     var domainLayouts=domainOrder.map(function(dom){return{domain:dom,size:getDomSize(dom),apps:domAppCnt[dom]||0,flows:domFlows[dom]||0};});
     var domainCols=Math.min(3,Math.max(1,Math.ceil(Math.sqrt(domainLayouts.length/2))));
     var domainRows=Math.ceil(domainLayouts.length/domainCols);
+    // Affinage : ?changes de domaines entre cases pour minimiser flux x distance.
+    var slotCost=function(arr){var c=0;for(var i=0;i<arr.length;i++)for(var j=i+1;j<arr.length;j++){var w=pairFlows[[arr[i].domain,arr[j].domain].sort().join("\x00")]||0;if(w)c+=w*(Math.abs(i%domainCols-j%domainCols)+Math.abs(Math.floor(i/domainCols)-Math.floor(j/domainCols)));}return c;};
+    for(var pass=0;pass<12;pass++){
+      var improvedSwap=false;
+      for(var si=0;si<domainLayouts.length;si++)for(var sj=si+1;sj<domainLayouts.length;sj++){
+        var before=slotCost(domainLayouts);
+        var tmpL=domainLayouts[si];domainLayouts[si]=domainLayouts[sj];domainLayouts[sj]=tmpL;
+        if(slotCost(domainLayouts)<before)improvedSwap=true;else{tmpL=domainLayouts[si];domainLayouts[si]=domainLayouts[sj];domainLayouts[sj]=tmpL;}
+      }
+      if(!improvedSwap)break;
+    }
     var colWidths=new Array(domainCols).fill(0),rowHeights=new Array(domainRows).fill(0);
     domainLayouts.forEach(function(item,index){var col=index%domainCols,row=Math.floor(index/domainCols);colWidths[col]=Math.max(colWidths[col],item.size.w);rowHeights[row]=Math.max(rowHeights[row],item.size.h);});
-    var domainGap=Math.max(34,Math.min(domGap,96));
+    var domainGap=Math.max(70,Math.min(domGap,96));
+    // Couloirs proportionnels au nombre de flux qui traversent chaque fronti?re.
+    var crossing=function(axis,boundary){var c=0;for(var i=0;i<domainLayouts.length;i++)for(var j=i+1;j<domainLayouts.length;j++){var w=pairFlows[[domainLayouts[i].domain,domainLayouts[j].domain].sort().join("\x00")]||0;if(!w)continue;var ai=axis===0?i%domainCols:Math.floor(i/domainCols),aj=axis===0?j%domainCols:Math.floor(j/domainCols);if(Math.min(ai,aj)<=boundary&&Math.max(ai,aj)>boundary)c+=w;}return c;};
     var colOffsets=[],rowOffsets=[],offset=0;
-    colWidths.forEach(function(width,index){colOffsets[index]=offset;offset+=width+(index<colWidths.length-1?domainGap:0);});
+    colWidths.forEach(function(width,index){colOffsets[index]=offset;offset+=width+(index<colWidths.length-1?Math.min(420,domainGap+crossing(0,index)*8):0);});
     offset=0;
-    rowHeights.forEach(function(height,index){rowOffsets[index]=offset;offset+=height+(index<rowHeights.length-1?domainGap:0);});
+    rowHeights.forEach(function(height,index){rowOffsets[index]=offset;offset+=height+(index<rowHeights.length-1?Math.min(420,domainGap+crossing(1,index)*8):0);});
     // 5. Positionner les applications par domaine, puis par catégorie.
     var na=layoutApps.map(function(a){return Object.assign({},a);});
     domainLayouts.forEach(function(item,index){
@@ -4612,7 +4661,8 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       onContextMenu={function(e){e.preventDefault();e.stopPropagation();setCtxMenu({x:e.clientX,y:e.clientY,type:"app",target:app.id});}}
       onMouseEnter={function(e){e.currentTarget.style.transform="translateY(-2px) scale(1.025)";e.currentTarget.style.zIndex="20";e.currentTarget.style.boxShadow="0 12px 28px "+cardColor+"55, 0 0 0 1px "+cardColor+"55";setFlowSuppressed(false);if(flowDisplayMode==="dynamic"&&!drag&&!cMode&&!selMode){setFocusApp(app.id);if(selFlow)setSelFlow(null);}}}
       onMouseLeave={function(e){e.currentTarget.style.transform="translateZ(0)";e.currentTarget.style.zIndex=sel?"10":"1";if(!sel&&!msel)e.currentTarget.style.boxShadow=isDark?"0 9px 22px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.045)":"0 7px 18px rgba(15,23,42,0.12)";if(flowDisplayMode==="dynamic"&&focusApp===app.id&&selApp?.id!==app.id)setFocusApp(null);}}
-      onMouseDown={e=>{e.stopPropagation();if(cMode){if(!fFrom)setFFrom(app.id);else if(fFrom!==app.id){const nf={id:uid(),from:fFrom,to:app.id,protocol:"API",label:"",description:"",frequency:""};setFlows(p=>[...p,nf]);setEFlow({...nf});setShowFM(true);setFFrom(null);setCMode(false);}return;}if(e.shiftKey){setMultiSel(p=>p.includes(app.id)?p.filter(x=>x!==app.id):[...p,app.id]);return;}
+      onMouseDown={e=>{e.stopPropagation();if(cMode){if(!fFrom)setFFrom(app.id);else if(fFrom!==app.id){const nf={id:uid(),from:fFrom,to:app.id,protocol:"API",label:"",description:"",frequency:""};setFlows(p=>[...p,nf]);setEFlow({...nf});setShowFM(true);setFFrom(null);setCMode(false);}return;}if(e.shiftKey||e.ctrlKey||e.metaKey){setMultiSel(p=>p.includes(app.id)?p.filter(x=>x!==app.id):[...p,app.id]);return;}
+        if(multiSel.length>1&&multiSel.includes(app.id)){setFlowSuppressed(false);startDrag({ids:multiSel.slice(),lx:e.clientX,ly:e.clientY});return;}
         setMultiSel([]);setSelApp(app);setFocusApp(app.id);setSelFlow(null);setFlowSuppressed(false);const rect=e.currentTarget.getBoundingClientRect();startDrag({id:app.id,ox:e.clientX-rect.left,oy:e.clientY-rect.top});}}
       onDoubleClick={()=>{setEApp({...app});setShowAM(true);}}>
 
@@ -4650,13 +4700,14 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   };
   const FlowLines=()=>{
     const staticMode=flowDisplayMode==="static";
-    if(flowSuppressed)return null;
+    if(flowSuppressed&&!staticMode)return null;
     if(!staticMode&&!focusApp&&!flowDomFilter)return null;
     var visFlows=flows;
     if(flowDomFilter){visFlows=visFlows.filter(function(f){var fa=apps.find(function(a){return a.id===f.from;});var ta=apps.find(function(a){return a.id===f.to;});return(fa&&fa.domain===flowDomFilter)||(ta&&ta.domain===flowDomFilter);});}
     if(!staticMode&&focusApp){visFlows=visFlows.filter(function(f){return f.from===focusApp||f.to===focusApp;});}
-    if(selFlow){visFlows=visFlows.filter(function(f){return f.id===selFlow;});}
-    if(visFlows.length===0)return null;
+    if(!staticMode&&selFlow){visFlows=visFlows.filter(function(f){return f.id===selFlow;});}
+    if(!staticMode&&flowProto)visFlows=visFlows.filter(function(f){return f.protocol===flowProto;});
+    if(!staticMode&&flowCrit)visFlows=visFlows.filter(function(f){var fa=apps.find(function(a){return a.id===f.from;});var ta=apps.find(function(a){return a.id===f.to;});return(fa&&fa.criticality===flowCrit)||(ta&&ta.criticality===flowCrit);});
     var defCol=staticMode?(isDark?"#B9C4FF":"#334155"):(isDark?"#548CA8":"#3D7A9E");
     var lineCol=flowColorCustom||defCol;
     var dashVal=flowDash==="dashed"?"8 4":flowDash==="dotted"?"3 3":"none";
@@ -4667,13 +4718,28 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     visFlows.forEach(function(f){var key=[f.from,f.to].sort().join("\x00");(laneGroups[key]=laneGroups[key]||[]).push(f);});
     var laneById={};
     Object.values(laneGroups).forEach(function(group){group.forEach(function(f,i){laneById[f.id]=i-(group.length-1)/2;});});
+    var cardDims=function(a){var k=AW_BASE*globalScale*(domScales[a.domain]||1)*Math.max(0.7,fontScale);var kh=AH_BASE*globalScale*(domScales[a.domain]||1)*Math.max(0.7,fontScale);return{id:a.id,x:a.x,y:a.y,w:k,h:kh};};
+    var shortTxt=function(f){var l=f.label||"";if(l.length>22)l=l.slice(0,21)+"\u2026";return l||(staticMode?"Flux":"");};
+    var lblScale=Math.min(1/Math.max(0.08,zm),1.6);
+    var routed={},labelPos={};
+    if(visFlows.length>0&&visFlows.length<=250){
+      var cards=apps.map(cardDims);
+      var links=visFlows.map(function(f){return{id:f.id,from:f.from,to:f.to};});
+      var sig=cards.map(function(c){return c.id+":"+Math.round(c.x)+","+Math.round(c.y)+","+Math.round(c.w);}).join("|")+"#"+links.map(function(l){return l.id+l.from+l.to;}).join("|");
+      var rc=routeCacheRef.current;
+      if(rc.sig===sig&&rc.paths){routed=rc.paths;}
+      else if(!drag){try{routed=routeFlows(cards,links).paths;}catch(err){console.error("routeFlows",err);routed={};}routeCacheRef.current={sig:sig,paths:routed};}
+      var zmS=1/lblScale,lf=Math.max(10,flowFontSize);
+      var specs=visFlows.filter(function(f){return routed[f.id];}).map(function(f){var t=shortTxt(f);return t?{id:f.id,w:Math.max(60,t.length*lf*0.55+16)/zmS,h:lf*1.5/zmS}:null;}).filter(Boolean);
+      labelPos=placeLabels(routed,specs,cards);
+    }
     var clip=function(cx2,cy2,w,h,tx,ty){var ddx=tx-cx2,ddy=ty-cy2;if(Math.abs(ddx)<0.5&&Math.abs(ddy)<0.5)return{x:cx2,y:cy2};var sx2=Math.abs(ddx)>0.5?(w/2)/Math.abs(ddx):9999;var sy2=Math.abs(ddy)>0.5?(h/2)/Math.abs(ddy):9999;var s=Math.min(sx2,sy2);return{x:cx2+ddx*s,y:cy2+ddy*s};};
         return <svg className="flow-layer" style={{position:"absolute",top:0,left:0,width:"100%",height:"100%",pointerEvents:"none",overflow:"visible"}}>
           {visFlows.map(function(f,flowIndex){var fa=apps.find(function(a){return a.id===f.from;}),ta=apps.find(function(a){return a.id===f.to;});if(!fa||!ta)return null;
             var flowColor=focusApp===f.from?"#34D399":focusApp===f.to?"#38BDF8":lineCol;
             var flowIsSelected=selFlow===f.id;
-            var flowOpacity=selFlow?(flowIsSelected?1:0.07):staticMode?0.82:0.65;
-            var flowLabelOpacity=selFlow?(flowIsSelected?1:0.10):1;
+            var flowOpacity=staticMode?0.82:selFlow?(flowIsSelected?1:0.07):0.65;
+            var flowLabelOpacity=staticMode?1:selFlow?(flowIsSelected?1:0.10):1;
             var arrowId="ah-"+String(f.id).replace(/[^a-zA-Z0-9_-]/g,"");
             var aw=AW_BASE*globalScale*(domScales[fa.domain]||1)*Math.max(0.7,fontScale),ah=AH_BASE*globalScale*(domScales[fa.domain]||1)*Math.max(0.7,fontScale);
             var bw=AW_BASE*globalScale*(domScales[ta.domain]||1)*Math.max(0.7,fontScale),bh=AH_BASE*globalScale*(domScales[ta.domain]||1)*Math.max(0.7,fontScale);
@@ -4684,9 +4750,12 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         var lane=staticMode?(laneById[f.id]||0)*Math.max(18,flowFontSize*2.1)/Math.max(0.08,zm):0;
         var mx=(ep.x+en.x)/2-(dy/len)*lane,my=(ep.y+en.y)/2+(dx/len)*lane-(staticMode?28:20);
         var pathD="M"+ep.x+" "+ep.y+" Q"+mx+" "+my+" "+en.x+" "+en.y;
+        var rt=routed[f.id];
+        if(rt){ep=rt[0];pathD=pathToD(rt,8);}
         var labelT=staticMode&&fa.domain!==ta.domain?(fa.domain===hubDomain?0.72:ta.domain===hubDomain?0.28:0.5):0.5;
         var labelX=ep.x+dx*labelT-(dy/len)*lane,labelY=ep.y+dy*labelT+(dx/len)*lane-(staticMode?14:0);
-        var txt=[f.label,f.protocol].filter(Boolean).join(" · ")||(staticMode?"Flux":"");
+        if(rt&&labelPos[f.id]){labelX=labelPos[f.id].x;labelY=labelPos[f.id].y;}
+        var txt=shortTxt(f);
         var labelFont=Math.max(10,flowFontSize);
         var lblW=Math.max(60,txt.length*labelFont*0.55+16);
         return <g key={f.id}>
@@ -4701,7 +4770,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
             onContextMenu={function(e){e.preventDefault();e.stopPropagation();setFlowCtx({flow:f,x:e.clientX,y:e.clientY});setSelFlow(f.id);}}/>
           <circle cx={ep.x} cy={ep.y} r={Math.max(3,flowThickness+1)} fill={flowColor} fillOpacity={flowOpacity}/>
           {!staticMode&&flowIndex<16&&<circle r="3.2" fill={flowColor} opacity={flowOpacity} style={{filter:"drop-shadow(0 0 4px "+flowColor+")",pointerEvents:"none"}}><animateMotion path={pathD} dur={(1.5+(flowIndex%4)*0.22)+"s"} begin={(flowIndex%8)*0.13+"s"} repeatCount="indefinite"/></circle>}
-          {txt&&<g opacity={flowLabelOpacity} transform={"translate("+labelX+" "+labelY+") scale("+(1/Math.max(0.08,zm))+") translate("+(-labelX)+" "+(-labelY)+")"}>
+          {txt&&<g opacity={flowLabelOpacity} transform={"translate("+labelX+" "+labelY+") scale("+lblScale+") translate("+(-labelX)+" "+(-labelY)+")"}>
             <rect x={labelX-lblW/2} y={labelY-labelFont*0.8} width={lblW} height={labelFont*1.5} rx="4" fill={T.bgCard} fillOpacity="0.96" stroke={flowColor} strokeWidth="0.8" strokeOpacity="0.55"/>
             <text x={labelX} y={labelY+labelFont*0.25} fill={flowColor} fontSize={labelFont} textAnchor="middle" fontFamily="inherit" fontWeight="600" style={{pointerEvents:"none"}}>{txt}</text>
           </g>}
@@ -6905,7 +6974,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
           </div>
           <div className="mapping-menu-item" aria-current={selMode?"true":undefined} onMouseDown={function(e){e.stopPropagation();setSelMode(true);setCMode(false);setOpenMenu(null);}} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 10px",borderRadius:4,cursor:"pointer",background:selMode?"#00BFA515":"transparent",border:selMode?"1px solid #00BFA530":"1px solid transparent"}} onMouseEnter={function(e){e.currentTarget.style.background=T.bgHover;}} onMouseLeave={function(e){e.currentTarget.style.background=selMode?"#00BFA515":"transparent";}}>
             <span className="mapping-menu-icon" style={{fontSize:16,color:"#34D399"}}>&#9654;</span>
-            <div><div style={{fontSize:11,fontWeight:600,color:selMode?"#00BFA5":T.fg}}>Sélection</div><div style={{fontSize:11,color:T.fgMuted}}>Shift+clic, déplacement groupé</div></div>
+            <div><div style={{fontSize:11,fontWeight:600,color:selMode?"#00BFA5":T.fg}}>Sélection</div><div style={{fontSize:11,color:T.fgMuted}}>Glisser un cadre ou Shift+clic, puis déplacer le groupe</div></div>
           </div>
         </div>}
       </div>
@@ -6957,7 +7026,19 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
           <div className="mapping-menu-section-title">Comportement des flux</div>
           <div className="mapping-segmented">
             <button aria-pressed={flowDisplayMode==="dynamic"} onClick={function(){setFlowDisplayMode("dynamic");setFlowSuppressed(false);setFocusApp(null);setSelFlow(null);}} style={{...B,flex:1,padding:"8px 10px",fontSize:11,background:flowDisplayMode==="dynamic"?"linear-gradient(135deg,#2563EB,#0EA5E9)":"transparent",color:flowDisplayMode==="dynamic"?"#fff":T.fgMuted,border:flowDisplayMode==="dynamic"?"1px solid #38BDF8":"1px solid transparent",borderRadius:8}}>Au survol</button>
-            <button aria-pressed={flowDisplayMode==="static"} onClick={function(){setFlowDisplayMode("static");setFlowSuppressed(false);setFocusApp(null);setSelFlow(null);setTimeout(function(){fitCanvas();},80);}} style={{...B,flex:1,padding:"8px 10px",fontSize:11,background:flowDisplayMode==="static"?"linear-gradient(135deg,#2563EB,#0EA5E9)":"transparent",color:flowDisplayMode==="static"?"#fff":T.fgMuted,border:flowDisplayMode==="static"?"1px solid #38BDF8":"1px solid transparent",borderRadius:8}}>Statique</button>
+            <button aria-pressed={flowDisplayMode==="static"} onClick={function(){setFlowDisplayMode("static");setFlowSuppressed(false);setFocusApp(null);setSelFlow(null);setFlowProto("");setFlowCrit("");setTimeout(function(){fitCanvas();},80);}} style={{...B,flex:1,padding:"8px 10px",fontSize:11,background:flowDisplayMode==="static"?"linear-gradient(135deg,#2563EB,#0EA5E9)":"transparent",color:flowDisplayMode==="static"?"#fff":T.fgMuted,border:flowDisplayMode==="static"?"1px solid #38BDF8":"1px solid transparent",borderRadius:8}}>Statique</button>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:7,padding:"2px 4px 8px"}}>
+            <div style={{display:"flex",gap:6}}>
+              <select aria-label="Filtrer par protocole" value={flowProto} onChange={function(e){setFlowProto(e.target.value);}} style={{flex:1,minWidth:0,background:flowProto?"#6366F122":T.bgAlt,color:flowProto?"#A5B4FC":T.fgMuted,border:"1px solid "+(flowProto?"#6366F1":T.border),borderRadius:8,padding:"6px 8px",fontSize:10.5,fontWeight:600}}>
+                <option value="">Tous protocoles</option>
+                {[...new Set(flows.map(function(f){return f.protocol;}).filter(Boolean))].sort().map(function(v){return <option key={v} value={v}>{v}</option>;})}
+              </select>
+              <select aria-label="Filtrer par criticité" value={flowCrit} onChange={function(e){setFlowCrit(e.target.value);}} style={{flex:1,minWidth:0,background:flowCrit?"#6366F122":T.bgAlt,color:flowCrit?"#A5B4FC":T.fgMuted,border:"1px solid "+(flowCrit?"#6366F1":T.border),borderRadius:8,padding:"6px 8px",fontSize:10.5,fontWeight:600}}>
+                <option value="">Toute criticité</option>
+                {["Haute","Moyenne","Basse"].map(function(v){return <option key={v} value={v}>{"Criticité "+v.toLowerCase()}</option>;})}
+              </select>
+            </div>
           </div>
           <div style={{height:1,background:T.border,margin:"3px 4px 8px"}}/>
           <div className="mapping-menu-section-title">Lisibilité</div>
@@ -7036,6 +7117,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
         <div className="cbg" style={{position:"absolute",inset:0,backgroundColor:T.bg,backgroundImage:isDark?"radial-gradient(circle,rgba(148,163,184,.24) 1.15px,transparent 1.15px), radial-gradient(ellipse at 54% 46%,rgba(99,102,241,.08),transparent 68%)":"radial-gradient(circle,rgba(71,85,105,.16) 1px,transparent 1px), radial-gradient(ellipse at 18% 14%,rgba(99,102,241,.08),transparent 52%), radial-gradient(ellipse at 84% 86%,rgba(34,211,238,.08),transparent 56%)",backgroundSize:isDark?"34px 34px,100% 100%":"32px 32px,100% 100%,100% 100%"}}/>
       <div style={{transform:`translate(${off.x}px,${off.y}px) scale(${zm})`,transformOrigin:"0 0",position:"absolute",top:0,left:0,width:5000,height:4000}}>
         <CategoryZones/><DomainZones/><FlowLines/>{filtered.map(a=><AppNode key={a.id} app={a}/>)}
+        {lasso&&<div style={{position:"absolute",left:Math.min(lasso.x0,lasso.x1),top:Math.min(lasso.y0,lasso.y1),width:Math.abs(lasso.x1-lasso.x0),height:Math.abs(lasso.y1-lasso.y0),border:(1.5/zm)+"px dashed #34D399",background:"rgba(52,211,153,.10)",borderRadius:6/zm,pointerEvents:"none",zIndex:50}}/>}
       </div>
       <div data-app="1" style={{position:"absolute",bottom:16,right:16,display:"flex",alignItems:"center",gap:6,padding:6,borderRadius:13,background:isDark?"rgba(19,19,42,.92)":"rgba(255,255,255,.94)",border:"1px solid "+T.border,boxShadow:"0 10px 30px rgba(0,0,0,.2)",backdropFilter:"blur(12px)",color:T.fgMuted}}>
         <button title="Dézoomer" onMouseDown={function(e){e.stopPropagation();setZm(function(z){return Math.max(.25,+(z-.1).toFixed(2));});}} style={{...B,width:30,height:30,padding:0,background:T.bgHover,color:T.fg,borderRadius:8,fontSize:17}}>−</button>
