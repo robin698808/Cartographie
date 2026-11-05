@@ -688,7 +688,8 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   const [flowCrit,setFlowCrit]=useState("");
   const [showFluxListModal,setShowFluxListModal]=useState(null);
   const [flowThickness,setFlowThickness]=useState(2);
-  const [flowFontSize,setFlowFontSize]=useState(9);
+  const [flowFontSize,setFlowFontSize]=useState(13);
+  const [panelOpen,setPanelOpen]=useState(false);
   const [flowDisplayMode,setFlowDisplayMode]=useState("dynamic"); // dynamic: au survol, static: tous les flux
   const [appSpacing,setAppSpacing]=useState(2);
   const [domainSpacing,setDomainSpacing]=useState(44);
@@ -4663,8 +4664,8 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       onMouseLeave={function(e){e.currentTarget.style.transform="translateZ(0)";e.currentTarget.style.zIndex=sel?"10":"1";if(!sel&&!msel)e.currentTarget.style.boxShadow=isDark?"0 9px 22px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.045)":"0 7px 18px rgba(15,23,42,0.12)";if(flowDisplayMode==="dynamic"&&focusApp===app.id&&selApp?.id!==app.id)setFocusApp(null);}}
       onMouseDown={e=>{e.stopPropagation();if(cMode){if(!fFrom)setFFrom(app.id);else if(fFrom!==app.id){const nf={id:uid(),from:fFrom,to:app.id,protocol:"API",label:"",description:"",frequency:""};setFlows(p=>[...p,nf]);setEFlow({...nf});setShowFM(true);setFFrom(null);setCMode(false);}return;}if(e.shiftKey||e.ctrlKey||e.metaKey){setMultiSel(p=>p.includes(app.id)?p.filter(x=>x!==app.id):[...p,app.id]);return;}
         if(multiSel.length>1&&multiSel.includes(app.id)){setFlowSuppressed(false);startDrag({ids:multiSel.slice(),lx:e.clientX,ly:e.clientY});return;}
-        setMultiSel([]);setSelApp(app);setFocusApp(app.id);setSelFlow(null);setFlowSuppressed(false);const rect=e.currentTarget.getBoundingClientRect();startDrag({id:app.id,ox:e.clientX-rect.left,oy:e.clientY-rect.top});}}
-      onDoubleClick={()=>{setEApp({...app});setShowAM(true);}}>
+        setMultiSel([]);setSelApp(app);if(e.detail>=2){setPanelOpen(true);return;}setPanelOpen(false);setFocusApp(app.id);setSelFlow(null);setFlowSuppressed(false);const rect=e.currentTarget.getBoundingClientRect();startDrag({id:app.id,ox:e.clientX-rect.left,oy:e.clientY-rect.top});}}
+      onDoubleClick={()=>{setSelApp(app);setPanelOpen(true);}}>
 
       {/* D1 tint overlay */}
       {d1BgTint&&<div style={{position:"absolute",inset:0,background:d1BgTint,pointerEvents:"none",zIndex:0}}/>}
@@ -4729,7 +4730,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       var rc=routeCacheRef.current;
       if(rc.sig===sig&&rc.paths){routed=rc.paths;}
       else if(!drag){try{routed=routeFlows(cards,links).paths;}catch(err){console.error("routeFlows",err);routed={};}routeCacheRef.current={sig:sig,paths:routed};}
-      var zmS=1/lblScale,lf=Math.max(10,flowFontSize);
+      var zmS=1/lblScale,lf=Math.max(8,flowFontSize);
       var specs=visFlows.filter(function(f){return routed[f.id];}).map(function(f){var t=shortTxt(f);return t?{id:f.id,w:Math.max(60,t.length*lf*0.55+16)/zmS,h:lf*1.5/zmS}:null;}).filter(Boolean);
       labelPos=placeLabels(routed,specs,cards);
     }
@@ -4756,7 +4757,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         var labelX=ep.x+dx*labelT-(dy/len)*lane,labelY=ep.y+dy*labelT+(dx/len)*lane-(staticMode?14:0);
         if(rt&&labelPos[f.id]){labelX=labelPos[f.id].x;labelY=labelPos[f.id].y;}
         var txt=shortTxt(f);
-        var labelFont=Math.max(10,flowFontSize);
+        var labelFont=Math.max(8,flowFontSize);
         var lblW=Math.max(60,txt.length*labelFont*0.55+16);
         return <g key={f.id}>
           <defs><marker id={arrowId} markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto" fill={flowColor}><polygon points="0 0,10 3.5,0 7"/></marker></defs>
@@ -5737,7 +5738,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
                       var list=inCell(r,c);
                       var alpha=list.length?(0.14+0.5*list.length/maxCell):0;
                       return <div key={r.domain+c.label} title={list.length?c.label+" · "+r.domain+" : "+list.map(function(a){return a.name;}).join(", "):"Aucune application"}
-                        onClick={list.length?function(){setSelApp(list[0]);}:undefined}
+                        onClick={list.length?function(){setSelApp(list[0]);setPanelOpen(true);}:undefined}
                         style={{minHeight:42,borderRadius:8,background:list.length?c.color+Math.round(alpha*255).toString(16).padStart(2,"0"):T.bgAlt,border:"1px solid "+(list.length?c.color+"55":T.border),display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"3px 2px",cursor:list.length?"pointer":"default"}}>
                         <span style={{fontSize:15,fontWeight:850,color:list.length?T.fg:T.fgFaint}}>{list.length||"·"}</span>
                         {list.length>0&&<span style={{fontSize:8,color:T.fgMuted,maxWidth:"100%",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{list.slice(0,2).map(function(a){return a.name;}).join(", ")}{list.length>2?" +"+(list.length-2):""}</span>}
@@ -5994,7 +5995,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
               var cols="52px minmax(0,1fr) 120px minmax(0,1fr) 84px";
               var hd={fontSize:9,color:T.fgMuted,fontWeight:700,textTransform:"uppercase",letterSpacing:0.5};
               var chip=function(active,col){return {background:active?col+"25":T.bgAlt,color:active?col:T.fgMuted,border:"1px solid "+(active?col:T.border),borderRadius:14,padding:"3px 10px",fontSize:10,fontWeight:600,cursor:"pointer"};};
-              var openApp=function(name,ev){ev.stopPropagation();var ap=apps.find(function(a){return a.name===name;});if(ap)setSelApp(ap);};
+              var openApp=function(name,ev){ev.stopPropagation();var ap=apps.find(function(a){return a.name===name;});if(ap){setSelApp(ap);setPanelOpen(true);}};
               var domPill=function(dom,isSrc){var ac=(DC[dom]||DC.Autre).ac;var on=(isSrc?fSrcDom:fTgtDom)===dom;return <span title={"Filtrer : domaine "+dom} onClick={function(ev){ev.stopPropagation();if(isSrc)setFSrcDom(on?"":dom);else setFTgtDom(on?"":dom);}} style={{fontSize:9,fontWeight:700,color:ac,background:ac+(on?"40":"18"),border:"1px solid "+ac+(on?"":"40"),borderRadius:10,padding:"1px 7px",cursor:"pointer",whiteSpace:"nowrap"}}>{dom}</span>;};
               return <div>
                 {protoList.length>0&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10,alignItems:"center"}}>
@@ -7093,7 +7094,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
           </div>
           <div className="mapping-menu-section-title">Taille des libellés</div>
           <div style={{display:"flex",alignItems:"center",gap:6,padding:"4px 8px"}}>
-            <input type="range" min="7" max="18" step="1" value={flowFontSize} onChange={function(e){setFlowFontSize(parseInt(e.target.value));}} style={{flex:1,cursor:"pointer"}}/>
+            <input type="range" min="8" max="32" step="1" value={flowFontSize} onChange={function(e){setFlowFontSize(parseInt(e.target.value));}} style={{flex:1,cursor:"pointer"}}/>
             <span style={{fontSize:10,color:T.fg,minWidth:24}}>{flowFontSize}pt</span>
           </div>
           <div className="mapping-menu-section-title">Style de trait</div>
@@ -7129,7 +7130,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
         <span style={{padding:"0 6px",fontSize:9,fontWeight:650,whiteSpace:"nowrap"}}>{activeFilters?filtered.length+" / ":""}{apps.length} apps · {flows.length} flux{activeFilters?" filtrés":""}</span>
       </div>
     </div>
-    {selApp&&!showAM&&<div data-panel="1" style={{width:360,flexShrink:0,background:T.bgAlt,borderLeft:"1px solid "+T.borderLight,overflowY:"auto",display:"flex",flexDirection:"column",zIndex:10}}>
+    {selApp&&panelOpen&&!showAM&&<div data-panel="1" style={{width:360,flexShrink:0,background:T.bgAlt,borderLeft:"1px solid "+T.borderLight,overflowY:"auto",display:"flex",flexDirection:"column",zIndex:10}}>
       {/* Header with domain color accent */}
       <div style={{background:isDark?"linear-gradient(145deg,"+(DC[selApp.domain]||DC.Autre).bg+","+T.bgAlt+")":"linear-gradient(145deg,"+(DC[selApp.domain]||DC.Autre).ac+"20,#fff)",padding:"19px 18px 16px",borderBottom:"3px solid "+(DC[selApp.domain]||DC.Autre).ac,position:"relative",overflow:"hidden",flexShrink:0}}>
         <div style={{position:"absolute",right:-28,top:-36,width:130,height:130,borderRadius:"50%",border:"1px solid "+(DC[selApp.domain]||DC.Autre).ac+"30",boxShadow:"0 0 0 18px "+(DC[selApp.domain]||DC.Autre).ac+"0A, 0 0 0 38px "+(DC[selApp.domain]||DC.Autre).ac+"08",pointerEvents:"none"}}/>
@@ -7143,7 +7144,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
             <div style={{fontSize:19,fontWeight:850,color:T.fg,lineHeight:1.18,letterSpacing:"-0.035em",overflowWrap:"anywhere"}}>{selApp.name}</div>
             {selApp.vendor&&<div style={{fontSize:11,color:T.fgMuted,marginTop:5,fontWeight:500}}>{selApp.vendor}{selApp.version?" · "+selApp.version:""}</div>}
           </div>
-          <button onClick={()=>setSelApp(null)} title="Fermer la fiche" style={{background:T.bgCard+"90",border:"1px solid "+T.border,color:T.fgMuted,cursor:"pointer",fontSize:18,lineHeight:1,padding:"5px 8px",borderRadius:8,flexShrink:0}}>×</button>
+          <button onClick={()=>{setSelApp(null);setPanelOpen(false);}} title="Fermer la fiche" style={{background:T.bgCard+"90",border:"1px solid "+T.border,color:T.fgMuted,cursor:"pointer",fontSize:18,lineHeight:1,padding:"5px 8px",borderRadius:8,flexShrink:0}}>×</button>
         </div>
         <div style={{position:"relative",display:"flex",gap:6,marginTop:13,flexWrap:"wrap"}}>
           <span style={{display:"inline-flex",alignItems:"center",gap:5,fontSize:10,padding:"4px 9px",borderRadius:99,background:(CC[selApp.criticality]||"#888")+"20",color:CC[selApp.criticality]||"#888",border:"1px solid "+(CC[selApp.criticality]||"#888")+"55",fontWeight:800}}><span>{selApp.criticality==="Haute"?"●":selApp.criticality==="Basse"?"○":"◐"}</span>{selApp.criticality||"Criticité non renseignée"}</span>
