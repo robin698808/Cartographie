@@ -7169,7 +7169,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
         <span style={{minWidth:44,textAlign:"center",fontSize:10,fontWeight:800,color:T.fg,fontVariantNumeric:"tabular-nums"}}>{Math.round(zm*100)}%</span>
         <button title="Zoomer" onMouseDown={function(e){e.stopPropagation();setZm(function(z){return Math.min(2.5,+(z+.1).toFixed(2));});}} style={{...B,width:30,height:30,padding:0,background:T.bgHover,color:T.fg,borderRadius:8,fontSize:17}}>+</button>
         <span style={{width:1,height:22,background:T.border,margin:"0 2px"}}/>
-        <button title="Cadrer toute la cartographie sans déplacer les applications" onMouseDown={function(e){e.stopPropagation();fitCanvas();}} style={{...B,padding:"7px 10px",background:"#6366F1",color:"#fff",borderRadius:8,fontSize:10,whiteSpace:"nowrap"}}>⌖ Ajuster</button>
+        <button title="Cadrer toute la cartographie sans déplacer les applications" onMouseDown={function(e){e.stopPropagation();fitCanvas();}} style={{...B,padding:"7px 10px",background:"#6366F1",color:"#fff",borderRadius:8,fontSize:10,whiteSpace:"nowrap"}}>⌖ Recentrer</button>
         <span style={{width:1,height:22,background:T.border,margin:"0 2px"}}/>
         <span style={{padding:"0 6px",fontSize:9,fontWeight:650,whiteSpace:"nowrap"}}>{activeFilters?filtered.length+" / ":""}{apps.length} apps · {flows.length} flux{activeFilters?" filtrés":""}</span>
       </div>
@@ -7293,7 +7293,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
             const maxX=Math.max(...apps.map(a=>a.x+AW),100);const maxY=Math.max(...apps.map(a=>a.y+AH),100);
             const vw=window.innerWidth||1400;const vh=window.innerHeight-40;
             setZm(Math.min(vw/(maxX+60),vh/(maxY+60),2));setOff({x:20,y:20});
-          }} style={{...B,padding:"3px 8px",fontSize:11,background:T.border}}>Ajuster</button>
+          }} style={{...B,padding:"3px 8px",fontSize:11,background:T.border}}>Recentrer</button>
         </div>
         <div style={{display:"flex",gap:2,alignItems:"center"}}>
           <span style={{fontSize:11,color:T.fgDim}}>Police</span>
