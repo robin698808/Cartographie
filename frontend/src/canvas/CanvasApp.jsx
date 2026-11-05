@@ -4951,6 +4951,8 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     };
     const [showCustom,setShowCustom]=useState(false);
     const [critFilter,setCritFilter]=useState("");
+    const [ownCrit,setOwnCrit]=useState("");
+    const [ficheId,setFicheId]=useState(null);
     const [widgetPos,setWidgetPos]=useState(function(){try{var s=localStorage.getItem("dash_pos_v2_"+(projectId||"default"));if(s)return JSON.parse(s);}catch(e){}return{};});
     const saveWidgetPos=function(p){setWidgetPos(p);try{localStorage.setItem("dash_pos_v2_"+(projectId||"default"),JSON.stringify(p));}catch(e){}};
     const [dragInfo,setDragInfo]=useState(null);
@@ -5294,6 +5296,62 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         </div>;
       }()}
       
+      {function(){
+        var fa=ficheId?apps.find(function(a){return a.id===ficheId;}):null;
+        if(!fa)return null;
+        var dcol=(DC[fa.domain]||DC.Autre).ac;var ccol=CC[fa.criticality]||"#888";
+        var inF=flows.filter(function(f){return f.to===fa.id;});var outF=flows.filter(function(f){return f.from===fa.id;});
+        var eb=EOS_BUCKETS.find(function(b){return b.id===eosBucket(fa.endOfService);});
+        var alerts=[];
+        if(fa.criticality==="Haute"||fa.criticality==="Critique"){alerts.push({c:"#EF4444",t:"Application \u00e0 criticit\u00e9 "+fa.criticality.toLowerCase()+" : continuit\u00e9 de service \u00e0 s\u00e9curiser."});}
+        if(inF.length+outF.length>=6)alerts.push({c:"#F59E0B",t:"Forte connectivit\u00e9 ("+(inF.length+outF.length)+" flux) : impact \u00e9lev\u00e9 en cas de migration ou d'arr\u00eat."});
+        if(inF.length+outF.length===0)alerts.push({c:"#F59E0B",t:"Aucun flux document\u00e9 : interfaces \u00e0 v\u00e9rifier."});
+        if(fa.endOfService&&eb&&(eb.id==="expired"))alerts.push({c:"#EF4444",t:"Fin de mise en service d\u00e9pass\u00e9e ("+formatDateFr(fa.endOfService)+")."});
+        else if(fa.endOfService&&eb&&(eb.id==="lt6"||eb.id==="lt12"))alerts.push({c:"#F59E0B",t:"Fin de mise en service proche ("+formatDateFr(fa.endOfService)+")."});
+        if(!fa.owner||!String(fa.owner).trim())alerts.push({c:"#F59E0B",t:"Aucun responsable renseign\u00e9."});
+        if(["Legacy","En d\u00e9commissionnement","\u00c0 migrer","\u00c0 refondre","\u00c0 remplacer","\u00c0 d\u00e9commissionner"].includes(fa.statut))alerts.push({c:"#8B5CF6",t:"Statut \u00ab "+fa.statut+" \u00bb : trajectoire \u00e0 planifier."});
+        var infos=[["\u00c9diteur",fa.vendor],["Version",fa.version],["Responsable",fa.owner],["Cat\u00e9gorie",fa.category],["Utilisateurs",fa.users],["H\u00e9bergement",fa.hosting],["Type d'application",fa.appType],["Co\u00fbt annuel",typeof fa.budget==="number"&&fa.budget>0?formatEuro(fa.budget):""],["Co\u00fbt mensuel",typeof fa.monthlyCost==="number"&&fa.monthlyCost>0?formatEuro(fa.monthlyCost):""],["Licences",fa.licenses>0?fa.licenses.toLocaleString("fr-FR"):""],["Fin de mise en service",fa.endOfService?formatDateFr(fa.endOfService):""]];
+        var badge=function(txt,col){return <span style={{fontSize:11,fontWeight:800,padding:"4px 10px",borderRadius:99,background:col+"20",color:col,border:"1px solid "+col+"55"}}>{txt}</span>;};
+        var flowRow=function(f,out){var pid=out?f.to:f.from;var peer=apps.find(function(a){return a.id===pid;});return <div key={f.id||(f.from+"-"+f.to)} style={{display:"flex",gap:8,alignItems:"center",padding:"6px 10px",borderRadius:8,background:T.bgAlt,border:"1px solid "+T.border,fontSize:12}}><b style={{color:out?"#06B6D4":"#8B5CF6"}}>{out?"\u2192":"\u2190"}</b><span style={{flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:T.fg,fontWeight:600}}>{peer?peer.name:"Inconnue"}</span><span style={{color:T.fgMuted,fontSize:11}}>{f.protocol||f.frequency||""}</span></div>;};
+        return <div onClick={function(){setFicheId(null);}} onKeyDown={function(e){if(e.key==="Escape")setFicheId(null);}} ref={function(el){if(el)el.focus();}} tabIndex={-1} style={{position:"fixed",inset:0,zIndex:9950,background:"rgba(8,10,24,0.62)",display:"flex",alignItems:"center",justifyContent:"center",padding:20,outline:"none"}}>
+          <div onClick={function(e){e.stopPropagation();}} style={{width:"min(760px,100%)",maxHeight:"92vh",overflowY:"auto",background:T.bgCard,borderRadius:16,border:"1px solid "+T.border,borderTop:"4px solid "+dcol,boxShadow:"0 24px 70px rgba(0,0,0,0.45)",padding:22}}>
+            <div style={{display:"flex",alignItems:"flex-start",gap:12}}>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:11,fontWeight:800,color:dcol,textTransform:"uppercase",letterSpacing:.6}}>{fa.domain||"Domaine non renseign\u00e9"}</div>
+                <div style={{fontSize:22,fontWeight:800,color:T.fg,letterSpacing:"-0.02em",marginTop:2,overflowWrap:"anywhere"}}>{fa.name}</div>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:10}}>
+                  {badge(fa.criticality?"Criticit\u00e9 "+fa.criticality:"Criticit\u00e9 non renseign\u00e9e",ccol)}
+                  {projectType!=="deal"&&fa.statut&&badge(fa.statut,STATUT_COLORS[fa.statut]||"#888")}
+                  {projectType==="deal"&&fa.statusD1&&badge("D1 \u00b7 "+fa.statusD1,SD1[fa.statusD1]||"#888")}
+                  {projectType==="deal"&&fa.statusD2&&badge("D2 \u00b7 "+fa.statusD2,SD2[fa.statusD2]||"#888")}
+                </div>
+              </div>
+              <button onClick={function(){setFicheId(null);}} title="Fermer" style={{background:T.bgAlt,border:"1px solid "+T.border,color:T.fgMuted,cursor:"pointer",fontSize:20,lineHeight:1,padding:"4px 10px",borderRadius:8}}>×</button>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginTop:16}}>
+              {[{l:"Utilisateurs",v:fa.users||"\u2014",c:"#8B5CF6"},{l:"Flux entrants",v:inF.length,c:"#8B5CF6"},{l:"Flux sortants",v:outF.length,c:"#06B6D4"}].map(function(m){return <div key={m.l} style={{padding:"12px 10px",borderRadius:10,background:m.c+"12",border:"1px solid "+m.c+"30",textAlign:"center"}}><div style={{fontSize:22,fontWeight:800,color:T.fg,lineHeight:1}}>{m.v}</div><div style={{fontSize:11,color:m.c,fontWeight:700,marginTop:5}}>{m.l}</div></div>;})}
+            </div>
+            <div style={{marginTop:16,padding:"12px 14px",borderRadius:12,background:alerts.length?"rgba(245,158,11,0.08)":"rgba(16,185,129,0.08)",border:"1px solid "+(alerts.length?"rgba(245,158,11,0.35)":"rgba(16,185,129,0.35)")}}>
+              <div style={{fontSize:12,fontWeight:800,color:alerts.length?"#F59E0B":"#10B981",textTransform:"uppercase",letterSpacing:.5,marginBottom:alerts.length?8:0}}>{alerts.length?"Points d'attention ("+alerts.length+")":"Aucun point d'attention d\u00e9tect\u00e9"}</div>
+              {alerts.map(function(a,i){return <div key={i} style={{display:"flex",gap:8,fontSize:13,color:T.fg,padding:"3px 0"}}><span style={{color:a.c,fontWeight:800}}>●</span><span>{a.t}</span></div>;})}
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:8,marginTop:16}}>
+              {infos.map(function(r){return <div key={r[0]} style={{padding:"8px 11px",borderRadius:9,background:T.bgAlt,border:"1px solid "+T.border,minWidth:0}}><div style={{fontSize:10,color:T.fgDim,textTransform:"uppercase",letterSpacing:.6,fontWeight:800}}>{r[0]}</div><div style={{fontSize:13,marginTop:3,color:r[1]?T.fg:T.fgFaint,fontWeight:r[1]?650:400,fontStyle:r[1]?"normal":"italic",overflowWrap:"anywhere"}}>{r[1]||"Non renseign\u00e9"}</div></div>;})}
+            </div>
+            {fa.description&&<div style={{marginTop:14,fontSize:13,color:T.fg,lineHeight:1.55}}>{fa.description}</div>}
+            {(inF.length+outF.length>0)&&<div style={{marginTop:16}}>
+              <div style={{fontSize:12,fontWeight:800,color:T.fgMuted,textTransform:"uppercase",letterSpacing:.5,marginBottom:8}}>Flux connectés</div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))",gap:6}}>
+                {inF.map(function(f){return flowRow(f,false);})}{outF.map(function(f){return flowRow(f,true);})}
+              </div>
+            </div>}
+            <div style={{display:"flex",justifyContent:"flex-end",gap:8,marginTop:18}}>
+              <button onClick={function(){setSelApp(fa);setPanelOpen(true);setFicheId(null);setView("mapping");setTimeout(fitCanvas,50);}} style={{background:T.bgAlt,color:T.fg,border:"1px solid "+T.border,borderRadius:9,padding:"8px 14px",fontSize:12,fontWeight:700,cursor:"pointer"}}>Voir dans la cartographie</button>
+              <button onClick={function(){setFicheId(null);}} style={{background:"#6366F1",color:"#fff",border:"none",borderRadius:9,padding:"8px 16px",fontSize:12,fontWeight:700,cursor:"pointer"}}>Fermer</button>
+            </div>
+          </div>
+        </div>;
+      }()}
       <style>{".dash-body>*{flex:1 1 auto;min-width:0;box-sizing:border-box}@media (max-width:900px){.dash-cell{grid-column:span 12 !important}}"}</style>
       {ALL_WIDGETS_LIST.every(function(id){return hiddenWidgets.includes(id);})&&<div style={{padding:"60px 20px",textAlign:"center",color:T.fgMuted,fontSize:13,border:"1px dashed "+T.border,borderRadius:14}}>Tous les widgets sont masqués. <button onClick={function(){relayoutWith([]);}} style={{marginLeft:8,background:"#6366F1",color:"#fff",border:"none",borderRadius:8,padding:"6px 12px",fontSize:11,fontWeight:700,cursor:"pointer"}}>Tout afficher</button></div>}
       <div style={{display:"grid",gridTemplateColumns:"repeat(12,minmax(0,1fr))",gap:"22px 20px",gridAutoFlow:"row dense",alignItems:"stretch",width:"100%"}}>
@@ -5602,7 +5660,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
           </div>;
         },mkChartSwitch(sid,[{k:"hbar",label:"Barres In/Out"}]));
         if(sid==="chart_owner")return wrapWidget(sid,"#6366F1","Apps par responsable",null,function(isExpanded,ww,wh){
-          var apps=domApps(sid);
+          var apps=domApps(sid).filter(function(a){return!ownCrit||(ownCrit==="Non renseign\u00e9e"?!["Haute","Moyenne","Basse"].includes(a.criticality):a.criticality===ownCrit);});
           var ownerMap={};
           apps.forEach(function(a){var o=a.owner&&a.owner.trim()?a.owner.trim():"Non renseigné";ownerMap[o]=(ownerMap[o]||0)+1;});
           var allOwners=Object.entries(ownerMap).map(function(e){return{owner:e[0],count:e[1]};}).sort(function(a,b){return b.count-a.count;});
@@ -5619,7 +5677,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
             return{name:d.owner,value:d.count,color:col,isNA:d.isNA||false,isOther:d.isOther||false};
           });
           var cw=ww||500;var isNarrow=!isExpanded&&cw<420;
-          var donutSz=isExpanded?320:Math.min(140,Math.max(96,cw/2.6));
+          var donutSz=isExpanded?320:Math.min(190,Math.max(110,cw/2.3));
           var donutR=Math.round(donutSz*0.434);var donutIr=Math.round(donutSz*0.276);
           var donutCx=Math.round(donutSz/2);var donutCy=Math.round(donutSz/2);
           var renderCircle=function(useHole){
@@ -5641,11 +5699,11 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
                 {useHole&&<text x={donutCx} y={donutCy-3} textAnchor="middle" fill={T.fg} fontSize={isExpanded?34:Math.round(donutSz*0.17)} fontWeight="800">{ownerCount}</text>}
                 {useHole&&<text x={donutCx} y={donutCy+Math.round(donutSz*0.1)} textAnchor="middle" fill={T.fgMuted} fontSize={Math.max(5,Math.round(donutSz*0.048))} letterSpacing="0.06em">RESPONSABLES</text>}
               </svg>
-              <div style={{flex:1,minWidth:0,maxHeight:isExpanded?360:(isNarrow?110:150),overflowY:"auto",paddingRight:2}}>
-                {owSlices.map(function(p,i){return <div key={p.name} style={{display:"flex",alignItems:"center",gap:5,marginBottom:isNarrow?3:5}}>
-                  <div style={{width:6,height:6,borderRadius:"50%",background:p.color,flexShrink:0,opacity:p.isNA?0.5:1}}/>
-                  <span style={{fontSize:10,color:p.isNA?T.fgMuted:T.fg,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontStyle:p.isNA?"italic":"normal"}}>{p.name}</span>
-                  <span style={{fontSize:10,fontWeight:700,color:p.color,opacity:p.isNA?0.7:1}}>{p.value}</span>
+              <div style={{flex:1,minWidth:0,maxHeight:isExpanded?360:(isNarrow?130:donutSz),overflowY:"auto",paddingRight:2}}>
+                {owSlices.map(function(p,i){return <div key={p.name} style={{display:"flex",alignItems:"center",gap:6,marginBottom:isNarrow?4:7}}>
+                  <div style={{width:8,height:8,borderRadius:"50%",background:p.color,flexShrink:0,opacity:p.isNA?0.5:1}}/>
+                  <span style={{fontSize:12,color:p.isNA?T.fgMuted:T.fg,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontStyle:p.isNA?"italic":"normal"}}>{p.name}</span>
+                  <span style={{fontSize:12,fontWeight:700,color:p.color,opacity:p.isNA?0.7:1}}>{p.value}</span>
                 </div>;})}
               </div>
             </div>;
@@ -5708,7 +5766,14 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
               {ctype==="donut"?renderCircle(true):ctype==="pie"?renderCircle(false):ctype==="bar"?renderBarV():renderArea()}
             </div>
           </div>;
-        },mkChartSwitch(sid));
+        },<>
+          <select value={ownCrit} title="Filtrer par criticit\u00e9" onClick={function(e){e.stopPropagation();}} onChange={function(e){setOwnCrit(e.target.value);}}
+            style={Object.assign({},WIDGET_SEL_STYLE,ownCrit?{border:"1px solid #EF4444",color:"#EF4444",background:"rgba(239,68,68,0.12) "+CHEV+" no-repeat right 7px center"}:{})}>
+            <option value="" style={{background:T.bgCard,color:T.fg}}>Toutes criticités</option>
+            {["Haute","Moyenne","Basse","Non renseign\u00e9e"].map(function(c){return <option key={c} value={c} style={{background:T.bgCard,color:T.fg}}>{c}</option>;})}
+          </select>
+          {mkChartSwitch(sid)}
+        </>);
         if(sid==="critical_apps")return wrapWidget(sid,"#EF4444","Top 10 — Applications critiques",null,function(isExpanded,ww,wh){
           var severityWeight={Critique:4,Haute:3,Moyenne:2,Basse:1};
           var severityColor={Critique:"#B91C1C",Haute:"#EF4444",Moyenne:"#F59E0B",Basse:"#10B981"};
@@ -5784,7 +5849,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
                     <span style={{fontSize:11.5,color:T.fgMuted,whiteSpace:"nowrap"}}>{flow.protocol||flow.frequency||"Interface"}</span>
                   </div>;})}</div>:<div style={{fontSize:13,color:T.fgMuted}}>Aucune liaison directe enregistrée.</div>}
                 </div>
-                <button onClick={function(){setSelApp(selected.app);setPanelOpen(true);}} style={{background:selColor,color:"#fff",border:"none",borderRadius:10,padding:"9px 14px",fontSize:13,fontWeight:700,cursor:"pointer"}}>Ouvrir la fiche</button>
+                <button onClick={function(){setFicheId(selected.app.id);}} style={{background:selColor,color:"#fff",border:"none",borderRadius:10,padding:"9px 14px",fontSize:13,fontWeight:700,cursor:"pointer"}}>Ouvrir la fiche</button>
               </div>}
             </div>}
           </div>;
@@ -6916,11 +6981,15 @@ if(view==="urbanisme"){
   }
 
 if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{height:"100vh",display:"flex",overflow:"hidden"}}><Sidebar/><div style={{flex:1,display:"flex",flexDirection:"column"}}>
-      <div style={{background:T.bgAlt,borderBottom:"1px solid "+T.borderLight,padding:"8px 16px",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
-        <span style={{fontSize:16}}>&#128202;</span>
-        <span style={{fontSize:13,fontWeight:700,color:T.fg}}>Dashboard</span>
+      <div style={{background:T.bgAlt,borderBottom:"1px solid "+T.border,padding:"10px 20px",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+        <div>
+          <div style={{fontSize:15,fontWeight:800,color:T.fg,letterSpacing:"-0.02em",lineHeight:1}}>Dashboard</div>
+          <div style={{fontSize:11,color:T.fgMuted,marginTop:3}}>Indicateurs clés du portefeuille applicatif</div>
+        </div>
         <div style={{flex:1}}/>
-        <button onClick={function(){setView("mapping");setTimeout(fitCanvas,50);}} style={{...B,background:"#2979FF",padding:"6px 14px",fontSize:11,fontWeight:600,display:"flex",alignItems:"center",gap:5}}><span>&#8592;</span> Retour Cartographie</button>
+        <button onClick={function(){setView("mapping");setTimeout(fitCanvas,50);}} style={{...B,background:"#6366F1",padding:"5px 12px",fontSize:11,borderRadius:8,display:"flex",alignItems:"center",gap:5}}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Cartographie
+        </button>
       </div>
       <div style={{overflowY:"auto",flex:1}}><Dashboard/></div>
     </div></div></AppCtx.Provider>;
