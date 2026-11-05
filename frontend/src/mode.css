@@ -45,5 +45,19 @@ html[data-mode="dark"] textarea { color-scheme: dark; }
 .mode-toggle svg.on { color: #fff; }
 .mode-toggle svg.dim { opacity: .65; }
 .mode-toggle-floating { position: fixed; top: 14px; right: 16px; z-index: 900; }
+
+.lang-toggle {
+  display: inline-flex; align-items: center; gap: 2px; padding: 2px; flex-shrink: 0;
+  border-radius: 99px; border: 1px solid var(--border-md, #C7D2FE); background: var(--surface-3, #EEF2FF);
+}
+.lang-toggle-floating { position: fixed; top: 14px; right: 90px; z-index: 900; }
+.lang-btn {
+  display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 22px;
+  border: 1px solid transparent; border-radius: 99px; background: transparent; cursor: pointer; padding: 0;
+  opacity: .5; filter: grayscale(.4); transition: opacity .15s, background .15s, border-color .15s;
+}
+.lang-btn:hover { opacity: .85; }
+.lang-btn.on { opacity: 1; filter: none; background: var(--surface, #fff); border-color: var(--accent, #6366F1); }
+.lang-btn:focus-visible { outline: 2px solid var(--accent, #6366F1); outline-offset: 2px; }
 html[data-mode="dark"] .header { background: rgba(11, 11, 20, 0.82); }
 html[data-mode="dark"] .btn-s { background: var(--surface-2); color: var(--t1); border-color: var(--border-md); }

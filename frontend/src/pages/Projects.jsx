@@ -6,6 +6,7 @@ import BrandLockup from '../components/BrandLockup';
 import ProfileModal from '../components/ProfileModal';
 import ThemePicker from '../components/ThemePicker';
 import ThemeToggle from '../components/ThemeToggle';
+import LangToggle from '../components/LangToggle';
 import ProjectAppearancePicker, { getIconComponent } from '../components/ProjectAppearancePicker';
 import {
   Users, Trash2, FolderOpen, Share2, Handshake, Map as MapIcon, Search, X, ArrowUpDown,
@@ -230,6 +231,7 @@ export default function Projects() {
         <BrandLockup size={30} tone="dark" />
 
         <div className="row g3">
+          <LangToggle />
           <ThemeToggle />
           <ThemePicker />
           {user?.role === 'admin' && (

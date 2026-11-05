@@ -5774,7 +5774,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
             </div>
           </div>;
         },<>
-          <select value={ownCrit} title="Filtrer par criticit\u00e9" onClick={function(e){e.stopPropagation();}} onChange={function(e){setOwnCrit(e.target.value);}}
+          <select value={ownCrit} title="Filtrer par criticité" onClick={function(e){e.stopPropagation();}} onChange={function(e){setOwnCrit(e.target.value);}}
             style={Object.assign({},WIDGET_SEL_STYLE,ownCrit?{border:"1px solid #EF4444",color:"#EF4444",background:"rgba(239,68,68,0.12) "+CHEV+" no-repeat right 7px center"}:{})}>
             <option value="" style={{background:T.bgCard,color:T.fg}}>Toutes criticités</option>
             {["Haute","Moyenne","Basse","Non renseign\u00e9e"].map(function(c){return <option key={c} value={c} style={{background:T.bgCard,color:T.fg}}>{c}</option>;})}

@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import ThemeToggle from './components/ThemeToggle';
+import LangToggle from './components/LangToggle';
 import { AuthProvider } from './api/AuthContext';
 import ProtectedRoute, { AdminRoute } from './components/ProtectedRoute';
 import { loadSavedTheme } from './utils/themes';
@@ -17,7 +18,7 @@ import ResetPassword from './pages/ResetPassword';
 function FloatingToggle() {
   const { pathname } = useLocation();
   if (pathname === '/' || pathname.startsWith('/canvas/')) return null;
-  return <ThemeToggle floating />;
+  return <><LangToggle floating /><ThemeToggle floating /></>;
 }
 
 export default function App() {

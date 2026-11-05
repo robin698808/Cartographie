@@ -4,6 +4,7 @@ import App from './App.jsx'
 import './index.css'
 import './mode.css'
 import { initMode } from './utils/mode'
+import { initI18n } from './i18n'
 
 initMode()
 
@@ -12,3 +13,5 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <App />
   </React.StrictMode>,
 )
+
+initI18n()
