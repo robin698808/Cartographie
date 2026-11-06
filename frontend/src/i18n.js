@@ -50,6 +50,7 @@ const NUM_RE = /\d+(?:[.,]\d+)*/g;
 const IDENT = new Set(['applications', 'application', 'apps', 'app', 'widgets', 'widget', 'top', 'dashboard', 'hub', 'saas', 'api', 'sla', 'ia', 'it']);
 
 const RULES = [
+  [/^(\d+) projets? dans votre espace(?: · (\d+) partagés? avec l'équipe)?\.$/i, (m) => `${m[1]} project${m[1] === '1' ? '' : 's'} in your workspace${m[2] ? ` · ${m[2]} shared with your team` : ''}.`],
   [/^Bonjour(?:, (.*?))?(\s*\S*)$/i, (m) => `Good morning${m[1] ? ', ' + m[1] : ''}${m[2] || ''}`],
   [/^Bonsoir(?:, (.*?))?(\s*\S*)$/i, (m) => `Good evening${m[1] ? ', ' + m[1] : ''}${m[2] || ''}`],
   [/^Supprimer (.+)$/, (m) => `Delete ${m[1]}`],
