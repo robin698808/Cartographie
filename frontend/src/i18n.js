@@ -2,7 +2,7 @@ import { EN } from './i18nDict';
 
 const STORAGE_KEY = 'carto:lang';
 const EVENT = 'carto:lang-change';
-const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'TEXTAREA', 'CODE', 'NOSCRIPT']);
+const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'CODE', 'NOSCRIPT']);
 const ATTRS = ['placeholder', 'title', 'aria-label', 'alt'];
 
 const norm = (s) => s.replace(/[\u2019\u2018]/g, "'").replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
@@ -155,9 +155,13 @@ function skip(el) {
   return !el || SKIP_TAGS.has(el.tagName) || el.isContentEditable || el.closest?.('[data-notranslate]');
 }
 
+function skipText(el) {
+  return skip(el) || el.tagName === 'TEXTAREA';
+}
+
 function walk(root) {
   if (root.nodeType === 3) {
-    if (!skip(root.parentElement)) translateTextNode(root);
+    if (!skipText(root.parentElement)) translateTextNode(root);
     return;
   }
   if (root.nodeType !== 1 || skip(root)) return;
@@ -167,7 +171,9 @@ function walk(root) {
   });
   let n = w.nextNode();
   while (n) {
-    if (n.nodeType === 3) translateTextNode(n);
+    if (n.nodeType === 3) {
+      if (!skipText(n.parentElement)) translateTextNode(n);
+    }
     else translateAttrs(n);
     n = w.nextNode();
   }
