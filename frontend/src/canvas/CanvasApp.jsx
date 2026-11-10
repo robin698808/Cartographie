@@ -730,6 +730,8 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   const [flowColorCustom,setFlowColorCustom]=useState("");
   const [domBorderW,setDomBorderW]=useState(1.5);
   const [openMenu,setOpenMenu]=useState(null);
+  const [toolbarHidden,setToolbarHidden]=useState(function(){try{return localStorage.getItem("carto:toolbarHidden")==="1";}catch(e){return false;}});
+  function toggleToolbar(){var v=!toolbarHidden;setToolbarHidden(v);setOpenMenu(null);try{localStorage.setItem("carto:toolbarHidden",v?"1":"0");}catch(e){}}
   const [urbZone,setUrbZone]=useState(null);
   const [urbSearch,setUrbSearch]=useState("");
   const [urbSort,setUrbSort]=useState("apps");
@@ -3834,7 +3836,8 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
   /* ═══ MAPPING ═══ */
   var toolbarSurface=isDark?"linear-gradient(145deg, rgba(38,41,68,.96), rgba(20,22,42,.96))":"linear-gradient(145deg,#FFFFFF,#F2F3FB)";
   return <AppCtx.Provider value={ctxValue}><div style={{height:"100%",display:"flex",overflow:"hidden"}}><Sidebar/><div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",position:"relative"}}>
-    <div ref={toolbarRef} className="mapping-toolbar" style={{background:"linear-gradient(180deg,"+T.bgAlt+","+T.bg+")",borderBottom:"1px solid "+T.borderLight,padding:"10px 12px",display:"flex",alignItems:"center",gap:6,flexShrink:0,zIndex:200,flexWrap:"wrap",position:"relative",boxShadow:"0 8px 24px rgba(0,0,0,0.14)"}}>
+    <div style={{height:0,position:"relative",zIndex:300,flexShrink:0}}><button onClick={toggleToolbar} title={toolbarHidden?"?pingler le bandeau (afficher)":"D?s?pingler le bandeau (masquer)"} aria-pressed={!toolbarHidden} style={{position:"absolute",right:14,top:toolbarHidden?6:toolbarH+8,width:28,height:28,padding:0,borderRadius:"50%",display:"grid",placeItems:"center",cursor:"pointer",border:"1px solid "+(toolbarHidden?T.border:"#2979FF88"),background:toolbarHidden?T.bgAlt:"linear-gradient(135deg,#2979FF,#06B6D4)",color:toolbarHidden?T.fgMuted:"#fff",boxShadow:toolbarHidden?"0 3px 10px rgba(0,0,0,.2)":"0 4px 14px rgba(41,121,255,.45)",transition:"all .25s cubic-bezier(.4,0,.2,1)"}} onMouseEnter={e=>{e.currentTarget.style.transform="scale(1.12)";}} onMouseLeave={e=>{e.currentTarget.style.transform="scale(1)";}}><svg width="15" height="15" viewBox="0 0 24 24" fill={toolbarHidden?"none":"currentColor"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{transform:toolbarHidden?"rotate(45deg)":"rotate(0deg)",transition:"transform .3s cubic-bezier(.34,1.56,.64,1)"}}><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button></div>
+    <div ref={toolbarRef} className="mapping-toolbar" style={{background:"linear-gradient(180deg,"+T.bgAlt+","+T.bg+")",borderBottom:"1px solid "+T.borderLight,padding:"10px 12px",display:toolbarHidden?"none":"flex",alignItems:"center",gap:6,flexShrink:0,zIndex:200,flexWrap:"wrap",position:"relative",boxShadow:"0 8px 24px rgba(0,0,0,0.14)"}}>
       <input placeholder="Rechercher apps, domaines…" value={search} onChange={e=>setSearch(e.target.value)} style={{...I,width:180,padding:"8px 11px",borderRadius:10,boxShadow:isDark?"inset 0 1px 0 rgba(255,255,255,.03)":"0 2px 8px rgba(15,23,42,.04)"}}/>
       {/* Dropdown filters */}
       {[
