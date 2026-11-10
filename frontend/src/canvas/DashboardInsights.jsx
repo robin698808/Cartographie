@@ -5,8 +5,8 @@ import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Treemap,
 } from 'recharts';
 import { EOS_BUCKETS, eosBucket } from './itsi';
+import { usePalette, paletteColor } from '../utils/chartPalettes';
 
-const CORPORATE = ['#1E3A8A', '#2563EB', '#0891B2', '#0D9488', '#64748B', '#7C3AED', '#475569', '#0369A1', '#94A3B8'];
 const CRITS = [
   { k: 'Haute', color: '#DC2626' },
   { k: 'Moyenne', color: '#F59E0B' },
@@ -39,12 +39,13 @@ export default function DashboardInsights({ apps, T, DC, statutColors, isDeal, h
   const [tab, setTab] = useState('stack');
   const [fDomain, setFDomain] = useState('');
   const [fCrit, setFCrit] = useState('');
-  const [palette, setPalette] = useState('domain');
+  const palette = usePalette();
   const [labels, setLabels] = useState(true);
   const [metric, setMetric] = useState('apps');
   const ref = useRef(null);
 
-  const domColor = (d, i) => (palette === 'corporate' ? CORPORATE[i % CORPORATE.length] : (DC[d] || DC.Autre).ac);
+  const domColor = (d, i, n = 9) => paletteColor(palette, i, n) || (DC[d] || DC.Autre).ac;
+  const critColor = (c, i) => paletteColor(palette, i, CRITS.length) || c.color;
   const filtered = useMemo(
     () => apps.filter(a => (!fDomain || a.domain === fDomain) && (!fCrit || critOf(a) === fCrit)),
     [apps, fDomain, fCrit],
@@ -75,7 +76,7 @@ export default function DashboardInsights({ apps, T, DC, statutColors, isDeal, h
   const treeData = useMemo(() => domains.map((d, i) => {
     const da = filtered.filter(a => (a.domain || 'Autre') === d);
     const size = metric === 'budget' ? da.reduce((s, a) => s + (a.budget || 0), 0) : da.length;
-    return { name: d, size, color: domColor(d, i) };
+    return { name: d, size, color: domColor(d, i, domains.length) };
   }).filter(r => r.size > 0).sort((a, b) => b.size - a.size), [filtered, domains, metric, palette]); // eslint-disable-line
 
   const eosData = useMemo(() => EOS_BUCKETS.map(b => ({
@@ -159,7 +160,7 @@ export default function DashboardInsights({ apps, T, DC, statutColors, isDeal, h
             {tip}
             <Legend wrapperStyle={{ fontSize: 11, color: T.fgMuted }} />
             {CRITS.map((c, i) => (
-              <Bar key={c.k} dataKey={c.k} stackId="s" fill={c.color} radius={i === CRITS.length - 1 ? [4, 4, 0, 0] : 0}
+              <Bar key={c.k} dataKey={c.k} stackId="s" fill={critColor(c, i)} radius={i === CRITS.length - 1 ? [4, 4, 0, 0] : 0}
                 onClick={d => setFDomain(d.domain)} cursor="pointer" animationDuration={500}>
                 {labels && <LabelList dataKey={c.k} fill="#fff" fontSize={10} formatter={v => (v ? v : '')} />}
               </Bar>
@@ -183,7 +184,7 @@ export default function DashboardInsights({ apps, T, DC, statutColors, isDeal, h
             <PolarAngleAxis dataKey="axis" tick={axis} />
             <PolarRadiusAxis domain={[0, 100]} tick={{ ...axis, fontSize: 9 }} stroke={T.border} />
             {radarData.slice(0, 6).map((r, i) => (
-              <Radar key={r.domain} name={r.domain} dataKey={r.domain} stroke={domColor(r.domain, i)} fill={domColor(r.domain, i)} fillOpacity={0.14} strokeWidth={2} />
+              <Radar key={r.domain} name={r.domain} dataKey={r.domain} stroke={domColor(r.domain, i, 6)} fill={domColor(r.domain, i, 6)} fillOpacity={0.14} strokeWidth={2} />
             ))}
             {tip}
             <Legend wrapperStyle={{ fontSize: 11, color: T.fgMuted }} />
@@ -207,7 +208,7 @@ export default function DashboardInsights({ apps, T, DC, statutColors, isDeal, h
           <YAxis tick={axis} allowDecimals={false} tickLine={false} axisLine={false} />
           {tip}
           <Bar dataKey="value" name="Applications" radius={[6, 6, 0, 0]} animationDuration={500}>
-            {data.map(d => <Cell key={d.name} fill={d.color} />)}
+            {data.map((d, i) => <Cell key={d.name} fill={paletteColor(palette, i, data.length) || d.color} />)}
             {labels && <LabelList dataKey="value" position="top" fill={T.fg} fontSize={11} fontWeight={700} />}
           </Bar>
         </BarChart>
@@ -230,10 +231,6 @@ export default function DashboardInsights({ apps, T, DC, statutColors, isDeal, h
             <option value="budget">Budget</option>
           </select>
         )}
-        <select value={palette} onChange={e => setPalette(e.target.value)} style={sel} title="Palette">
-          <option value="domain">Couleurs domaines</option>
-          <option value="corporate">Corporate</option>
-        </select>
         <button onClick={() => setLabels(v => !v)} style={{ ...sel, cursor: 'pointer' }} title="Valeurs sur les graphiques">{labels ? 'Valeurs : oui' : 'Valeurs : non'}</button>
         <button onClick={exportPng} style={{ ...sel, cursor: 'pointer' }} title="Exporter en PNG">Export PNG</button>
       </div>

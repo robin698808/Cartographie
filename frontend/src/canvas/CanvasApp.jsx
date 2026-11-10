@@ -3,6 +3,11 @@ import CanvasHome from './CanvasHome';
 import { ItsiBudgetWidget, ItsiPatrimoineWidget } from './ItsiWidgets';
 import PriorityApps from './PriorityApps';
 import ItemsChart from './ChartKit';
+import { PaletteContext, useWidgetPalettes } from '../utils/chartPalettes';
+import PaletteSelect from '../components/PaletteSelect';
+import { LogoMark } from '../components/Logo';
+import { Network, Boxes, ChartNoAxesCombined, ListChecks, PanelLeftClose, PanelLeftOpen, Layers3 } from 'lucide-react';
+import './Sidebar.css';
 import WidgetHeader from './WidgetHeader';
 import DashboardInsights, { healthScore } from './DashboardInsights';
 import { routeFlows, pathToD, placeLabels } from './flowRouting';
@@ -54,7 +59,7 @@ import {
       var funnelMuted=isDarkMode?"#9298ac":"#687187";
       var funnelLine=isDarkMode?"rgba(148,163,184,0.14)":"rgba(71,85,105,0.14)";
       var funnelCard={background:funnelBg,border:"1px solid "+funnelLine,borderRadius:18,boxShadow:isDarkMode?"0 18px 50px rgba(0,0,0,0.2)":"0 16px 42px rgba(15,23,42,0.06)"};
-      return <AppCtx.Provider value={ctxValue}><div style={{height:"100vh",display:"flex",overflow:"hidden"}}><Sidebar/><div className="view-container" style={{flex:1,display:"flex",flexDirection:"column",background:T.bg,minWidth:0}}>
+      return <AppCtx.Provider value={ctxValue}><div style={{height:"100%",display:"flex",overflow:"hidden"}}><Sidebar/><div className="view-container" style={{flex:1,display:"flex",flexDirection:"column",background:T.bg,minWidth:0}}>
         <UrbTopbar/>
         <div style={{flex:1,overflow:"auto",padding:"30px clamp(18px, 4vw, 56px) 48px",background:isDarkMode?"radial-gradient(ellipse at 68% 0%, rgba(99,102,241,0.10), transparent 42%), "+T.bg:"radial-gradient(ellipse at 68% 0%, rgba(99,102,241,0.08), transparent 42%), "+T.bg}}>
           <div style={{maxWidth:1320,margin:"0 auto"}}>
@@ -338,64 +343,40 @@ function Sidebar(){
   var ref=React.useContext(AppCtx);
   if(!ref)return null;
   var view=ref.view,setView=ref.setView,isDark=ref.isDark,T=ref.T,apps=ref.apps,flows=ref.flows,sidebarOpen=ref.sidebarOpen,setSidebarOpen=ref.setSidebarOpen,projectType=ref.projectType;
-  var W=sidebarOpen?200:56;
   var NAV=[
-    {id:"mapping",icon:"Map",label:"Cartographie",color:"#6366F1"},
-    {id:"urbanisme",icon:"Grid",label:"Paysage",color:"#F59E0B"},
-    {id:"dashboard",icon:"BarChart",label:"Dashboard",color:"#8B5CF6"},
-    ...(projectType==='deal'?[{id:"decisions",icon:"Target",label:"Decisions D1/D2",color:"#EF4444"}]:[]),
+    {id:"mapping",Icon:Network,label:"Cartographie"},
+    {id:"urbanisme",Icon:Boxes,label:"Paysage"},
+    {id:"dashboard",Icon:ChartNoAxesCombined,label:"Dashboard"},
+    ...(projectType==='deal'?[{id:"decisions",Icon:ListChecks,label:"Decisions D1/D2"}]:[]),
   ];
-  return <div className="sidebar" style={{width:W,height:"100%",background:T.bgAlt,borderRight:"1px solid "+T.border,display:"flex",flexDirection:"column",flexShrink:0,overflow:"hidden",zIndex:200}}>
-    <div style={{padding:"14px 10px",display:"flex",alignItems:"center",gap:8,borderBottom:"1px solid "+T.border,flexShrink:0}}>
-      <div onClick={function(){setSidebarOpen(function(p){return !p;});}} title={sidebarOpen?"Réduire":"Agrandir"} style={{width:32,height:32,background:"linear-gradient(135deg,#6366F1,#8B5CF6)",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:"0 0 12px #6366F140",cursor:"pointer",transition:"opacity 0.15s"}} onMouseEnter={function(e){e.currentTarget.style.opacity="0.8";}} onMouseLeave={function(e){e.currentTarget.style.opacity="1";}}>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          {/* Central hub */}
-          <circle cx="12" cy="12" r="2.8" fill="white"/>
-          {/* Outer nodes */}
-          <circle cx="12"  cy="4.5" r="1.6" fill="white" opacity="0.9"/>
-          <circle cx="18.7" cy="8.2" r="1.6" fill="white" opacity="0.9"/>
-          <circle cx="18.7" cy="15.8" r="1.6" fill="white" opacity="0.9"/>
-          <circle cx="12"  cy="19.5" r="1.6" fill="white" opacity="0.9"/>
-          <circle cx="5.3" cy="15.8" r="1.6" fill="white" opacity="0.9"/>
-          <circle cx="5.3" cy="8.2" r="1.6" fill="white" opacity="0.9"/>
-          {/* Spokes */}
-          <line x1="12" y1="9.2"  x2="12"   y2="6.1"  stroke="white" strokeWidth="1.3" opacity="0.55"/>
-          <line x1="14.4" y1="10.6" x2="17.3" y2="9"  stroke="white" strokeWidth="1.3" opacity="0.55"/>
-          <line x1="14.4" y1="13.4" x2="17.3" y2="15" stroke="white" strokeWidth="1.3" opacity="0.55"/>
-          <line x1="12" y1="14.8" x2="12"   y2="17.9" stroke="white" strokeWidth="1.3" opacity="0.55"/>
-          <line x1="9.6" y1="13.4" x2="6.7"  y2="15" stroke="white" strokeWidth="1.3" opacity="0.55"/>
-          <line x1="9.6" y1="10.6" x2="6.7"  y2="9"  stroke="white" strokeWidth="1.3" opacity="0.55"/>
-          {/* Cross-links (ring) */}
-          <line x1="12" y1="4.5" x2="18.7" y2="8.2"  stroke="white" strokeWidth="0.8" opacity="0.3"/>
-          <line x1="18.7" y1="8.2" x2="18.7" y2="15.8" stroke="white" strokeWidth="0.8" opacity="0.3"/>
-          <line x1="18.7" y1="15.8" x2="12"  y2="19.5" stroke="white" strokeWidth="0.8" opacity="0.3"/>
-          <line x1="12"  y1="19.5" x2="5.3"  y2="15.8" stroke="white" strokeWidth="0.8" opacity="0.3"/>
-          <line x1="5.3" y1="15.8" x2="5.3"  y2="8.2"  stroke="white" strokeWidth="0.8" opacity="0.3"/>
-          <line x1="5.3" y1="8.2"  x2="12"   y2="4.5"  stroke="white" strokeWidth="0.8" opacity="0.3"/>
-        </svg>
-      </div>
-      {sidebarOpen&&<div style={{fontSize:12,fontWeight:800,color:T.fg,letterSpacing:"-0.02em",lineHeight:1}}>Cartographe</div>}
+  return <aside className={"project-sidebar"+(sidebarOpen?"":" is-collapsed")+(isDark?" is-dark":"")} style={{"--sidebar-bg":T.bgAlt,"--sidebar-border":T.border,"--sidebar-text":T.fg,"--sidebar-muted":T.fgMuted}}>
+    <div className="project-sidebar-header">
+      <button type="button" className="project-sidebar-toggle" onClick={function(){setSidebarOpen(function(p){return !p;});}} title={sidebarOpen?"Réduire":"Agrandir"} aria-label={sidebarOpen?"Réduire le menu":"Agrandir le menu"} aria-expanded={sidebarOpen}>
+        <LogoMark size={32} />
+        {sidebarOpen&&<><span className="project-sidebar-brand">Cartographe</span><PanelLeftClose size={16} className="project-sidebar-toggle-icon" aria-hidden="true" /></>}
+        {!sidebarOpen&&<PanelLeftOpen size={12} className="project-sidebar-expand" aria-hidden="true" />}
+      </button>
     </div>
-    <div style={{flex:1,overflowY:"auto",padding:"8px 6px"}}>
+    <nav className="project-sidebar-nav" aria-label="Navigation du projet">
+      {sidebarOpen&&<div className="project-sidebar-label">Navigation</div>}
       {NAV.map(function(n){
         var active=view===n.id;
-        return <div key={n.id} className={"sidebar-item"+(active?" active":"")} onClick={function(){setView(n.id);}} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 10px",marginBottom:2,cursor:"pointer",color:active?n.color:T.fgMuted,background:active?n.color+"15":"transparent",border:active?"1px solid "+n.color+"30":"1px solid transparent"}}>
-          <span style={{flexShrink:0,width:24,height:24,display:"flex",alignItems:"center",justifyContent:"center"}} dangerouslySetInnerHTML={{__html:'<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+{Map:'<polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" x2="9" y1="3" y2="18"/><line x1="15" x2="15" y1="6" y2="21"/>',Grid:'<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',Layers:'<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',Boxes:'<rect x="3" y="3" width="10" height="10" rx="1"/><rect x="15" y="3" width="6" height="6" rx="1"/><rect x="15" y="11" width="6" height="10" rx="1"/><rect x="3" y="15" width="10" height="6" rx="1"/>',BarChart:'<line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/>',Target:'<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>'}[n.icon]+'</svg>'}}></span>
-          {sidebarOpen&&<span style={{fontSize:12,fontWeight:active?600:400,whiteSpace:"nowrap",letterSpacing:"-0.01em"}}>{n.label}</span>}
-          {sidebarOpen&&active&&<div style={{width:4,height:4,borderRadius:2,background:n.color,marginLeft:"auto"}}/>}
-        </div>;
+        return <button type="button" key={n.id} className={"project-sidebar-link"+(active?" is-active":"")} data-view={n.id} onClick={function(){setView(n.id);}} title={n.label} aria-label={n.label} aria-current={active?"page":undefined}>
+          <span className="project-sidebar-link-icon"><n.Icon size={18} strokeWidth={1.8} aria-hidden="true" /></span>
+          {sidebarOpen&&<span className="project-sidebar-link-label">{n.label}</span>}
+        </button>;
       })}
-    </div>
-    <div style={{padding:"8px 6px",borderTop:"1px solid "+T.border,flexShrink:0}}>
-      <div style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",borderRadius:8,color:T.fgMuted}}>
-        <span style={{fontSize:13,width:22,textAlign:"center"}}>●</span>
-        {sidebarOpen&&<div style={{fontSize:10,lineHeight:1.4}}>
-          <div style={{color:T.fg,fontWeight:600}}>{apps.length} apps</div>
-          <div style={{color:T.fgMuted}}>{flows.length} flux</div>
+    </nav>
+    <div className="project-sidebar-footer">
+      <div className="project-sidebar-summary" title={apps.length+" apps · "+flows.length+" flux"}>
+        <Layers3 size={17} aria-hidden="true" />
+        {sidebarOpen&&<div className="project-sidebar-counts">
+          <span>{apps.length} apps</span>
+          <span>{flows.length} flux</span>
         </div>}
       </div>
     </div>
-  </div>;
+  </aside>;
 }
 
 // ═══ VUE PAYSAGE — treemap urbanistique (domaine ⊃ catégorie) ═══
@@ -1871,6 +1852,13 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     const CHART_TYPES_DEF={chart_apps:"bar",chart_owner:"donut",it_budget:"bars",it_patrimoine:"bars"};
     const [chartTypes,setChartTypes]=useState(Object.assign({},CHART_TYPES_DEF));
     const setChartType=function(id,t){setChartTypes(function(p){return Object.assign({},p,{[id]:t});});};
+    const [widgetPalettes,setWidgetPalette]=useWidgetPalettes();
+    const PALETTE_IDS=["insights","chart_apps","chart_owner","it_budget","it_patrimoine"];
+    const paletteSel=function(id){
+      if(PALETTE_IDS.indexOf(id)<0)return null;
+      var cur=widgetPalettes[id]||"default";
+      return <PaletteSelect value={cur} T={T} onChange={function(v){setWidgetPalette(id,v);}} buttonStyle={Object.assign({},WIDGET_SEL_STYLE,cur!=="default"?{border:"1px solid #6366F1"}:{})}/>;
+    };
     const dm=[...new Set(apps.map(a=>a.domain))];
     const [domFilters,setDomFilters]=useState({});
     const [expFlow,setExpFlow]=useState(null);
@@ -1993,7 +1981,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       var span={s:4,m:6,l:12}[size]||6;
       var fullW=Math.max(300,window.innerWidth<=900?window.innerWidth-80:window.innerWidth-270);var ww=Math.round((fullW-220)/12*span+(span-1)*20);
       var wh=undefined;
-      var resolvedContent=typeof content==="function"?content(isExpanded,ww,wh):content;
+      var resolvedContent=<PaletteContext.Provider value={widgetPalettes[id]||"default"}>{typeof content==="function"?content(isExpanded,ww,wh):content}</PaletteContext.Provider>;
       if(isExpanded){
         return <div key={id} style={{position:"fixed",inset:0,zIndex:9900,background:T.bg,overflow:"auto",display:"flex",flexDirection:"column"}}
           onMouseEnter={function(){setHovWid(id);}}
@@ -2001,7 +1989,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
           {/* Controls overlay */}
           <div style={{position:"fixed",top:16,right:16,zIndex:9910,display:"flex",gap:3,alignItems:"center"}}>
             {DOM_FILTER_IDS.indexOf(id)>=0&&domSel(id)}
-            {chartSwitcher}
+            {paletteSel(id)}{chartSwitcher}
             <button onClick={function(e){e.stopPropagation();setExpandedWidget(null);}}
               style={{background:"rgba(0,0,0,0.6)",border:"1px solid rgba(255,255,255,0.25)",borderRadius:4,padding:"4px 10px",fontSize:14,cursor:"pointer",color:"#fff",backdropFilter:"blur(4px)"}}
               title="Réduire">⊡</button>
@@ -2016,7 +2004,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"nowrap",justifyContent:"flex-end",minHeight:30}}>
           <div style={{flex:1}}/>
           {DOM_FILTER_IDS.indexOf(id)>=0&&domSel(id)}
-          {chartSwitcher}
+          {paletteSel(id)}{chartSwitcher}
           <div style={{display:"flex",background:T.bgAlt,border:"1px solid "+T.border,borderRadius:8,padding:2,gap:1}}>
           {[{k:"s",t:"Compact"},{k:"m",t:"Moyen"},{k:"l",t:"Large"}].map(function(sz){
             var isAct=size===sz.k;
@@ -2796,7 +2784,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     document.addEventListener("mousemove",onMove);
     document.addEventListener("mouseup",onUp);
   };
-  return <AppCtx.Provider value={ctxValue}><div style={{height:"100vh",display:"flex",overflow:"hidden"}}><Sidebar/><div className="view-container" style={{flex:1,display:"flex",flexDirection:"column",background:T.bg}}>
+  return <AppCtx.Provider value={ctxValue}><div style={{height:"100%",display:"flex",overflow:"hidden"}}><Sidebar/><div className="view-container" style={{flex:1,display:"flex",flexDirection:"column",background:T.bg}}>
 
     {/* ── Topbar ── */}
     <div style={{background:T.bgAlt,borderBottom:"1px solid "+T.border,padding:"10px 20px",display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
@@ -3078,7 +3066,7 @@ if(view==="urbanisme"){
       var df=flows.filter(function(f){var fa=apps.find(function(a){return a.id===f.from;});var ta=apps.find(function(a){return a.id===f.to;});return (fa&&fa.domain===dom)||(ta&&ta.domain===dom);}).length;
       return {name:dom,apps:da.length,flows:df,critical:da.filter(function(a){return a.criticality==="Haute";}).length,d2:da.filter(function(a){return !!a.statusD2;}).length,color:(DC[dom]||DC.Autre).ac};
     }).sort(function(a,b){return b.apps-a.apps;});
-    return <AppCtx.Provider value={ctxValue}><div style={{height:"100vh",display:"flex",overflow:"hidden"}}><Sidebar/><div className="view-container" style={{flex:1,display:"flex",flexDirection:"column",background:T.bg,minWidth:0}}>
+    return <AppCtx.Provider value={ctxValue}><div style={{height:"100%",display:"flex",overflow:"hidden"}}><Sidebar/><div className="view-container" style={{flex:1,display:"flex",flexDirection:"column",background:T.bg,minWidth:0}}>
       <UrbTopbar/>
       <div style={{flex:1,overflow:"auto",padding:"clamp(20px,3vw,42px) clamp(18px,4vw,56px) 48px",background:T.bg}}>
         <div style={{maxWidth:1320,margin:"0 auto"}}>
@@ -3181,7 +3169,7 @@ if(view==="urbanisme"){
       </div>
     </div></div></AppCtx.Provider>;
 
-    return <AppCtx.Provider value={ctxValue}><div style={{height:"100vh",display:"flex",overflow:"hidden"}}><Sidebar/><div className="view-container" style={{flex:1,display:"flex",flexDirection:"column",background:T.bg,minWidth:0}}>
+    return <AppCtx.Provider value={ctxValue}><div style={{height:"100%",display:"flex",overflow:"hidden"}}><Sidebar/><div className="view-container" style={{flex:1,display:"flex",flexDirection:"column",background:T.bg,minWidth:0}}>
       <UrbTopbar/>
       <div style={{flex:1,overflow:"auto",padding:"30px clamp(18px, 4vw, 56px) 48px",background:urbDark?"radial-gradient(ellipse at 68% 0%, rgba(99,102,241,0.10), transparent 42%), "+T.bg:"radial-gradient(ellipse at 68% 0%, rgba(99,102,241,0.08), transparent 42%), "+T.bg}}>
         <div style={{maxWidth:1320,margin:"0 auto"}}>
@@ -3196,7 +3184,7 @@ if(view==="urbanisme"){
       </div>
     </div></div></AppCtx.Provider>;
 
-    return <AppCtx.Provider value={ctxValue}><div style={{height:"100vh",display:"flex",overflow:"hidden"}}><Sidebar/><div className="view-container" style={{flex:1,display:"flex",flexDirection:"column",background:T.bg}}>
+    return <AppCtx.Provider value={ctxValue}><div style={{height:"100%",display:"flex",overflow:"hidden"}}><Sidebar/><div className="view-container" style={{flex:1,display:"flex",flexDirection:"column",background:T.bg}}>
       <UrbTopbar/>
       <div style={{flex:1,overflow:"auto",padding:"24px 28px"}}>
         <div style={{maxWidth:1100,margin:"0 auto"}}>
@@ -3333,7 +3321,7 @@ if(view==="urbanisme"){
   var zoneHigh=zoneApps.filter(function(a){return a.criticality==="Haute";}).length;
   var pairGrid="minmax(0,1fr) 30px minmax(0,1fr) 46px";
 
-  return <AppCtx.Provider value={ctxValue}><div style={{height:"100vh",display:"flex",overflow:"hidden"}}><Sidebar/><div className="view-container" style={{flex:1,display:"flex",flexDirection:"column",background:T.bg,minWidth:0}}>
+  return <AppCtx.Provider value={ctxValue}><div style={{height:"100%",display:"flex",overflow:"hidden"}}><Sidebar/><div className="view-container" style={{flex:1,display:"flex",flexDirection:"column",background:T.bg,minWidth:0}}>
     <UrbTopbar/>
     <div style={{flex:1,overflowY:"auto",padding:"clamp(18px,3vw,34px) clamp(16px,3vw,42px) 48px",background:T.bg}}>
       <div style={{maxWidth:urbExpanded?1500:1240,margin:"0 auto",transition:"max-width 0.25s ease"}}>
@@ -3467,7 +3455,7 @@ if(view==="urbanisme"){
     var d2TotDef=apps.filter(function(a){return a.statusD2;}).length;
     var activeCount=Object.keys(decisionStates).filter(function(k){return decisionStates[k]>0;}).length;
 
-    return <AppCtx.Provider value={ctxValue}><div style={{height:"100vh",display:"flex",overflow:"hidden"}}><Sidebar/><div className="view-container" style={{flex:1,display:"flex",flexDirection:"column",background:T.bg}}>
+    return <AppCtx.Provider value={ctxValue}><div style={{height:"100%",display:"flex",overflow:"hidden"}}><Sidebar/><div className="view-container" style={{flex:1,display:"flex",flexDirection:"column",background:T.bg}}>
       {/* Topbar */}
       <div style={{background:T.bgAlt,borderBottom:"1px solid "+T.border,padding:"10px 20px",display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
         <div>
@@ -3580,7 +3568,7 @@ if(view==="urbanisme"){
     </div></div></AppCtx.Provider>;
   }
 
-if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{height:"100vh",display:"flex",overflow:"hidden"}}><Sidebar/><div style={{flex:1,display:"flex",flexDirection:"column"}}>
+if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{height:"100%",display:"flex",overflow:"hidden"}}><Sidebar/><div style={{flex:1,display:"flex",flexDirection:"column"}}>
       <div style={{overflowY:"auto",flex:1}}><Dashboard/></div>
     </div></div></AppCtx.Provider>;
 

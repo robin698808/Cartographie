@@ -4,9 +4,11 @@ import LangToggle from './components/LangToggle';
 import { AuthProvider } from './api/AuthContext';
 import ProtectedRoute, { AdminRoute } from './components/ProtectedRoute';
 import { loadSavedTheme } from './utils/themes';
+import { applyBranding } from './utils/branding';
 
 // Apply persisted theme before first render
 loadSavedTheme();
+applyBranding();
 import Login from './pages/Login';
 import Projects from './pages/Projects';
 import Canvas from './pages/Canvas';

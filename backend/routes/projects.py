@@ -1,3 +1,4 @@
+import json
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 from database import get_db
@@ -69,6 +70,12 @@ def list_projects(
         out = schemas.ProjectOut.model_validate(p)
         out.member_count = len(p.members)
         out.snapshot_count = len(p.snapshots)
+        if p.snapshots:
+            try:
+                out.app_count = len(json.loads(p.snapshots[0].apps or "[]"))
+                out.flow_count = len(json.loads(p.snapshots[0].flows or "[]"))
+            except (ValueError, TypeError):
+                pass
         result.append(out)
     return result
 

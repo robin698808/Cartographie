@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { getMembers, inviteMember, removeMember, updateMemberRole, getProjects, updateProject } from '../api/client';
 import { useAuth } from '../api/AuthContext';
 import { LogoMark } from '../components/Logo';
+import UserBubble from '../components/UserBubble';
 import ProfileModal from '../components/ProfileModal';
 
 function initials(nom) {
@@ -154,14 +155,7 @@ export default function ProjectAdmin() {
               🛡️ Utilisateurs
             </button>
           )}
-          <div className="row g2" onClick={() => setShowProfile(true)}
-            style={{ cursor: 'pointer' }} title="Modifier mon profil">
-            {me?.avatar
-              ? <img src={me.avatar} alt="avatar" style={{ width:28, height:28, borderRadius:'50%', objectFit:'cover', border:'2px solid var(--border)' }} />
-              : <div className="av av-sm">{initials(me?.nom)}</div>
-            }
-            <span className="f13 t2 w5">{me?.prenom ? `${me.prenom} ${me.nom}` : me?.nom}</span>
-          </div>
+          <UserBubble onClick={() => setShowProfile(true)} />
           <button onClick={logout} className="btn btn-s btn-sm">Déconnexion</button>
         </div>
       </header>

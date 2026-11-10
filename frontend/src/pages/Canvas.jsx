@@ -1,8 +1,9 @@
 import { useEffect, useState, useRef, useLayoutEffect, useCallback, lazy, Suspense } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { Home, Settings } from 'lucide-react';
 import { getLatestSnapshot, saveSnapshot, getProjects } from '../api/client';
 import { useAuth } from '../api/AuthContext';
-import { LogoMark } from '../components/Logo';
+import UserBubble from '../components/UserBubble';
 import ProfileModal from '../components/ProfileModal';
 import ThemeToggle from '../components/ThemeToggle';
 import LangToggle from '../components/LangToggle';
@@ -173,22 +174,31 @@ export default function Canvas() {
         borderBottom:`1px solid ${ctxBd}`,
         position:'relative', zIndex:500,
       }}>
-        <button onClick={() => navigate('/')} style={{ ...btnStyle, display:'flex', alignItems:'center', gap:6, padding:'4px 10px', borderRadius:6, fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
-          <span>Projets</span>
+        <button
+          onClick={() => navigate('/')}
+          aria-label="Accueil"
+          title="Accueil"
+          onMouseEnter={e => { e.currentTarget.style.background = canvasDark ? '#29294A' : '#EEF2FF'; e.currentTarget.style.color = canvasDark ? '#C4B5FD' : '#4F46E5'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = btnStyle.background; e.currentTarget.style.color = btnStyle.color; }}
+          style={{ ...btnStyle, width:32, height:32, display:'flex', alignItems:'center', justifyContent:'center', padding:0, borderRadius:8, cursor:'pointer', transition:'background 150ms ease, color 150ms ease, transform 150ms ease' }}
+        >
+          <Home size={18} strokeWidth={2} />
         </button>
 
-        <span style={{ color: ctxMuted, fontSize:16, fontWeight:300 }}>/</span>
+        <span aria-hidden="true" style={{ color: ctxMuted, fontSize:16, fontWeight:300 }}>/</span>
 
         <span style={{ fontSize:13, fontWeight:600, color: ctxText, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:200 }} title={project?.nom}>
           {project?.nom || '—'}
         </span>
 
+        <span aria-hidden="true" style={{ color: ctxMuted, fontSize:16, fontWeight:300 }}>/</span>
+
         {project?.visibility === 'team' && (
           <span style={{ background:'rgba(99,102,241,0.15)', color:'#818CF8', border:'1px solid rgba(99,102,241,0.2)', borderRadius:999, padding:'2px 8px', fontSize:9, fontWeight:700, letterSpacing:'0.06em' }}>Équipe</span>
         )}
 
-        <button onClick={() => navigate(`/projects/${projectId}/admin`)} style={{ ...btnStyle, padding:'4px 10px', borderRadius:6, fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }} title="Gérer les membres">
-          ⚙️ Membres
+        <button onClick={() => navigate(`/projects/${projectId}/admin`)} aria-label="Paramètres du projet" style={{ ...btnStyle, width:30, height:30, display:'flex', alignItems:'center', justifyContent:'center', padding:0, borderRadius:6, cursor:'pointer', fontFamily:'inherit' }} title="Paramètres du projet">
+          <Settings size={16} />
         </button>
 
         {others.length > 0 && (
@@ -203,6 +213,9 @@ export default function Canvas() {
         )}
 
         <div style={{ display:'flex', alignItems:'center', gap:10, marginLeft:'auto' }}>
+          <button onClick={() => handleSave()} disabled={saving} style={{ background:'linear-gradient(135deg,#6366F1,#8B5CF6)', color:'#fff', border:'none', padding:'6px 14px', borderRadius:6, fontSize:12, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:6, fontFamily:'inherit', opacity: saving ? 0.5 : 1 }}>
+            {saving ? <span style={{ width:12, height:12, border:'2px solid rgba(255,255,255,0.3)', borderTopColor:'#fff', borderRadius:'50%', display:'inline-block', animation:'_spin 0.6s linear infinite' }} /> : '💾'} Sauvegarder
+          </button>
           {saving ? (
             <span style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, color:ctxMuted }}>
               <span style={{ width:6, height:6, borderRadius:'50%', background:'currentColor', display:'inline-block' }} /> Sauvegarde…
@@ -228,22 +241,7 @@ export default function Canvas() {
           <div ref={setViewsSlot} style={{ display:'flex' }} />
           <LangToggle />
           <ThemeToggle />
-          <button onClick={() => handleSave()} disabled={saving} style={{ background:'linear-gradient(135deg,#6366F1,#8B5CF6)', color:'#fff', border:'none', padding:'6px 14px', borderRadius:6, fontSize:12, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:6, fontFamily:'inherit', opacity: saving ? 0.5 : 1 }}>
-            {saving ? <span style={{ width:12, height:12, border:'2px solid rgba(255,255,255,0.3)', borderTopColor:'#fff', borderRadius:'50%', display:'inline-block', animation:'_spin 0.6s linear infinite' }} /> : '💾'} Sauvegarder
-          </button>
-          <div onClick={() => setShowProfile(true)} title="Modifier mon profil"
-            style={{ cursor:'pointer', display:'flex', alignItems:'center', gap:6, padding:'2px 6px', borderRadius:6, border:`1px solid ${ctxBd}`, transition:'background 0.12s' }}
-            onMouseEnter={e => e.currentTarget.style.background = canvasDark ? '#1A1A35' : '#F1F5F9'}
-            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-          >
-            {user?.avatar
-              ? <img src={user.avatar} alt="avatar" style={{ width:24, height:24, borderRadius:'50%', objectFit:'cover', border:`1.5px solid ${ctxBd}` }} />
-              : <div style={{ width:24, height:24, borderRadius:'50%', background:'linear-gradient(135deg,#6366F1,#8B5CF6)', color:'#fff', fontSize:9, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>{initials(user?.nom)}</div>
-            }
-            <span style={{ fontSize:12, fontWeight:500, color:ctxText, maxWidth:100, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-              {user?.prenom ? `${user.prenom} ${user.nom}` : user?.nom}
-            </span>
-          </div>
+          <UserBubble onClick={() => setShowProfile(true)} />
         </div>
       </div>
       {showProfile && <ProfileModal onClose={() => setShowProfile(false)} />}

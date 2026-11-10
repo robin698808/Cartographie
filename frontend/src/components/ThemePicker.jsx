@@ -1,12 +1,29 @@
 import { useState, useEffect, useRef } from 'react';
 import { Palette } from 'lucide-react';
 import { THEMES, applyTheme, buildThemeFromAccent } from '../utils/themes';
+import { BG_PRESETS, useBranding, saveBranding, fileToDataUrl } from '../utils/branding';
 
 export default function ThemePicker() {
   const [open, setOpen]         = useState(false);
   const [activeId, setActiveId] = useState('indigo');
   const [custom, setCustom]     = useState('#6366F1');
   const panelRef = useRef();
+  const branding = useBranding();
+  const [err, setErr] = useState('');
+
+  const pickFile = async (e, kind) => {
+    const f = e.target.files?.[0];
+    e.target.value = '';
+    if (!f) return;
+    setErr('');
+    try {
+      const ok = kind === 'logo'
+        ? saveBranding({ ...branding, logo: await fileToDataUrl(f, 400, 'image/png') })
+        : saveBranding({ ...branding, bg: { type: 'image', value: await fileToDataUrl(f, 1600, 'image/jpeg', 0.8) } });
+      if (!ok) setErr('Image trop volumineuse');
+    } catch (ex) { setErr(ex.message); }
+  };
+  const setBg = (type, value) => saveBranding({ ...branding, bg: { type, value } });
 
   // Detect current theme from localStorage on mount
   useEffect(() => {
@@ -55,7 +72,7 @@ export default function ThemePicker() {
           position: 'absolute', top: 'calc(100% + 8px)', right: 0,
           background: 'var(--surface)', border: '1px solid var(--border)',
           borderRadius: 'var(--r5)', boxShadow: 'var(--s4)',
-          padding: '16px', width: 240, zIndex: 200,
+          padding: '16px', width: 280, zIndex: 200,
         }}>
           <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
             Thème de couleurs
@@ -125,6 +142,60 @@ export default function ThemePicker() {
               Appliquer
             </button>
           </div>
+
+          {/* Logo */}
+          <div style={{ borderTop: '1px solid var(--border)', margin: '14px 0 12px' }} />
+          <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+            Logo de l'entreprise
+          </p>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div style={{ width: 56, height: 36, border: '1px dashed var(--border-md)', borderRadius: 'var(--r3)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', background: 'var(--surface-2)' }}>
+              {branding.logo && <img src={branding.logo} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />}
+            </div>
+            <label className="btn btn-s btn-sm" style={{ cursor: 'pointer' }}>
+              Importer
+              <input type="file" accept="image/*" hidden onChange={e => pickFile(e, 'logo')} />
+            </label>
+            {branding.logo && (
+              <button className="btn btn-s btn-sm" onClick={() => saveBranding({ ...branding, logo: '' })}>Retirer</button>
+            )}
+          </div>
+
+          {/* Fond */}
+          <div style={{ borderTop: '1px solid var(--border)', margin: '14px 0 12px' }} />
+          <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+            Fond de l'écran d'accueil
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 6, marginBottom: 8 }}>
+            {BG_PRESETS.map(p => (
+              <button key={p.id} title={p.name} onClick={() => setBg(p.value ? 'gradient' : 'none', p.value)}
+                style={{
+                  height: 28, borderRadius: 'var(--r3)', cursor: 'pointer',
+                  background: p.value || 'var(--bg)',
+                  border: branding.bg.value === p.value && branding.bg.type !== 'image' && branding.bg.type !== 'color' ? '2px solid var(--accent)' : '1px solid var(--border-md)',
+                }} />
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input type="color" value={branding.bg.type === 'color' ? branding.bg.value : '#f5f3ff'}
+              onChange={e => setBg('color', e.target.value)}
+              style={{ width: 36, height: 30, border: '1px solid var(--border)', borderRadius: 'var(--r3)', cursor: 'pointer', padding: 2, background: 'var(--surface)' }} />
+            <label className="btn btn-s btn-sm" style={{ cursor: 'pointer' }}>
+              Image…
+              <input type="file" accept="image/*" hidden onChange={e => pickFile(e, 'bg')} />
+            </label>
+          </div>
+          {err && <p style={{ color: '#DC2626', fontSize: 11, marginTop: 8 }}>{err}</p>}
+
+          <button className="btn btn-s btn-sm" style={{ width: '100%', marginTop: 14 }}
+            onClick={() => {
+              selectTheme(THEMES[0]);
+              setCustom(THEMES[0].accent);
+              saveBranding({ logo: '', bg: { type: 'none', value: '' } });
+              setErr('');
+            }}>
+            Revenir à l'écran par défaut
+          </button>
 
           {/* Preview band */}
           <div style={{

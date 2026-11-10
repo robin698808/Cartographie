@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { getProjects, createProject, deleteProject, updateProject } from '../api/client';
 import { useAuth } from '../api/AuthContext';
 import BrandLockup from '../components/BrandLockup';
+import UserBubble from '../components/UserBubble';
 import ProfileModal from '../components/ProfileModal';
 import ThemePicker from '../components/ThemePicker';
 import ThemeToggle from '../components/ThemeToggle';
@@ -10,7 +11,7 @@ import LangToggle from '../components/LangToggle';
 import ProjectAppearancePicker, { getIconComponent } from '../components/ProjectAppearancePicker';
 import {
   Users, Trash2, FolderOpen, Share2, Handshake, Map as MapIcon, Search, X, ArrowUpDown,
-  LayoutGrid, List, Star, Palette, Plus, ArrowRight, Lock, Clock, Sparkles, Shield,
+  LayoutGrid, List, Star, Palette, Plus, ArrowRight, Lock, Clock, Sparkles, Shield, LogOut,
 } from 'lucide-react';
 import './Projects.css';
 
@@ -171,6 +172,15 @@ export default function Projects() {
     team:  projects.filter(p => p.visibility === 'team').length,
   }), [projects]);
 
+  const topByApps = useMemo(
+    () => [...projects].filter(p => p.app_count > 0).sort((a, b) => b.app_count - a.app_count).slice(0, 5),
+    [projects],
+  );
+  const recent = useMemo(
+    () => [...projects].sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at)).slice(0, 6),
+    [projects],
+  );
+
   const lastProject = useMemo(
     () => [...projects].sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))[0],
     [projects],
@@ -231,25 +241,16 @@ export default function Projects() {
         <BrandLockup size={30} tone="dark" />
 
         <div className="row g3">
-          <LangToggle />
-          <ThemeToggle />
           <ThemePicker />
           {user?.role === 'admin' && (
             <button onClick={() => navigate('/admin/users')} className="btn btn-s btn-sm pj-btn-ic">
               <Shield size={14} /> Utilisateurs
             </button>
           )}
-          <div className="row g2 pj-profile" onClick={() => setShowProfile(true)} title="Modifier mon profil">
-            {user?.avatar
-              ? <img src={user.avatar} alt="avatar" className="pj-avatar-img" style={{ width: 30, height: 30 }} />
-              : <div className="av av-sm">{initials(user?.nom)}</div>
-            }
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <span className="f13 t2 w5">{user?.prenom ? `${user.prenom} ${user.nom}` : user?.nom}</span>
-              <span className="pj-role" data-role={user?.role}>{roleLabel}</span>
-            </div>
-          </div>
-          <button onClick={logout} className="btn btn-s btn-sm">Déconnexion</button>
+          <LangToggle />
+          <ThemeToggle />
+          <UserBubble onClick={() => setShowProfile(true)} />
+          <button onClick={logout} className="pj-logout" title="Déconnexion" aria-label="Déconnexion"><LogOut size={16} /></button>
         </div>
       </header>
 
@@ -259,13 +260,13 @@ export default function Projects() {
         <section className="pj-hero">
           <div className="pj-hero-main">
             <p className="pj-eyebrow"><Sparkles size={13} /> Espace de travail</p>
-            <h1 className="pj-title">{`${greeting()}${displayName ? `, ${displayName}` : ''} 👋`}</h1>
+            <h1 className="pj-title">{greeting()}{displayName ? `, ${displayName}` : ''} 👋</h1>
             <p className="pj-sub">
               {loading ? 'Chargement de vos projets…'
                 : projects.length === 0 ? 'Créez votre premier projet pour démarrer une cartographie.'
                 : `${projects.length} projet${projects.length > 1 ? 's' : ''} dans votre espace${counts.team ? ` · ${counts.team} partagé${counts.team > 1 ? 's' : ''} avec l'équipe` : ''}.`}
             </p>
-            <div className="row g2" style={{ marginTop: 18, flexWrap: 'wrap' }}>
+            <div className="pj-hero-actions">
               <button onClick={() => setShowCreate(true)} className="pj-hero-btn">
                 <Plus size={16} /> Nouveau projet <kbd>N</kbd>
               </button>
@@ -276,11 +277,11 @@ export default function Projects() {
               )}
             </div>
           </div>
-          <div className="pj-hero-deco" aria-hidden="true">
-            <span /><span /><span /><span /><span />
-          </div>
+          <div className="pj-hero-deco" aria-hidden="true"><span /><span /><span /><span /><span /></div>
         </section>
 
+        <div className="pj-layout">
+          <div className="pj-main">
         {/* ── Stats cliquables ── */}
         {!loading && projects.length > 0 && (
           <div
@@ -406,6 +407,10 @@ export default function Projects() {
             )}
           </>
         )}
+          </div>
+
+
+        </div>
       </div>
 
       {showProfile && <ProfileModal onClose={() => setShowProfile(false)} />}
@@ -613,7 +618,6 @@ function ProjectCard(props) {
       role="button"
       tabIndex={0}
     >
-      <div className="pj-card-bar" />
       <div className="pj-card-top">
         <ProjectIcon project={project} />
         <Actions {...props} />
@@ -627,6 +631,10 @@ function ProjectCard(props) {
         {project.description
           ? <p className="pj-desc clamp2">{project.description}</p>
           : <p className="pj-desc pj-desc-empty">Aucune description</p>}
+        <div className="pj-card-stats">
+          <span className="pj-stat-pill"><MapIcon size={14} /><b>{project.app_count || 0}</b> apps</span>
+          <span className="pj-stat-pill"><Share2 size={14} /><b>{project.flow_count || 0}</b> flux</span>
+        </div>
       </div>
       <div className="pj-card-foot">
         <span className="pj-owner">

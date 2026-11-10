@@ -210,8 +210,8 @@ export default function PriorityApps({ apps, flows, T, DC, statutColors, onOpen,
               const rc = gradient(riskOf(ri, ci));
               const cell = filtered.filter(i => (CRIT_W[i.app.criticality] ? i.app.criticality === r : !r) && c.test(i.degree));
               return (
-                <div key={c.l} style={{ minHeight: expanded ? 96 : 78, borderRadius: 4, padding: 6, background: rc, display: 'flex', flexWrap: 'wrap', alignContent: 'flex-start', gap: 4, transition: 'all .15s' }}>
-                  {cell.slice(0, 6).map(i => {
+                <div key={c.l} style={{ minHeight: expanded ? 96 : 78, alignItems: 'flex-start', borderRadius: 4, padding: 6, background: rc, display: 'flex', flexWrap: 'wrap', alignContent: 'flex-start', gap: 4, transition: 'all .15s' }}>
+                  {cell.map(i => {
                     const on = selected && selected.app.id === i.app.id;
                     return (
                       <button key={i.app.id} onClick={() => setSelId(i.app.id)} title={`${i.app.name} · ${i.incoming} entrant${i.incoming > 1 ? 's' : ''}, ${i.outgoing} sortant${i.outgoing > 1 ? 's' : ''}`} style={{ display: 'flex', alignItems: 'center', gap: 4, maxWidth: '100%', border: `1px solid ${on ? '#fff' : 'transparent'}`, background: '#1F2937', color: '#fff', borderRadius: 99, padding: '2px 6px 2px 6px', fontSize: 10.5, fontWeight: 700, cursor: 'pointer', boxShadow: on ? '0 0 0 2px #fff' : '0 2px 4px rgba(0,0,0,.25)' }}>
@@ -221,8 +221,7 @@ export default function PriorityApps({ apps, flows, T, DC, statutColors, onOpen,
                       </button>
                     );
                   })}
-                  {cell.length > 6 && <span style={{ fontSize: 10.5, fontWeight: 800, color: T.fg, padding: '2px 4px' }}>+{cell.length - 6}</span>}
-                  {!cell.length && <span style={{ margin: 'auto', fontSize: 11, color: T.fgMuted, opacity: 0.5 }}>—</span>}
+                                    {!cell.length && <span style={{ margin: 'auto', fontSize: 11, color: T.fgMuted, opacity: 0.5 }}>—</span>}
                 </div>
               );
             })}

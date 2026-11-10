@@ -1,4 +1,5 @@
 import React from 'react';
+import { usePalette, paletteColor } from '../utils/chartPalettes';
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList, Cell,
   PieChart, Pie, AreaChart, Area,
@@ -10,9 +11,12 @@ import {
 const short = (s, n) => (String(s).length > n ? String(s).slice(0, n - 1) + '…' : String(s));
 
 export default function ItemsChart({
-  T, items, type = 'bars', height = 240, unit = '', centerValue, centerLabel, formatValue,
+  T, items: rawItems, type = 'bars', height = 240, unit = '', centerValue, centerLabel, formatValue,
   onItemClick, activeLabel, showValues = true,
 }) {
+  const palette = usePalette();
+  const items = palette === 'default' ? rawItems
+    : rawItems.map((it, i) => ({ ...it, color: paletteColor(palette, i, rawItems.length) || it.color }));
   const fmt = formatValue || (v => v);
   const total = items.reduce((s, i) => s + i.value, 0) || 1;
   const axis = { fill: T.fgMuted, fontSize: 11 };

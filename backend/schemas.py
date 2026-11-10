@@ -96,6 +96,8 @@ class ProjectOut(BaseModel):
     updated_at: datetime
     member_count: Optional[int] = 0
     snapshot_count: Optional[int] = 0
+    app_count: Optional[int] = 0
+    flow_count: Optional[int] = 0
 
     class Config:
         from_attributes = True
