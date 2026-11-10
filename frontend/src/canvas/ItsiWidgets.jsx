@@ -1,4 +1,7 @@
 import { useMemo } from 'react';
+import ItemsChart from './ChartKit';
+import WidgetHeader from './WidgetHeader';
+import { WaterfallChart, ParetoChart, CostMixChart } from './FinanceCharts';
 import {
   COST_TYPES, COST_COLORS, HOSTING_OPTS, HOSTING_COLORS, APPTYPE_OPTS, APPTYPE_COLORS,
   EOS_BUCKETS, eosBucket, formatEuro, formatDateFr,
@@ -15,17 +18,7 @@ const surface = (T, h, accent) => ({
   height: h ? '100%' : undefined, boxSizing: 'border-box',
 });
 
-function Header({ T, color, icon, title, subtitle }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-      <div style={{ width: 40, height: 40, borderRadius: 12, display: 'grid', placeItems: 'center', background: color + '22', color, fontSize: 18, fontWeight: 800, flexShrink: 0 }}>{icon}</div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 15, fontWeight: 800, color: T.fg, letterSpacing: '-0.01em' }}>{title}</div>
-        <div style={{ fontSize: 12, color: T.fgMuted, marginTop: 2 }}>{subtitle}</div>
-      </div>
-    </div>
-  );
-}
+const Header = WidgetHeader;
 
 function Kpi({ T, label, value, color, hint }) {
   return (
@@ -95,67 +88,13 @@ function StackedBar({ T, parts }) {
   );
 }
 
-function Donut({ T, slices, centerValue, centerLabel, size = 150, thick = false }) {
-  const total = slices.reduce((s, x) => s + x.value, 0) || 1;
-  const r = thick ? 25 : 37, c = 2 * Math.PI * r, sw = thick ? 50 : 16;
-  let acc = 0;
+/* S?rie affich?e selon le type choisi : bars | columns | donut | pie | area (rendu Recharts) */
+function Breakdown({ T, items, type = 'bars', centerValue, centerLabel }) {
+  const money = items.some(i => i.text != null && i.text !== String(i.value));
   return (
-    <svg width={size} height={size} viewBox="0 0 100 100" style={{ flexShrink: 0 }}>
-      <circle cx="50" cy="50" r={r} fill="none" stroke={T.border + '66'} strokeWidth={sw} />
-      {slices.filter(s => s.value > 0).map(s => {
-        const len = s.value / total * c;
-        const el = (
-          <circle key={s.label} cx="50" cy="50" r={r} fill="none" stroke={s.color} strokeWidth={sw}
-            strokeDasharray={`${Math.max(0, len - 1.2)} ${c}`} strokeDashoffset={-acc} transform="rotate(-90 50 50)">
-            <title>{`${s.label} : ${s.text ?? s.value}`}</title>
-          </circle>
-        );
-        acc += len;
-        return el;
-      })}
-      {!thick && <text x="50" y="49" textAnchor="middle" fill={T.fg} fontSize="14" fontWeight="800">{centerValue}</text>}
-      {!thick && <text x="50" y="60" textAnchor="middle" fill={T.fgMuted} fontSize="5.5" letterSpacing="0.06em">{centerLabel}</text>}
-    </svg>
+    <ItemsChart T={T} items={items} type={type} height={type === 'bars' ? 200 : 220}
+      centerValue={centerValue} centerLabel={centerLabel} formatValue={money ? formatEuro : undefined} />
   );
-}
-
-/* Série affichée selon le type choisi : bars | columns | donut | pie */
-function Breakdown({ T, items, type = 'bars', centerValue, centerLabel, showShare = true }) {
-  const max = Math.max(1, ...items.map(i => i.value));
-  const total = items.reduce((s, i) => s + i.value, 0) || 1;
-  const share = i => Math.round(i.value / total * 100);
-  if (type === 'donut' || type === 'pie') {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap', justifyContent: 'center' }}>
-        <Donut T={T} size={150} thick={type === 'pie'}
-          slices={items} centerValue={centerValue ?? total} centerLabel={centerLabel ?? ''} />
-        <div style={{ flex: '1 1 150px', minWidth: 0, display: 'grid', gap: 8 }}>
-          {items.map(i => (
-            <span key={i.label} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: T.fgMuted }}>
-              <i style={{ width: 10, height: 10, borderRadius: 3, background: i.color, flexShrink: 0 }} />
-              <span style={{ ...ellipsis, flex: 1, color: T.fg, fontWeight: 600 }} title={i.label}>{i.label}</span>
-              <b style={{ color: T.fg }}>{i.text ?? i.value}</b>
-              <span style={{ width: 36, textAlign: 'right', fontSize: 11 }}>{share(i)}%</span>
-            </span>
-          ))}
-        </div>
-      </div>
-    );
-  }
-  if (type === 'columns') {
-    return (
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, height: 200, paddingTop: 18 }}>
-        {items.map(i => (
-          <div key={i.label} title={`${i.label} : ${i.text ?? i.value}`} style={{ flex: 1, minWidth: 0, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center' }}>
-            <span style={{ fontSize: 11.5, fontWeight: 800, color: T.fg, marginBottom: 4, whiteSpace: 'nowrap' }}>{i.text ?? i.value}</span>
-            <span style={{ width: '70%', maxWidth: 46, height: Math.max(3, i.value / max * 100) + '%', background: `linear-gradient(180deg, ${i.color}, ${i.color}88)`, borderRadius: '7px 7px 0 0', transition: 'height .4s' }} />
-            <span style={{ fontSize: 11, color: T.fgMuted, marginTop: 6, width: '100%', textAlign: 'center', ...ellipsis }}>{i.label}</span>
-          </div>
-        ))}
-      </div>
-    );
-  }
-  return <div>{items.map(i => <BarRow key={i.label} T={T} label={i.label} text={i.text ?? i.value} pct={i.value / max * 100} color={i.color} share={showShare ? share(i) : null} />)}</div>;
 }
 
 /* ─────────────────────────  Budget & coûts  ───────────────────────── */
@@ -170,7 +109,13 @@ export function ItsiBudgetWidget({ apps, T, expanded, fillHeight, colorOf, chart
     const cost = { CAPEX: 0, OPEX: 0, 'Non défini': 0 };
     withBudget.forEach(a => { const k = COST_TYPES.includes(a.costType) ? a.costType : 'Non défini'; cost[k] += a.budget; });
     const top = [...withBudget].sort((a, b) => b.budget - a.budget).slice(0, expanded ? 10 : 6);
-    return { withBudget, total, licenses, domains, cost, top };
+    const mix = {};
+    withBudget.forEach(a => { const dom = a.domain || 'Autre'; const k = COST_TYPES.includes(a.costType) ? a.costType : 'Non d\u00e9fini'; mix[dom] = mix[dom] || { label: dom }; mix[dom][k] = (mix[dom][k] || 0) + a.budget; });
+    const mixRows = domains.slice(0, 8).map(([dom]) => mix[dom]);
+    const ranked = [...withBudget].sort((x, y) => y.budget - x.budget);
+    let acc = 0, n80 = 0;
+    ranked.forEach(a => { if (acc < total * 0.8) { acc += a.budget; n80++; } });
+    return { withBudget, total, licenses, domains, cost, top, mix, mixRows, ranked, n80 };
   }, [apps, expanded]);
 
   const pct = apps.length ? Math.round(d.withBudget.length / apps.length * 100) : 0;
@@ -194,6 +139,19 @@ export function ItsiBudgetWidget({ apps, T, expanded, fillHeight, colorOf, chart
             <Kpi T={T} label="Couverture" value={pct + ' %'} color={pct >= 80 ? '#10B981' : pct >= 50 ? '#F59E0B' : '#EF4444'} hint="apps avec coût" />
           </Grid>
 
+          {chartType === 'finance' ? (
+            <Grid min={340} gap={14} style={{ marginTop: 16 }}>
+              <Panel T={T} color="#10B981" title="Du coût par domaine au total annuel" hint="cascade">
+                <WaterfallChart T={T} items={domItems} />
+              </Panel>
+              <Panel T={T} color="#F59E0B" title="Concentration des coûts (Pareto)" hint={`${d.n80} app${d.n80 > 1 ? 's' : ''} = 80 % du budget`}>
+                <ParetoChart T={T} items={d.ranked.slice(0, 10).map(a => ({ label: a.name, value: a.budget, color: colorOf(a.domain) }))} />
+              </Panel>
+              <Panel T={T} color="#6366F1" title="OPEX / CAPEX par domaine">
+                <CostMixChart T={T} rows={d.mixRows} colors={{ ...COST_COLORS, 'Non défini': '#64748B' }} />
+              </Panel>
+            </Grid>
+          ) : (
           <Grid min={300} gap={14} style={{ marginTop: 16 }}>
             <Panel T={T} color="#10B981" title="Coût annuel par domaine" hint={`${d.domains.length} domaine${d.domains.length > 1 ? 's' : ''}`}>
               <Breakdown T={T} type={chartType} centerValue={formatEuro(d.total)} centerLabel="TOTAL / AN" items={domItems} />
@@ -208,6 +166,7 @@ export function ItsiBudgetWidget({ apps, T, expanded, fillHeight, colorOf, chart
                 items={d.top.map(a => ({ label: a.name, value: a.budget, text: formatEuro(a.budget), color: colorOf(a.domain) }))} />
             </Panel>
           </Grid>
+          )}
         </>
       )}
     </div>

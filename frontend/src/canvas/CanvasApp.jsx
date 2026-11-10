@@ -1,6 +1,10 @@
-﻿import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import CanvasHome from './CanvasHome';
 import { ItsiBudgetWidget, ItsiPatrimoineWidget } from './ItsiWidgets';
+import PriorityApps from './PriorityApps';
+import ItemsChart from './ChartKit';
+import WidgetHeader from './WidgetHeader';
+import DashboardInsights, { healthScore } from './DashboardInsights';
 import { routeFlows, pathToD, placeLabels } from './flowRouting';
 import ViewsMenu from './ViewsMenu';
 import ExportModal from './ExportModal';
@@ -1761,7 +1765,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     const clearTip=function(){setChartTip(null);};
     const hexToRgbCo=function(hex){var r=parseInt(hex.slice(1,3),16)||102,g=parseInt(hex.slice(3,5),16)||102,b=parseInt(hex.slice(5,7),16)||102;return r+","+g+","+b;};
     const toggleSection=(id)=>setHiddenSections(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
-    const DEFAULT_SIZES={chart_apps:"m",flow_matrix:"l",critical_apps:"l",chart_owner:"m",carveout:"l",it_budget:"l",it_patrimoine:"l",flowreg:"l"};
+    const DEFAULT_SIZES={insights:"l",chart_apps:"m",critical_apps:"l",chart_owner:"m",carveout:"l",it_budget:"l",it_patrimoine:"l",flowreg:"l"};
     const [widgetSizes,setWidgetSizes]=useState(function(){try{var s=localStorage.getItem("dash_sizes_"+(projectId||"default"));if(s)return Object.assign({},DEFAULT_SIZES,JSON.parse(s));}catch(e){}return Object.assign({},DEFAULT_SIZES);});
     const saveWidgetSizes=(sz)=>{setWidgetSizes(sz);try{localStorage.setItem("dash_sizes_"+(projectId||"default"),JSON.stringify(sz));}catch(e){}};
     const [hovWid,setHovWid]=useState(null);
@@ -1897,7 +1901,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         <div style={{display:"flex",gap:6,alignItems:"center"}}>{extra}</div>
       </div>;
     };
-    var ITSI_CHART_OPTS=[{k:"bars",label:"Barres"},{k:"columns",label:"Colonnes"},{k:"donut",label:"Donut"},{k:"pie",label:"Camembert"}];
+    var ITSI_CHART_OPTS=[{k:"bars",label:"Barres"},{k:"columns",label:"Colonnes"},{k:"donut",label:"Donut"},{k:"pie",label:"Camembert"},{k:"area",label:"Aires"}];
     var buildArcs=function(slices,total,cx,cy,r,ir){
       var cum=0;
       return slices.map(function(sl,i){
@@ -1924,11 +1928,11 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         {opts.map(function(o){return <option key={o.k} value={o.k} style={{background:T.bgCard,color:T.fg}}>{o.label}</option>;})}
       </select>;
     };
-    var ALL_WIDGETS_LIST=["chart_apps","critical_apps","flow_matrix","chart_owner",...(projectType==='deal'?["carveout"]:[]),"it_budget","it_patrimoine","flowreg"];
-    var getWidgetH=function(id){return{chart_apps:280,critical_apps:480,flow_matrix:460,chart_owner:260,carveout:760,it_budget:560,it_patrimoine:680,flowreg:720}[id]||300;};
+    var ALL_WIDGETS_LIST=["insights","chart_apps","critical_apps","chart_owner",...(projectType==='deal'?["carveout"]:[]),"it_budget","it_patrimoine","flowreg"];
+    var getWidgetH=function(id){return{insights:480,chart_apps:280,critical_apps:480,chart_owner:260,carveout:760,it_budget:560,it_patrimoine:680,flowreg:720}[id]||300;};
     var buildDashboardLayout=function(columns,columnWidth,hidden){
       var hid=hidden||[];
-      var rows=[{ids:["chart_apps"]},{ids:["critical_apps"],wide:true},{ids:["flow_matrix"],wide:true},{ids:["chart_owner"]},{ids:["it_budget","it_patrimoine"]}];
+      var rows=[{ids:["insights"],wide:true},{ids:["chart_apps"]},{ids:["critical_apps"],wide:true},{ids:["chart_owner"]},{ids:["it_budget","it_patrimoine"]}];
       var fullWidth=columns===1?columnWidth:columnWidth*2+20;
       var layout={};var y=16;
       rows.forEach(function(row){
@@ -1957,9 +1961,9 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     };
     var WIDGET_THEMES=[
       {id:"kpi",label:"Indicateurs clés",icon:"◎",color:"#2979FF",desc:"Synthèse chiffrée du périmètre",widgets:[{id:"kpi_bar",label:"Bandeau d'indicateurs"}]},
-      {id:"overview",label:"Vue d'ensemble",icon:"▣",color:"#7C4DFF",desc:"Répartition du patrimoine applicatif",widgets:[{id:"chart_apps",label:"Apps par domaine"}]},
-      {id:"risk",label:"Risques & criticité",icon:"⚠",color:"#FF5252",desc:"Applications sensibles à surveiller",widgets:[{id:"critical_apps",label:"Applications critiques"}]},
-      {id:"flows",label:"Flux & interfaces",icon:"⇄",color:"#00C853",desc:"Échanges entre domaines et registre",widgets:[{id:"flow_matrix",label:"Matrice des flux"},{id:"flowreg",label:"Registre des flux"}]},
+      {id:"overview",label:"Vue d'ensemble",icon:"▣",color:"#7C4DFF",desc:"Répartition du patrimoine applicatif",widgets:[{id:"insights",label:"Analyse du portefeuille"},{id:"chart_apps",label:"Apps par domaine"}]},
+      {id:"risk",label:"Risques & criticité",icon:"⚠",color:"#FF5252",desc:"Matrice de risque et liste priorisée",widgets:[{id:"critical_apps",label:"Applications à traiter en priorité"}]},
+      {id:"flows",label:"Flux & interfaces",icon:"⇄",color:"#00C853",desc:"Registre des échanges entre applications",widgets:[{id:"flowreg",label:"Registre des flux"}]},
       {id:"org",label:"Organisation",icon:"◉",color:"#00B8D4",desc:"Répartition par responsable",widgets:[{id:"chart_owner",label:"Par responsable"}]}
     ].concat(projectType==="deal"?[{id:"deal",label:"Carve-out & Day 1/2",icon:"✂",color:"#FF9100",desc:"Trajectoire de séparation",widgets:[{id:"carveout",label:"Carve-out"}]}]:[]).concat([{id:"budget",label:"Budget & coûts",icon:"€",color:"#FFB300",desc:"Coûts annuels/mensuels, OPEX/CAPEX, licences",widgets:[{id:"it_budget",label:"Budget & coûts IT"}]},{id:"patrimoine",label:"Patrimoine",icon:"☁",color:"#26A69A",desc:"Hébergement, type d'app, fin de service",widgets:[{id:"it_patrimoine",label:"Patrimoine applicatif"}]}]);
     var toggleWidgetIds=function(ids,show){
@@ -2108,6 +2112,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
           {l:"Interfaces",v:totF,c:"#00C853",glow:"rgba(0,200,83,0.18)",icon:"⇄",key:""},
           {l:"Domaines",v:dm.length,c:"#7C4DFF",glow:"rgba(124,77,255,0.18)",icon:"◉",key:""},
           {l:"Critiques",v:totC,c:"#FF5252",glow:"rgba(255,82,82,0.18)",icon:"⚠",key:"critiques"},
+          (function(){var h=healthScore(apps);var hc=h.score>=75?"#10B981":h.score>=50?"#F59E0B":"#EF4444";return{l:"Qualité des données",v:h.score+"%",c:hc,glow:hc+"2E",icon:"✓",key:"",tip:h.parts.map(function(p){return p.label+" : "+p.v+"%";}).join("\n")};})(),
         ];
         return <div className="dashboard-kpi-grid" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:12,marginBottom:24}}>
           {kpis.map(function(k){
@@ -2115,7 +2120,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
             var clickable=!!k.key;
             return <div key={k.l}
               onClick={clickable?function(){setQuickFilter(function(p){return p===k.key?"":k.key;});}:undefined}
-              className="dashboard-kpi"
+              className="dashboard-kpi" title={k.tip}
               style={{background:T.bgCard,borderRadius:14,padding:"15px 17px",border:"1px solid "+(isActive?k.c+"70":T.border),boxShadow:isActive?"0 8px 22px "+k.glow:"0 4px 16px rgba(30,27,75,.045)",display:"flex",alignItems:"center",gap:12,transition:"box-shadow 0.2s, transform 0.2s, border-color 0.2s",cursor:clickable?"pointer":"default",transform:isActive?"translateY(-2px)":"translateY(0)"}}>
               <div style={{width:40,height:40,borderRadius:11,background:"linear-gradient(145deg,"+k.glow+",transparent)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,color:k.c,flexShrink:0,border:"1px solid "+k.c+"20"}}>{k.icon}</div>
               <div>
@@ -2188,6 +2193,9 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       {ALL_WIDGETS_LIST.every(function(id){return hiddenWidgets.includes(id);})&&<div style={{padding:"60px 20px",textAlign:"center",color:T.fgMuted,fontSize:13,border:"1px dashed "+T.border,borderRadius:14}}>Tous les widgets sont masqués. <button onClick={function(){relayoutWith([]);}} style={{marginLeft:8,background:"#6366F1",color:"#fff",border:"none",borderRadius:8,padding:"6px 12px",fontSize:11,fontWeight:700,cursor:"pointer"}}>Tout afficher</button></div>}
       <div style={{display:"grid",gridTemplateColumns:"repeat(12,minmax(0,1fr))",gap:"22px 20px",gridAutoFlow:"row dense",alignItems:"stretch",width:"100%"}}>
       {ALL_WIDGETS_LIST.filter(function(id){return!hiddenWidgets.includes(id);}).map(function(sid){
+        if(sid==="insights")return wrapWidget(sid,"#2563EB","Analyse du portefeuille",null,function(isExpanded){
+          return <DashboardInsights apps={apps} T={T} DC={DC} statutColors={STATUT_COLORS} isDeal={projectType==="deal"} height={isExpanded?560:340}/>;
+        });
         if(sid==="chart_apps")return wrapWidget(sid,"#7C4DFF","Apps par domaine",null,function(isExpanded,ww,wh){
           var critMatch=function(a){return!critFilter||(critFilter==="Non renseignée"?!["Haute","Moyenne","Basse"].includes(a.criticality):a.criticality===critFilter);};
           var barData=st.map(function(d){var fa=d.apps.filter(critMatch);return Object.assign({},d,{count:fa.length,apps:fa});}).filter(function(d){return d.count>0;}).sort(function(a,b){return b.count-a.count;});
@@ -2197,93 +2205,10 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
           var totalApps=apps.filter(critMatch).length||1;
           var cw=ww||500;var svgW=isExpanded?560:Math.max(160,cw-56);var svgH=isExpanded?300:250;
           if(!barData.length)return <div style={{background:T.bgCard,borderRadius:12,padding:40,textAlign:"center",color:T.fgMuted,fontSize:13,boxShadow:"0 0 0 1px "+T.border}}>Aucune application ne correspond à ce niveau de criticité.</div>;
-          var renderBarV=function(){
-            var W=svgW;var H=svgH;
-            var pad={l:40,r:10,t:30,b:50};var n=barData.length;
-            var bW=Math.max(8,Math.floor((W-pad.l-pad.r)/n*0.55));
-            var gap=(W-pad.l-pad.r)/n;
-            return <div style={{overflowX:"auto"}}>
-              <svg width={W} height={H} style={{overflow:"visible"}}>
-                <line x1={pad.l} y1={pad.t} x2={pad.l} y2={H-pad.b} stroke={T.border} strokeWidth="1"/>
-                <line x1={pad.l} y1={H-pad.b} x2={W-pad.r} y2={H-pad.b} stroke={T.border} strokeWidth="1"/>
-                {barData.map(function(d,i){
-                  var ac2=(DC[d.domain]||DC.Autre).ac;
-                  var bh=Math.max(2,(d.count/mx2)*(H-pad.t-pad.b));
-                  var x=pad.l+i*gap+gap/2-bW/2;var y=H-pad.b-bh;
-                  var label=d.domain;
-                  return <g key={d.domain} style={{cursor:"pointer"}}
-                    onMouseMove={function(e){setChartTip({x:e.clientX,y:e.clientY,label:d.domain,val:d.count+" apps",pct:Math.round(d.count/totalApps*100)});}}
-                    onMouseLeave={clearTip}
-                    onClick={function(){setActiveDomain(d.domain);}}>
-                    <rect x={x} y={y} width={bW} height={bh} fill={ac2} rx="3" opacity="0.85"/>
-                    <text x={x+bW/2} y={y-5} textAnchor="middle" fill={ac2} fontSize="10" fontWeight="700">{d.count}</text>
-                    <text x={x+bW/2} y={H-pad.b+14} textAnchor="middle" fill={T.fgMuted} fontSize="8" transform={"rotate(-30,"+(x+bW/2)+","+(H-pad.b+14)+")"}>{label.length>9?label.slice(0,8)+"\u2026":label}</text>
-                  </g>;
-                })}
-              </svg>
-            </div>;
-          };
-          var renderCircle=function(useHole){
-            var isNarrow=!isExpanded&&cw<420;
-            var donutSz=isExpanded?320:Math.min(140,Math.max(96,cw/2.6));
-            var donutR=Math.round(donutSz*0.434);var donutIr=Math.round(donutSz*0.276);
-            var donutCx=Math.round(donutSz/2);var donutCy=Math.round(donutSz/2);
-            var arcs=buildArcs(appSlices,totalApps,donutCx,donutCy,donutR,useHole?donutIr:0);
-            var isHovA=hovSlice&&hovSlice.id==="apps";
-            return <div style={{display:"flex",flexDirection:isNarrow?"column":"row",gap:isExpanded?28:(isNarrow?6:12),alignItems:isNarrow?"flex-start":"center",flex:isExpanded?1:undefined,minHeight:0}}>
-              <svg width={donutSz} height={donutSz} viewBox={"0 0 "+(donutCx*2)+" "+(donutCy*2)} style={{flexShrink:0}} onMouseLeave={function(){setHovSlice(null);clearTip();}}>
-                {arcs.map(function(p){
-                  var h=isHovA&&hovSlice.idx===p.idx;
-                  var tx=h?Math.cos(p.mid)*6:0;var ty=h?Math.sin(p.mid)*6:0;
-                  var op=isHovA?(h?1:0.22):0.88;
-                  return <path key={p.idx} d={p.d} fill={p.color} opacity={op} stroke={T.bg} strokeWidth="2.5"
-                    transform={"translate("+tx.toFixed(1)+","+ty.toFixed(1)+")"}
-                    style={{cursor:"pointer",transition:"opacity 0.12s"}}
-                    onMouseMove={function(e){setHovSlice({id:"apps",idx:p.idx});setChartTip({x:e.clientX,y:e.clientY,label:p.name,val:p.value+" apps",pct:p.pct});}}
-                    onMouseLeave={function(){setHovSlice(null);clearTip();}}
-                    onClick={function(){setActiveDomain(p.name);}}/>;
-                })}
-                {useHole&&<text x={donutCx} y={donutCy-3} textAnchor="middle" fill={T.fg} fontSize={isExpanded?34:Math.round(donutSz*0.17)} fontWeight="800">{totalApps}</text>}
-                {useHole&&<text x={donutCx} y={donutCy+Math.round(donutSz*0.1)} textAnchor="middle" fill={T.fgMuted} fontSize={Math.max(6,Math.round(donutSz*0.055))} letterSpacing="0.08em">APPS</text>}
-              </svg>
-              <div style={{flex:1,minWidth:0,overflowY:"auto",maxHeight:isExpanded?360:(isNarrow?110:160)}}>
-                {arcs.map(function(p){return <div key={p.name} style={{display:"flex",alignItems:"center",gap:5,marginBottom:isNarrow?3:5}}>
-                  <div style={{width:6,height:6,borderRadius:"50%",background:p.color,flexShrink:0}}/>
-                  <span style={{fontSize:isNarrow?9:10,color:T.fg,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</span>
-                  <span style={{fontSize:isNarrow?9:10,fontWeight:700,color:p.color}}>{p.value}</span>
-                </div>;})}
-              </div>
-            </div>;
-          };
-          var renderArea=function(){
-            var W=svgW;var H=svgH;var n=appSlices.length;var maxV=mx2;
-            if(n<2)return renderBarV();
-            var pts=appSlices.map(function(sl,i){return{x:40+i*(W-80)/(n-1),y:(1-sl.value/maxV)*(H-60)+20,sl:sl};});
-            var areaD="M"+pts[0].x+" "+(H-30)+" L"+pts.map(function(p){return p.x+" "+p.y;}).join(" L ")+" L"+pts[pts.length-1].x+" "+(H-30)+" Z";
-            var lineD="M"+pts.map(function(p){return p.x+" "+p.y;}).join(" L ");
-            var gradId="apg_"+sid;
-            return <div style={{flex:isExpanded?1:undefined,minHeight:0}}>
-              <svg width={W} height={H} style={{overflow:"visible"}}>
-                <defs><linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#7C4DFF" stopOpacity="0.5"/><stop offset="100%" stopColor="#7C4DFF" stopOpacity="0.04"/></linearGradient></defs>
-                <path d={areaD} fill={"url(#"+gradId+")"} />
-                <path d={lineD} fill="none" stroke="#7C4DFF" strokeWidth="2"/>
-                {pts.map(function(p,i){return <g key={i}>
-                  <circle cx={p.x} cy={p.y} r="4" fill={p.sl.color} stroke={T.bg} strokeWidth="2"
-                    onMouseMove={function(e){setChartTip({x:e.clientX,y:e.clientY,label:p.sl.name,val:p.sl.value+" apps",pct:Math.round(p.sl.value/totalApps*100)});}}
-                    onMouseLeave={clearTip}/>
-                  <text x={p.x} y={p.y-10} textAnchor="middle" fill={p.sl.color} fontSize="10" fontWeight="700">{p.sl.value}</text>
-                  <text x={p.x} y={H-14} textAnchor="middle" fill={T.fgMuted} fontSize="9">{p.sl.name.length>7?p.sl.name.slice(0,6)+"…":p.sl.name}</text>
-                </g>;})}
-              </svg>
-            </div>;
-          };
-          return <div style={{background:T.bgCard,borderRadius:12,padding:18,boxShadow:"0 1px 4px rgba(0,0,0,0.14), 0 0 0 1px "+T.border,height:(isExpanded||wh)?"100%":undefined,display:(isExpanded||wh)?"flex":undefined,flexDirection:(isExpanded||wh)?"column":undefined}}>
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
-              <div style={{width:3,height:15,borderRadius:2,background:"#7C4DFF",flexShrink:0}}/>
-              <span style={{fontSize:12,fontWeight:700,color:T.fg}}>Apps par domaine</span>
-            </div>
+          return <div style={{background:T.bgCard,borderRadius:16,padding:20,boxShadow:"0 8px 24px rgba(30,27,75,.07), 0 0 0 1px "+T.border,height:(isExpanded||wh)?"100%":undefined,display:(isExpanded||wh)?"flex":undefined,flexDirection:(isExpanded||wh)?"column":undefined}}>
+            <WidgetHeader T={T} color="#7C4DFF" icon="◫" title="Apps par domaine" subtitle="Répartition du parc applicatif par domaine"/>
             <div style={{flex:isExpanded?1:undefined,minHeight:0}}>
-              {ctype==="bar"?renderBarV():ctype==="donut"?renderCircle(true):ctype==="pie"?renderCircle(false):renderArea()}
+              <ItemsChart T={T} items={appSlices.map(function(sl){return{label:sl.name,value:sl.value,color:sl.color};})} type={ctype==="bar"?"columns":ctype} height={isExpanded?460:250} centerValue={totalApps} centerLabel="APPS" onItemClick={setActiveDomain}/>
             </div>
           </div>;
         },<>
@@ -2294,55 +2219,6 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
           </select>
           {mkChartSwitch("chart_apps")}
         </>);
-        if(sid==="flow_matrix")return wrapWidget(sid,"#06B6D4","Matrice des flux inter-domaines",null,function(isExpanded,ww,wh){
-          var matrixDomains=dm.map(function(domain){
-            var outgoing=dm.reduce(function(sum,target){return sum+(mtx[domain+"→"+target]||0);},0);
-            var incoming=dm.reduce(function(sum,source){return sum+(mtx[source+"→"+domain]||0);},0);
-            return{domain:domain,outgoing:outgoing,incoming:incoming,total:outgoing+incoming,color:(DC[domain]||DC.Autre).ac};
-          }).sort(function(a,b){return b.total-a.total;});
-          var routes=matrixDomains.flatMap(function(source){return matrixDomains.map(function(target){var count=mtx[source.domain+"→"+target.domain]||0;return{from:source.domain,to:target.domain,count:count};});}).filter(function(route){return route.count>0;}).sort(function(a,b){return b.count-a.count;});
-          var topRoutes=routes.slice(0,6);
-          var maxRoute=topRoutes[0]||null;
-          var maxCell=Math.max.apply(null,routes.map(function(route){return route.count;}).concat([1]));
-          var totalActivePairs=routes.length;
-          var selectedRoute=selectedFlowCell?routes.find(function(route){return route.from===selectedFlowCell.from&&route.to===selectedFlowCell.to;}):null;
-          var focusedRoute=selectedRoute||maxRoute;
-          var matrixMinWidth=100+matrixDomains.length*48;
-          var cellSize=Math.min(58,Math.max(42,Math.floor(((ww||1020)-132)/Math.max(matrixDomains.length,1))));
-          var shortDomain=function(value){return value.length>9?value.slice(0,8)+"…":value;};
-          var selectRoute=function(route){setSelectedFlowCell({from:route.from,to:route.to});setActiveDomain(route.from);};
-          return <div className="dashboard-widget-surface flow-matrix-widget" style={{background:T.bgCard,borderRadius:16,padding:18,boxShadow:"0 8px 24px rgba(30,27,75,.07), 0 0 0 1px "+T.border,height:(isExpanded||wh)?"100%":undefined,display:(isExpanded||wh)?"flex":undefined,flexDirection:(isExpanded||wh)?"column":undefined}}>
-            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
-              <div style={{width:36,height:36,borderRadius:12,display:"grid",placeItems:"center",background:"linear-gradient(145deg,#06B6D426,#6366F11C)",color:"#06B6D4",fontSize:17,boxShadow:"0 5px 16px #06B6D422"}}>↗</div>
-              <div style={{flex:1,minWidth:0}}><div style={{fontSize:12,fontWeight:800,color:T.fg}}>Échanges entre domaines</div><div style={{fontSize:9,color:T.fgMuted,marginTop:2}}>Survolez ou sélectionnez une cellule pour explorer les flux</div></div>
-            </div>
-            <div style={{display:"flex",justifyContent:"flex-end",marginBottom:8}}><button aria-pressed={flowMatrixMode==="routes"} onClick={function(){setFlowMatrixMode(function(mode){return mode==="heatmap"?"routes":"heatmap";});}} style={{border:"1px solid "+T.border,borderRadius:9,padding:"6px 10px",background:T.bgAlt,color:T.fg,fontSize:9,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>{flowMatrixMode==="heatmap"?"☷ Top échanges":"▦ Vue matrice"}</button></div>
-            <div style={{display:"flex",gap:8,marginBottom:12}}>
-              {[{label:"Flux",value:totF,color:"#06B6D4"},{label:"Routes actives",value:totalActivePairs,color:"#8B5CF6"},{label:"Route dominante",value:focusedRoute?focusedRoute.count+" flux":"—",color:"#F59E0B"}].map(function(metric){return <div key={metric.label} style={{flex:1,minWidth:0,padding:"8px 10px",borderRadius:10,background:T.bgAlt,border:"1px solid "+T.border}}><div style={{fontSize:8,color:T.fgMuted,marginBottom:3}}>{metric.label}</div><div style={{fontSize:14,fontWeight:800,color:metric.color,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{metric.value}</div></div>;})}
-            </div>
-            {!routes.length?<div style={{flex:1,display:"grid",placeItems:"center",fontSize:11,color:T.fgMuted}}>Aucun flux inter-domaines à visualiser.</div>:flowMatrixMode==="heatmap"?<div className="flow-matrix-scroll" style={{flex:1,minHeight:0,overflow:"auto",borderRadius:12,border:"1px solid "+T.border,background:T.bgAlt,padding:8}}>
-              <div style={{display:"grid",gridTemplateColumns:"92px repeat("+matrixDomains.length+","+cellSize+"px)",gap:4,minWidth:matrixMinWidth}}>
-                <div style={{display:"flex",alignItems:"end",padding:"0 4px 6px",fontSize:8,fontWeight:800,color:T.fgMuted,letterSpacing:".05em"}}>ÉMETTEUR ↓</div>
-                {matrixDomains.map(function(domain){return <div key={domain.domain} title={domain.domain} style={{height:30,display:"grid",placeItems:"center",padding:"2px",fontSize:8,fontWeight:750,color:domain.color,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{shortDomain(domain.domain)}</div>;})}
-                {matrixDomains.map(function(source){return <React.Fragment key={source.domain}>
-                  <div title={source.domain+" · "+source.outgoing+" sortant(s)"} style={{display:"flex",alignItems:"center",gap:6,padding:"0 5px",fontSize:9,fontWeight:750,color:source.color,overflow:"hidden"}}><span style={{width:6,height:6,borderRadius:2,background:source.color,flexShrink:0}}/><span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{shortDomain(source.domain)}</span></div>
-                  {matrixDomains.map(function(target){
-                    var count=mtx[source.domain+"→"+target.domain]||0;
-                    var intensity=count?0.12+Math.log1p(count)/Math.log1p(maxCell)*0.68:0;
-                    var isSelected=selectedFlowCell&&selectedFlowCell.from===source.domain&&selectedFlowCell.to===target.domain;
-                    return <button key={source.domain+"→"+target.domain} aria-label={source.domain+" vers "+target.domain+" : "+count+" flux"} title={source.domain+" → "+target.domain+" · "+count+" flux"} onMouseEnter={function(e){if(count)setChartTip({x:e.clientX,y:e.clientY,label:source.domain+" → "+target.domain,val:count+" flux",pct:Math.round(count/(totF||1)*100)});}} onMouseMove={function(e){setChartTip(function(t){return t?Object.assign({},t,{x:e.clientX,y:e.clientY}):t;});}} onMouseLeave={clearTip} onClick={function(){if(count)selectRoute({from:source.domain,to:target.domain,count:count});}} style={{height:34,borderRadius:8,border:"1px solid "+(isSelected?"#67E8F9":count?"rgba(99,102,241,.2)":T.border),background:count?"linear-gradient(145deg,rgba(99,102,241,"+intensity+"),rgba(6,182,212,"+(intensity*.78)+"))":T.bgCard,color:count?T.fgMuted:T.fgFaint,fontSize:9,fontWeight:count?800:500,cursor:count?"pointer":"default",boxShadow:isSelected?"0 0 0 2px #06B6D455,0 0 18px #06B6D433":count?"inset 0 1px 0 rgba(255,255,255,.07)":"none",transform:isSelected?"scale(1.05)":"scale(1)",transition:"transform .16s,box-shadow .16s,background .25s"}}>{count||"·"}</button>;
-                  })}
-                </React.Fragment>;})}
-              </div>
-            </div>:<div className="flow-route-list" style={{flex:1,minHeight:0,overflowY:"auto",display:"grid",gap:7,paddingRight:3}}>
-              {topRoutes.map(function(route,index){var selectedRouteNow=focusedRoute&&focusedRoute.from===route.from&&focusedRoute.to===route.to;var pct=Math.round(route.count/maxCell*100);return <button key={route.from+"→"+route.to} onClick={function(){selectRoute(route);}} style={{width:"100%",padding:"9px 11px",borderRadius:11,border:"1px solid "+(selectedRouteNow?"#06B6D466":T.border),background:selectedRouteNow?"linear-gradient(110deg,#06B6D414,#6366F10B)":T.bgAlt,color:T.fg,textAlign:"left",cursor:"pointer",transition:"transform .18s,border-color .18s,background .18s"}}>
-                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:7}}><span style={{width:22,height:22,borderRadius:7,display:"grid",placeItems:"center",background:"#06B6D416",color:"#06B6D4",fontSize:9,fontWeight:800}}>{index+1}</span><span style={{flex:1,minWidth:0,fontSize:10,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}><span style={{color:(DC[route.from]||DC.Autre).ac}}>{route.from}</span><span style={{color:T.fgMuted,margin:"0 7px"}}>→</span><span style={{color:(DC[route.to]||DC.Autre).ac}}>{route.to}</span></span><b style={{fontSize:13,color:"#06B6D4",fontVariantNumeric:"tabular-nums"}}>{route.count}</b></div>
-                <div className="dashboard-meter-track"><span style={{width:pct+"%",background:"linear-gradient(90deg,#6366F1,#06B6D4)"}}/></div>
-              </button>;})}
-            </div>}
-            {focusedRoute&&<div style={{marginTop:9,display:"flex",justifyContent:"space-between",gap:8,fontSize:8,color:T.fgMuted}}><span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>Focus : <b style={{color:T.fg}}>{focusedRoute.from} → {focusedRoute.to}</b></span><span>{Math.round(focusedRoute.count/(totF||1)*100)}% du total</span></div>}
-          </div>;
-        });
         if(sid==="chart_flux_legacy")return wrapWidget(sid,"#2979FF","Flux par domaine",null,function(isExpanded,ww,wh){
           var fluxData=dm.map(function(d){
             var out=flows.filter(function(f){var fa=apps.find(function(a){return a.id===f.from;});return fa&&fa.domain===d;}).length;
@@ -2481,7 +2357,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
               </svg>
             </div>;
           };
-          return <div style={{background:T.bgCard,borderRadius:12,padding:18,boxShadow:"0 1px 4px rgba(0,0,0,0.14), 0 0 0 1px "+T.border,height:(isExpanded||wh)?"100%":undefined,display:(isExpanded||wh)?"flex":undefined,flexDirection:(isExpanded||wh)?"column":undefined}}>
+          return <div style={{background:T.bgCard,borderRadius:16,padding:20,boxShadow:"0 8px 24px rgba(30,27,75,.07), 0 0 0 1px "+T.border,height:(isExpanded||wh)?"100%":undefined,display:(isExpanded||wh)?"flex":undefined,flexDirection:(isExpanded||wh)?"column":undefined}}>
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
               <div style={{width:3,height:15,borderRadius:2,background:"#2979FF",flexShrink:0}}/>
               <span style={{fontSize:12,fontWeight:700,color:T.fg}}>Flux par domaine</span>
@@ -2508,94 +2384,10 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
             var col=d.isNA?"#455A64":(d.isOther?"#546E7A":oc[i%oc.length]);
             return{name:d.owner,value:d.count,color:col,isNA:d.isNA||false,isOther:d.isOther||false};
           });
-          var cw=ww||500;var isNarrow=!isExpanded&&cw<420;
-          var donutSz=isExpanded?320:Math.min(190,Math.max(110,cw/2.3));
-          var donutR=Math.round(donutSz*0.434);var donutIr=Math.round(donutSz*0.276);
-          var donutCx=Math.round(donutSz/2);var donutCy=Math.round(donutSz/2);
-          var renderCircle=function(useHole){
-            var arcs=buildArcs(owSlices,total4,donutCx,donutCy,donutR,useHole?donutIr:0);
-            var isHovOwn=hovSlice&&hovSlice.id==="owner";
-            return <div style={{display:"flex",flexDirection:isNarrow?"column":"row",gap:isExpanded?28:(isNarrow?6:12),alignItems:isNarrow?"flex-start":"flex-start",flex:isExpanded?1:undefined,minHeight:0}}>
-              <svg width={donutSz} height={donutSz} viewBox={"0 0 "+(donutCx*2)+" "+(donutCy*2)} style={{flexShrink:0}} onMouseLeave={function(){setHovSlice(null);clearTip();}}>
-                {arcs.map(function(p,i){
-                  var sl=owSlices[i]||{};
-                  var h=isHovOwn&&hovSlice.idx===p.idx;
-                  var tx=h?Math.cos(p.mid)*6:0;var ty=h?Math.sin(p.mid)*6:0;
-                  var op=isHovOwn?(h?1:0.2):(sl.isNA||sl.isOther?0.38:0.88);
-                  return <path key={p.idx} d={p.d} fill={p.color} opacity={op} stroke={T.bg} strokeWidth="2.5"
-                    transform={"translate("+tx.toFixed(1)+","+ty.toFixed(1)+")"}
-                    style={{cursor:"pointer",transition:"opacity 0.12s"}}
-                    onMouseMove={function(e){setHovSlice({id:"owner",idx:p.idx});setChartTip({x:e.clientX,y:e.clientY,label:p.name,val:p.value+" apps",pct:sl.isNA||sl.isOther?null:p.pct});}}
-                    onMouseLeave={function(){setHovSlice(null);clearTip();}}/>;
-                })}
-                {useHole&&<text x={donutCx} y={donutCy-3} textAnchor="middle" fill={T.fg} fontSize={isExpanded?34:Math.round(donutSz*0.17)} fontWeight="800">{ownerCount}</text>}
-                {useHole&&<text x={donutCx} y={donutCy+Math.round(donutSz*0.1)} textAnchor="middle" fill={T.fgMuted} fontSize={Math.max(5,Math.round(donutSz*0.048))} letterSpacing="0.06em">RESPONSABLES</text>}
-              </svg>
-              <div style={{flex:1,minWidth:0,maxHeight:isExpanded?360:(isNarrow?130:donutSz),overflowY:"auto",paddingRight:2}}>
-                {owSlices.map(function(p,i){return <div key={p.name} style={{display:"flex",alignItems:"center",gap:6,marginBottom:isNarrow?4:7}}>
-                  <div style={{width:8,height:8,borderRadius:"50%",background:p.color,flexShrink:0,opacity:p.isNA?0.5:1}}/>
-                  <span style={{fontSize:12,color:p.isNA?T.fgMuted:T.fg,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontStyle:p.isNA?"italic":"normal"}}>{p.name}</span>
-                  <span style={{fontSize:12,fontWeight:700,color:p.color,opacity:p.isNA?0.7:1}}>{p.value}</span>
-                </div>;})}
-              </div>
-            </div>;
-          };
-          var renderBarV=function(){
-            var sorted=[...owSlices].sort(function(a,b){return b.value-a.value;}).slice(0,15);
-            var mx4=Math.max.apply(null,sorted.map(function(s){return s.value;}))||1;
-            var W=isExpanded?560:Math.max(160,cw-56);var H=isExpanded?300:180;
-            var pad={l:40,r:10,t:30,b:50};var n=sorted.length;
-            var bW=Math.max(8,Math.floor((W-pad.l-pad.r)/n*0.55));
-            var gap=(W-pad.l-pad.r)/n;
-            return <div style={{overflowX:"auto"}}>
-              <svg width={W} height={H} style={{overflow:"visible"}}>
-                <line x1={pad.l} y1={pad.t} x2={pad.l} y2={H-pad.b} stroke={T.border} strokeWidth="1"/>
-                <line x1={pad.l} y1={H-pad.b} x2={W-pad.r} y2={H-pad.b} stroke={T.border} strokeWidth="1"/>
-                {sorted.map(function(sl,i){
-                  var bh=Math.max(2,(sl.value/mx4)*(H-pad.t-pad.b));
-                  var x=pad.l+i*gap+gap/2-bW/2;var y=H-pad.b-bh;
-                  var label=sl.name;
-                  return <g key={sl.name} style={{cursor:"pointer"}}
-                    onMouseMove={function(e){setChartTip({x:e.clientX,y:e.clientY,label:sl.name,val:sl.value+" apps",pct:Math.round(sl.value/total4*100)});}}
-                    onMouseLeave={clearTip}>
-                    <rect x={x} y={y} width={bW} height={bh} fill={sl.color} rx="3" opacity={sl.isNA?0.38:0.85}/>
-                    <text x={x+bW/2} y={y-5} textAnchor="middle" fill={sl.color} fontSize="10" fontWeight="700">{sl.value}</text>
-                    <text x={x+bW/2} y={H-pad.b+14} textAnchor="middle" fill={T.fgMuted} fontSize="8" transform={"rotate(-30,"+(x+bW/2)+","+(H-pad.b+14)+")"}>{label.length>9?label.slice(0,8)+"\u2026":label}</text>
-                  </g>;
-                })}
-              </svg>
-            </div>;
-          };
-          var renderArea=function(){
-            var sorted=[...owSlices].sort(function(a,b){return b.value-a.value;});
-            var W=isExpanded?560:280;var H=isExpanded?280:150;var n=sorted.length;var maxV=Math.max.apply(null,sorted.map(function(s){return s.value;}))||1;
-            if(n<2)return renderBarV();
-            var pts=sorted.map(function(sl,i){return{x:40+i*(W-80)/(n-1),y:(1-sl.value/maxV)*(H-60)+20,sl:sl};});
-            var areaD="M"+pts[0].x+" "+(H-30)+" L"+pts.map(function(p){return p.x+" "+p.y;}).join(" L ")+" L"+pts[pts.length-1].x+" "+(H-30)+" Z";
-            var lineD="M"+pts.map(function(p){return p.x+" "+p.y;}).join(" L ");
-            var gradId="owg_"+sid;
-            return <div style={{flex:isExpanded?1:undefined,minHeight:0}}>
-              <svg width={W} height={H} style={{overflow:"visible"}}>
-                <defs><linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#6366F1" stopOpacity="0.5"/><stop offset="100%" stopColor="#6366F1" stopOpacity="0.04"/></linearGradient></defs>
-                <path d={areaD} fill={"url(#"+gradId+")"} />
-                <path d={lineD} fill="none" stroke="#6366F1" strokeWidth="2"/>
-                {pts.map(function(p,i){return <g key={i}>
-                  <circle cx={p.x} cy={p.y} r="4" fill={p.sl.color} stroke={T.bg} strokeWidth="2"
-                    onMouseMove={function(e){setChartTip({x:e.clientX,y:e.clientY,label:p.sl.name,val:p.sl.value+" apps",pct:Math.round(p.sl.value/total4*100)});}}
-                    onMouseLeave={clearTip}/>
-                  <text x={p.x} y={p.y-10} textAnchor="middle" fill={p.sl.color} fontSize="10" fontWeight="700">{p.sl.value}</text>
-                  <text x={p.x} y={H-14} textAnchor="middle" fill={T.fgMuted} fontSize="8">{p.sl.name.length>6?p.sl.name.slice(0,5)+"…":p.sl.name}</text>
-                </g>;})}
-              </svg>
-            </div>;
-          };
-          return <div style={{background:T.bgCard,borderRadius:12,padding:18,boxShadow:"0 1px 4px rgba(0,0,0,0.14), 0 0 0 1px "+T.border,height:(isExpanded||wh)?"100%":undefined,display:(isExpanded||wh)?"flex":undefined,flexDirection:(isExpanded||wh)?"column":undefined}}>
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
-              <div style={{width:3,height:15,borderRadius:2,background:"#6366F1",flexShrink:0}}/>
-              <span style={{fontSize:12,fontWeight:700,color:T.fg}}>Apps par responsable</span>
-            </div>
+          return <div style={{background:T.bgCard,borderRadius:16,padding:20,boxShadow:"0 8px 24px rgba(30,27,75,.07), 0 0 0 1px "+T.border,height:(isExpanded||wh)?"100%":undefined,display:(isExpanded||wh)?"flex":undefined,flexDirection:(isExpanded||wh)?"column":undefined}}>
+            <WidgetHeader T={T} color="#6366F1" icon="◉" title="Apps par responsable" subtitle="Charge de chaque responsable d'application"/>
             <div style={{flex:isExpanded?1:undefined,minHeight:0}}>
-              {ctype==="donut"?renderCircle(true):ctype==="pie"?renderCircle(false):ctype==="bar"?renderBarV():renderArea()}
+              <ItemsChart T={T} items={owSlices.map(function(sl){return{label:sl.name,value:sl.value,color:sl.color};})} type={ctype==="bar"?"columns":ctype} height={isExpanded?460:250} centerValue={ownerCount} centerLabel="RESPONSABLES"/>
             </div>
           </div>;
         },<>
@@ -2606,95 +2398,18 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
           </select>
           {mkChartSwitch(sid)}
         </>);
-        if(sid==="critical_apps")return wrapWidget(sid,"#EF4444","Top 10 — Applications critiques",null,function(isExpanded,ww,wh){
-          var severityWeight={Critique:4,Haute:3,Moyenne:2,Basse:1};
-          var severityColor={Critique:"#B91C1C",Haute:"#EF4444",Moyenne:"#F59E0B",Basse:"#10B981"};
-          var ranked=apps.map(function(app){
-            var incoming=flows.filter(function(flow){return flow.to===app.id;}).length;
-            var outgoing=flows.filter(function(flow){return flow.from===app.id;}).length;
-            return{app:app,incoming:incoming,outgoing:outgoing,degree:incoming+outgoing,weight:severityWeight[app.criticality]||0};
-          }).sort(function(a,b){return b.weight-a.weight||b.degree-a.degree||String(a.app.name||"").localeCompare(String(b.app.name||""));});
-          var top10=ranked.filter(function(item){return item.weight>=2;}).slice(0,10);
-          if(top10.length<10)top10=top10.concat(ranked.filter(function(item){return item.weight<2;}).slice(0,10-top10.length));
-          var selected=top10.find(function(item){return item.app.id===selectedCriticalApp;})||top10[0];
-          var maxDegree=Math.max.apply(null,top10.map(function(item){return item.degree;}).concat([1]));
-          var highCount=apps.filter(function(app){return app.criticality==="Critique"||app.criticality==="Haute";}).length;
-          var selectedFlows=[];
-          if(selected){
-            var seenPeers={};
-            selectedFlows=flows.filter(function(flow){return flow.from===selected.app.id||flow.to===selected.app.id;}).filter(function(flow){var peerId=flow.from===selected.app.id?flow.to:flow.from;if(seenPeers[peerId])return false;seenPeers[peerId]=true;return true;}).slice(0,8);
-          }
-          var cardWidth=ww||500;
-          var wide=cardWidth>=680;
-          var showPill=wide?cardWidth>=1000:cardWidth>=520;
-          var sevPill=function(crit){var c=severityColor[crit]||"#94A3B8";return <span style={{fontSize:12,fontWeight:700,color:c,padding:"3px 11px",borderRadius:99,background:c+"1F",whiteSpace:"nowrap"}}>{crit||"Non définie"}</span>;};
-          var selColor=selected?(severityColor[selected.app.criticality]||"#94A3B8"):"#94A3B8";
-          return <div className="dashboard-widget-surface" style={{background:T.bgCard,borderRadius:16,padding:20,boxShadow:"0 8px 24px rgba(30,27,75,.07), 0 0 0 1px "+T.border,display:"flex",flexDirection:"column",height:(isExpanded||wh)?"100%":undefined}}>
-            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
-              <div style={{width:40,height:40,borderRadius:12,display:"grid",placeItems:"center",background:"linear-gradient(145deg,#EF44442b,#F9731620)",color:"#EF4444",fontSize:18}}>⚠</div>
-              <div style={{flex:1,minWidth:0}}><div style={{fontSize:15,fontWeight:800,color:T.fg}}>Applications à traiter en priorité</div><div style={{fontSize:12,color:T.fgMuted,marginTop:3}}>Classées par criticité puis par nombre de liaisons directes</div></div>
-              <div style={{textAlign:"right"}}><div style={{fontSize:26,fontWeight:800,color:"#EF4444",lineHeight:1}}>{highCount}</div><div style={{fontSize:12,color:T.fgMuted,marginTop:4}}>critiques / hautes</div></div>
-            </div>
-            {!top10.length?<div style={{flex:1,display:"grid",placeItems:"center",fontSize:13,color:T.fgMuted,padding:30}}>Aucune application à afficher.</div>:
-            <div style={{display:"grid",gridTemplateColumns:wide?"minmax(0,1.6fr) minmax(300px,1fr)":"minmax(0,1fr)",gap:20,flex:1,minHeight:0}}>
-              <div style={{minWidth:0,display:"flex",flexDirection:"column",gap:6}}>
-                <div style={{display:"grid",gridTemplateColumns:showPill?"34px minmax(0,1fr) 100px 130px":"34px minmax(0,1fr) 110px",gap:10,padding:"0 12px 4px",fontSize:11,fontWeight:700,color:T.fgMuted,textTransform:"uppercase",letterSpacing:.5}}>
-                  <span>#</span><span>Application</span>{showPill&&<span>Criticité</span>}<span>Flux</span>
-                </div>
-                <div className="critical-apps-list" style={{display:"grid",gap:6,maxHeight:isExpanded?undefined:600,overflowY:"auto"}}>
-                  {top10.map(function(item,index){
-                    var on=selected&&selected.app.id===item.app.id;
-                    var color=severityColor[item.app.criticality]||"#94A3B8";
-                    var barPct=Math.round(item.degree/maxDegree*100);
-                    return <button key={item.app.id} className="critical-app-row" aria-pressed={on} onClick={function(){setSelectedCriticalApp(item.app.id);}} style={{width:"100%",display:"grid",gridTemplateColumns:showPill?"34px minmax(0,1fr) 100px 130px":"34px minmax(0,1fr) 110px",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:12,border:"1px solid "+(on?color+"88":T.border),borderLeft:"4px solid "+color,background:on?color+"12":T.bgAlt,color:T.fg,textAlign:"left",cursor:"pointer"}}>
-                      <span style={{width:26,height:26,borderRadius:8,display:"grid",placeItems:"center",background:on?color+"28":T.bgCard,color:on?color:T.fgMuted,fontSize:12,fontWeight:800}}>{index+1}</span>
-                      <span style={{minWidth:0}}>
-                        <span style={{display:"block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:14,fontWeight:700}}>{item.app.name||"Application sans nom"}</span>
-                        <span style={{display:"flex",alignItems:"center",gap:6,marginTop:3,fontSize:12,color:T.fgMuted}}>
-                          <span style={{width:8,height:8,borderRadius:3,background:(DC[item.app.domain]||DC.Autre).ac,flexShrink:0}}/>
-                          <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.app.domain||"Domaine non renseigné"}</span>
-                          {!showPill&&<span style={{color:color,fontWeight:700}}>· {item.app.criticality||"?"}</span>}
-                        </span>
-                      </span>
-                      {showPill&&<span>{sevPill(item.app.criticality)}</span>}
-                      <span style={{minWidth:0}}>
-                        <span style={{display:"flex",alignItems:"baseline",gap:8}}><b style={{fontSize:16}}>{item.degree}</b><span style={{fontSize:12,color:T.fgMuted}}>↓{item.incoming} ↑{item.outgoing}</span></span>
-                        <span className="dashboard-meter-track" style={{display:"block",height:6,marginTop:5}}><span style={{width:barPct+"%",background:"linear-gradient(90deg,"+color+"88,"+color+")"}}/></span>
-                      </span>
-                    </button>;
-                  })}
-                </div>
-              </div>
-              {selected&&<div className="critical-app-detail" style={{minWidth:0,alignSelf:"start",padding:16,borderRadius:14,background:selColor+"0D",border:"1px solid "+selColor+"33",display:"flex",flexDirection:"column",gap:14}}>
-                <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:10}}>
-                  <div style={{minWidth:0}}><div style={{fontSize:16,fontWeight:800,color:T.fg,overflow:"hidden",textOverflow:"ellipsis"}}>{selected.app.name}</div><div style={{fontSize:12,color:T.fgMuted,marginTop:3}}>{selected.app.domain||"Domaine non renseigné"}</div></div>
-                  {sevPill(selected.app.criticality)}
-                </div>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
-                  {[{l:"Entrants",v:selected.incoming,c:"#8B5CF6"},{l:"Sortants",v:selected.outgoing,c:"#06B6D4"},{l:"Total",v:selected.degree,c:selColor}].map(function(m){return <div key={m.l} style={{padding:"10px 8px",borderRadius:10,background:T.bgCard,border:"1px solid "+T.border,textAlign:"center"}}><div style={{fontSize:22,fontWeight:800,color:m.c,lineHeight:1}}>{m.v}</div><div style={{fontSize:11.5,color:T.fgMuted,marginTop:5}}>{m.l}</div></div>;})}
-                </div>
-                <div>
-                  <div style={{fontSize:12,fontWeight:700,color:T.fgMuted,textTransform:"uppercase",letterSpacing:.5,marginBottom:8}}>Liaisons directes</div>
-                  {selectedFlows.length?<div style={{display:"grid",gap:6}}>{selectedFlows.map(function(flow,index){var isOutbound=flow.from===selected.app.id;var peer=apps.find(function(app){return app.id===(isOutbound?flow.to:flow.from);});var dc=isOutbound?"#06B6D4":"#8B5CF6";return <div key={flow.id||index} style={{display:"grid",gridTemplateColumns:"88px minmax(0,1fr) auto",alignItems:"center",gap:8,padding:"8px 10px",borderRadius:9,background:T.bgCard,border:"1px solid "+T.border}}>
-                    <span style={{fontSize:12,fontWeight:700,color:dc}}>{isOutbound?"→ Sortant":"← Entrant"}</span>
-                    <span style={{fontSize:13,color:T.fg,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{peer?peer.name:"Application inconnue"}</span>
-                    <span style={{fontSize:11.5,color:T.fgMuted,whiteSpace:"nowrap"}}>{flow.protocol||flow.frequency||"Interface"}</span>
-                  </div>;})}</div>:<div style={{fontSize:13,color:T.fgMuted}}>Aucune liaison directe enregistrée.</div>}
-                </div>
-                <button onClick={function(){setFicheId(selected.app.id);}} style={{background:selColor,color:"#fff",border:"none",borderRadius:10,padding:"9px 14px",fontSize:13,fontWeight:700,cursor:"pointer"}}>Ouvrir la fiche</button>
-              </div>}
-            </div>}
-          </div>;
+        if(sid==="critical_apps")return wrapWidget(sid,"#EF4444","Applications \u00e0 traiter en priorit\u00e9",null,function(isExpanded){
+          return <PriorityApps apps={apps} flows={flows} T={T} DC={DC} statutColors={STATUT_COLORS} onOpen={setFicheId} expanded={isExpanded}/>;
         });
         if(sid==="it_budget")return wrapWidget(sid,"#10B981","Budget & coûts IT",null,function(isExpanded,ww,wh){
           return <ItsiBudgetWidget apps={domApps("it_budget")} T={T} expanded={isExpanded} fillHeight={!!(isExpanded||wh)} colorOf={function(d){return (DC[d]||DC.Autre).ac;}} chartType={chartTypes.it_budget||"bars"}/>;
-        },mkChartSwitch("it_budget",null,ITSI_CHART_OPTS));
+        },mkChartSwitch("it_budget",null,ITSI_CHART_OPTS.concat([{k:"finance",label:"Financier"}])));
         if(sid==="it_patrimoine")return wrapWidget(sid,"#6366F1","Patrimoine applicatif",null,function(isExpanded,ww,wh){
           return <ItsiPatrimoineWidget apps={domApps("it_patrimoine")} T={T} expanded={isExpanded} fillHeight={!!(isExpanded||wh)} chartType={chartTypes.it_patrimoine||"bars"}/>;
         },mkChartSwitch("it_patrimoine",null,ITSI_CHART_OPTS));
-        if(sid==="carveout")return wrapWidget(sid,"#F59E0B","Trajectoires D1/D2",null,<div style={{background:T.bgCard,borderRadius:8,padding:20,border:"1px solid #F59E0B44"}}>
-        <SectionHdr id="carveout" title="Trajectoires Carve-Out — Suivi Day 1 / Day 2"/>
-        {!hiddenSections.includes("carveout")&&function(){
+        if(sid==="carveout")return wrapWidget(sid,"#F59E0B","Trajectoires D1/D2",null,<div style={{background:T.bgCard,borderRadius:16,padding:20,boxShadow:"0 8px 24px rgba(30,27,75,.07), 0 0 0 1px "+T.border}}>
+        <WidgetHeader T={T} color="#F59E0B" icon="✂" title="Carve-out — Day 1 / Day 2" subtitle="Suivi des trajectoires de séparation"/>
+        {function(){
           var apps=domApps("carveout");var flows=domFlows("carveout");
           var d1Def=apps.filter(function(a){return a.statusD1;});
           var d2Def=apps.filter(function(a){return a.statusD2;});
@@ -2800,7 +2515,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         }()}
       </div>);
         if(sid==="flowreg")return wrapWidget(sid,"#2979FF","Registre des flux",null,<div style={{background:T.bgCard,borderRadius:16,padding:20,boxShadow:"0 8px 24px rgba(30,27,75,.07), 0 0 0 1px "+T.border}}>
-          <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}><div style={{width:40,height:40,borderRadius:12,display:"grid",placeItems:"center",background:"#2979FF1F",color:"#2979FF",fontSize:18}}>⇄</div><div style={{flex:1}}><div style={{fontSize:15,fontWeight:800,color:T.fg}}>Registre des échanges de flux</div><div style={{fontSize:12,color:T.fgMuted,marginTop:3}}>Toutes les interconnexions entre applications · cliquez une ligne pour le détail</div></div><div style={{textAlign:"right"}}><div style={{fontSize:26,fontWeight:800,color:"#2979FF",lineHeight:1}}>{flows.length}</div><div style={{fontSize:12,color:T.fgMuted,marginTop:4}}>flux</div></div></div>
+          <WidgetHeader T={T} color="#2979FF" icon="⇄" title="Registre des flux" subtitle="Toutes les interconnexions entre applications · cliquez une ligne pour le détail" right={<div style={{textAlign:"right"}}><div style={{fontSize:26,fontWeight:800,color:"#2979FF",lineHeight:1}}>{flows.length}</div><div style={{fontSize:12,color:T.fgMuted,marginTop:4}}>flux</div></div>}/>
           {function(){
             // Compute unique values for each column
             var enriched=flows.map(function(f,fi){
@@ -3350,7 +3065,7 @@ if(view==="urbanisme"){
     var urbDark=!!isDark;
     var urbMuted=urbDark?"#9298ac":"#64748B";
     var urbLine=urbDark?"rgba(148,163,184,0.14)":"rgba(71,85,105,0.15)";
-    var urbPanel={background:urbDark?"#10131f":"#FBFCFF",border:"1px solid "+urbLine,borderRadius:18,boxShadow:urbDark?"0 18px 50px rgba(0,0,0,0.2)":"0 14px 34px rgba(51,65,85,0.08)"};
+    var urbPanel={background:urbDark?"#10131f":"#FBFCFF",border:"1px solid "+urbLine,borderRadius:10,boxShadow:urbDark?"none":"0 1px 2px rgba(15,23,42,0.06)"};
     var urbStages=[
       {label:"Applications du périmètre",value:apps.length,color:"#6366F1",hint:"Inventaire complet"},
       {label:"Applications critiques",value:criticalApps.length,color:"#F97316",hint:"Criticité haute"},
@@ -3365,13 +3080,13 @@ if(view==="urbanisme"){
     }).sort(function(a,b){return b.apps-a.apps;});
     return <AppCtx.Provider value={ctxValue}><div style={{height:"100vh",display:"flex",overflow:"hidden"}}><Sidebar/><div className="view-container" style={{flex:1,display:"flex",flexDirection:"column",background:T.bg,minWidth:0}}>
       <UrbTopbar/>
-      <div style={{flex:1,overflow:"auto",padding:"clamp(20px,3vw,42px) clamp(18px,4vw,56px) 48px",background:urbDark?"radial-gradient(ellipse at 75% -10%, rgba(99,102,241,0.12), transparent 45%), "+T.bg:"radial-gradient(ellipse at 10% 0%, rgba(99,102,241,0.075), transparent 38%), radial-gradient(ellipse at 94% 82%, rgba(14,165,233,0.045), transparent 35%), "+T.bg}}>
+      <div style={{flex:1,overflow:"auto",padding:"clamp(20px,3vw,42px) clamp(18px,4vw,56px) 48px",background:T.bg}}>
         <div style={{maxWidth:1320,margin:"0 auto"}}>
           {/* Hero + KPI */}
           <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",gap:24,flexWrap:"wrap",marginBottom:24}}>
-            <div style={{minWidth:0}}><div style={{fontSize:11,fontWeight:800,letterSpacing:".14em",textTransform:"uppercase",color:"#818cf8",marginBottom:10}}>Paysage applicatif</div><h1 style={{fontSize:"clamp(26px,3.2vw,38px)",lineHeight:1.08,letterSpacing:"-.04em",fontWeight:850,color:T.fg,margin:0}}>Explorez votre SI <span style={{background:"linear-gradient(90deg,#818cf8,#22d3ee)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>par domaine</span></h1><p style={{fontSize:14,color:urbMuted,margin:"10px 0 0",maxWidth:560,lineHeight:1.6}}>Cliquez sur un domaine pour découvrir ses applications, ses connexions et le détail de chaque flux.</p></div>
+            <div style={{minWidth:0}}><h1 style={{fontSize:22,lineHeight:1.2,letterSpacing:"-.01em",fontWeight:700,color:T.fg,margin:0}}>Paysage applicatif</h1><p style={{fontSize:13,color:urbMuted,margin:"4px 0 0"}}>Vue par domaine · sélectionnez un domaine pour accéder aux applications et aux flux.</p></div>
             <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-              {[["Domaines",allDoms2.length,"#818cf8"],["Applications",apps.length,"#22d3ee"],["Flux",flows.length,"#34d399"],["Critiques",criticalApps.length,"#fb7185"]].map(function(k){return <div key={k[0]} style={{minWidth:108,padding:"12px 16px",borderRadius:14,background:urbDark?"rgba(15,23,42,.6)":"#fff",border:"1px solid "+urbLine,boxShadow:urbDark?"none":"0 6px 16px rgba(51,65,85,.05)",borderTop:"3px solid "+k[2]}}><div style={{fontSize:26,fontWeight:850,lineHeight:1,color:T.fg,fontVariantNumeric:"tabular-nums"}}>{k[1]}</div><div style={{fontSize:11,color:urbMuted,marginTop:7,fontWeight:600}}>{k[0]}</div></div>;})}
+              {[["Domaines",allDoms2.length],["Applications",apps.length],["Flux",flows.length],["Critiques",criticalApps.length]].map(function(k,ki){return <div key={k[0]} style={{minWidth:100,padding:"2px 18px",borderLeft:ki?"1px solid "+urbLine:"none"}}><div style={{fontSize:24,fontWeight:700,lineHeight:1.1,color:k[0]==="Critiques"?"#DC2626":T.fg,fontVariantNumeric:"tabular-nums"}}>{k[1]}</div><div style={{fontSize:11,color:urbMuted,marginTop:3,fontWeight:500}}>{k[0]}</div></div>;})}
             </div>
           </div>
           {/* Toolbar */}
@@ -3381,14 +3096,14 @@ if(view==="urbanisme"){
             var sorts=[["apps","Taille"],["flows","Flux"],["critical","Criticité"],["name","A–Z"]];
             return <>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap",marginBottom:16}}>
-            <div style={{display:"flex",alignItems:"center",gap:8,flex:"1 1 260px",maxWidth:380,padding:"0 12px",height:38,borderRadius:11,background:urbDark?"rgba(15,23,42,.6)":"#fff",border:"1px solid "+urbLine}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,flex:"1 1 260px",maxWidth:380,padding:"0 12px",height:36,borderRadius:8,background:urbDark?"rgba(15,23,42,.6)":"#fff",border:"1px solid "+urbLine}}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={urbMuted} strokeWidth="2.2" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg>
               <input value={urbSearch} onChange={function(e){setUrbSearch(e.target.value);}} placeholder="Rechercher un domaine ou une application…" style={{flex:1,minWidth:0,border:"none",outline:"none",background:"transparent",color:T.fg,fontSize:13}}/>
               {urbSearch&&<span onClick={function(){setUrbSearch("");}} style={{cursor:"pointer",color:urbMuted,fontSize:13}}>✕</span>}
             </div>
-            <div style={{display:"flex",alignItems:"center",gap:6}}>
-              <span style={{fontSize:12,color:urbMuted,marginRight:4}}>Trier par</span>
-              {sorts.map(function(o){var on=urbSort===o[0];return <button key={o[0]} onClick={function(){setUrbSort(o[0]);}} style={{height:32,padding:"0 13px",borderRadius:99,fontSize:12,fontWeight:700,cursor:"pointer",border:"1px solid "+(on?"#818cf8":urbLine),background:on?"rgba(129,140,248,.16)":"transparent",color:on?(urbDark?"#c7d2fe":"#4f46e5"):urbMuted}}>{o[1]}</button>;})}
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+                          <span style={{fontSize:12,color:urbMuted}}>Trier par</span>
+                          <div style={{display:"flex",border:"1px solid "+urbLine,borderRadius:8,overflow:"hidden"}}>{sorts.map(function(o,oi){var on=urbSort===o[0];return <button key={o[0]} onClick={function(){setUrbSort(o[0]);}} style={{height:34,padding:"0 14px",fontSize:12,fontWeight:on?700:500,cursor:"pointer",border:"none",borderLeft:oi?"1px solid "+urbLine:"none",background:on?(urbDark?"rgba(148,163,184,.18)":"#EEF2F7"):"transparent",color:on?T.fg:urbMuted}}>{o[1]}</button>;})}</div>
             </div>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,300px),1fr))",gap:16}}>
@@ -3400,43 +3115,68 @@ if(view==="urbanisme"){
               var into=allDoms2.reduce(function(n,d){return n+(domFlowCounts[d+">>"+dom.name]||0);},0);
               var local=intraCounts[dom.name]||0;
               var flowTotal=out+into+local;
+              var domIds={};domApps.forEach(function(a){domIds[a.id]=1;});var tin=flows.filter(function(f){return domIds[f.to];});var tout=flows.filter(function(f){return domIds[f.from];});var tinN=tin.length,toutN=tout.length;
               var topPartner=interDomLinks.filter(function(link){return link.d1===dom.name||link.d2===dom.name;}).sort(function(a,b){return b.cnt-a.cnt;})[0]||null;
               var partnerName=topPartner?(topPartner.d1===dom.name?topPartner.d2:topPartner.d1):"";
               var open=function(){setUrbZone(dom.name);setUrbSelApp(null);setUrbFlowPair(null);setUrbExpanded(false);};
-              var stat=function(label,val,col){return <div style={{flex:1,textAlign:"center",padding:"9px 4px",borderRadius:10,background:urbDark?"rgba(148,163,184,.06)":"#f6f8fc"}}><div style={{fontSize:20,fontWeight:850,lineHeight:1,color:col||T.fg,fontVariantNumeric:"tabular-nums"}}>{val}</div><div style={{fontSize:11,color:urbMuted,marginTop:5}}>{label}</div></div>;};
+              var stat=function(label,val,col){return <div style={{minWidth:0,padding:"2px 0"}}><div style={{fontSize:20,fontWeight:700,lineHeight:1.1,color:col||T.fg,fontVariantNumeric:"tabular-nums"}}>{val}</div><div style={{fontSize:11,color:urbMuted,marginTop:3}}>{label}</div></div>;};
               return <div key={dom.name} role="button" tabIndex={0} onClick={open} onKeyDown={function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();open();}}}
-                style={{...urbPanel,position:"relative",overflow:"hidden",padding:"18px 18px 16px",cursor:"pointer",borderTopWidth:4,borderTopColor:dc.ac,transition:"transform .22s cubic-bezier(.2,.8,.2,1),border-color .2s,box-shadow .2s",animation:"cardIn .3s cubic-bezier(.16,1,.3,1) both",animationDelay:Math.min(di,10)*.03+"s"}}
-                onMouseEnter={function(e){e.currentTarget.style.transform="translateY(-3px)";e.currentTarget.style.boxShadow="0 18px 38px "+dc.ac+"26";}}
-                onMouseLeave={function(e){e.currentTarget.style.transform="";e.currentTarget.style.boxShadow=urbPanel.boxShadow;}}>
+                style={{...urbPanel,position:"relative",overflow:"hidden",display:"flex",flexDirection:"column",padding:"16px 18px 14px",cursor:"pointer",transition:"border-color .15s,box-shadow .15s",animation:"cardIn .35s both",animationDelay:(di*.04)+"s"}}
+                onMouseEnter={function(e){e.currentTarget.style.borderColor=dc.ac;e.currentTarget.style.boxShadow="0 2px 8px rgba(15,23,42,0.12)";}}
+                onMouseLeave={function(e){e.currentTarget.style.borderColor=urbLine;e.currentTarget.style.boxShadow=urbPanel.boxShadow;}}>
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
-                  <div style={{display:"flex",alignItems:"center",gap:11,minWidth:0}}><span style={{width:38,height:38,borderRadius:12,display:"grid",placeItems:"center",background:dc.ac+"22",color:dc.ac,fontSize:17,fontWeight:800,flexShrink:0}}>◈</span><div style={{fontSize:17,fontWeight:800,color:T.fg,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{dom.name}</div></div>
-                  <span style={{fontSize:12,fontWeight:700,color:dc.ac,whiteSpace:"nowrap"}}>Explorer →</span>
+                  <div style={{display:"flex",alignItems:"center",gap:11,minWidth:0}}><span style={{width:4,height:22,borderRadius:2,background:dc.ac,flexShrink:0}}/><div style={{fontSize:16,fontWeight:700,color:T.fg,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{dom.name}</div></div>
+                  <span style={{fontSize:12,color:urbMuted,whiteSpace:"nowrap"}}>Ouvrir ›</span>
                 </div>
-                <div style={{display:"flex",gap:8,marginTop:16}}>{stat("applications",dom.apps)}{stat("flux",flowTotal)}{stat("critiques",hot,hot?"#fb7185":null)}</div>
-                <div style={{marginTop:16}}>
-                  <div style={{height:8,display:"flex",overflow:"hidden",borderRadius:99,background:urbDark?"rgba(148,163,184,.12)":"#e9edf5"}}><div title={out+" sortants"} style={{width:(flowTotal?out/flowTotal*100:0)+"%",background:"#34d399"}}/><div title={into+" entrants"} style={{width:(flowTotal?into/flowTotal*100:0)+"%",background:"#818cf8"}}/><div title={local+" internes"} style={{width:(flowTotal?local/flowTotal*100:0)+"%",background:dc.ac}}/></div>
-                  <div style={{display:"flex",justifyContent:"space-between",gap:6,marginTop:8,fontSize:11,color:urbMuted}}><span><i style={{display:"inline-block",width:7,height:7,borderRadius:9,background:"#34d399",marginRight:5}}/>{out} sortants</span><span><i style={{display:"inline-block",width:7,height:7,borderRadius:9,background:"#818cf8",marginRight:5}}/>{into} entrants</span><span><i style={{display:"inline-block",width:7,height:7,borderRadius:9,background:dc.ac,marginRight:5}}/>{local} internes</span></div>
-                </div>
-                <div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:14}}>{rankedApps.slice(0,4).map(function(item){var cc=item.app.criticality==="Haute"?"#fb7185":item.app.criticality==="Moyenne"?"#fbbf24":"#34d399";return <span key={item.app.id} title={item.app.name+" · "+item.flowCount+" flux"} style={{display:"inline-flex",alignItems:"center",gap:6,maxWidth:"100%",fontSize:12,color:T.fg,border:"1px solid "+urbLine,background:urbDark?"rgba(15,23,42,.55)":"#fff",borderRadius:8,padding:"4px 9px"}}><span style={{width:6,height:6,borderRadius:99,background:cc,flexShrink:0}}/><span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.app.name}</span></span>;})}{rankedApps.length>4&&<span style={{fontSize:12,color:urbMuted,padding:"4px 4px"}}>+{rankedApps.length-4}</span>}</div>
-                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginTop:14,paddingTop:12,borderTop:"1px solid "+urbLine,fontSize:12}}>{topPartner?<><span style={{color:urbMuted}}>Lien principal</span><span style={{minWidth:0,flex:1,textAlign:"right",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontWeight:750,color:(DC[partnerName]||DC.Autre).ac}}>{partnerName}</span><span style={{fontSize:11,fontWeight:700,color:T.fg,background:urbDark?"rgba(148,163,184,.12)":"#f1f5f9",padding:"3px 8px",borderRadius:7}}>{topPartner.cnt}</span></>:<span style={{color:urbMuted}}>Aucune connexion inter-domaine</span>}</div>
+                {(function(){
+                  var ch=domApps.filter(function(a){return a.criticality==="Haute";}).length;var cm=domApps.filter(function(a){return a.criticality==="Moyenne";}).length;var cl=domApps.length-ch-cm;var tt=domApps.length||1;
+                  var segs=[[ch,"#DC2626","haute"],[cm,"#F59E0B","moyenne"],[cl,"#16A34A","basse"]];var R=24,C=2*Math.PI*R,off=0;
+                  var track=urbDark?"rgba(148,163,184,.14)":"#E8EDF5";
+                  var dFlows=out+into+local;var inW=dFlows?into/(out+into||1)*100:0;
+                  var maxF=Math.max(1,rankedApps.length?rankedApps[0].flowCount:1);
+                  var cap=function(t){return <div style={{fontSize:11,color:urbMuted,marginBottom:8}}>{t}</div>;};
+                  return <>
+                  <div style={{display:"flex",alignItems:"center",gap:16,marginTop:14,paddingTop:14,borderTop:"1px solid "+urbLine}}>
+                    <div style={{flexShrink:0,width:64,textAlign:"left"}}><div style={{fontSize:28,fontWeight:700,lineHeight:1,color:T.fg,fontVariantNumeric:"tabular-nums"}}>{dom.apps}</div><div style={{fontSize:11,color:urbMuted,marginTop:4}}>applications</div></div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:urbMuted,marginBottom:6}}><span>Flux entrants</span><span>Flux sortants</span></div>
+                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                        <span style={{fontSize:16,fontWeight:700,color:T.fg,fontVariantNumeric:"tabular-nums",minWidth:18}}>{tinN}</span>
+                        <div style={{flex:1,height:8,display:"flex",gap:2}}><div title={tinN+" entrants"} style={{width:(tinN+toutN?tinN/(tinN+toutN)*100:50)+"%",background:tinN?"#60A5FA":track,borderRadius:"4px 0 0 4px"}}/><div title={toutN+" sortants"} style={{flex:1,background:toutN?"#2563EB":track,borderRadius:"0 4px 4px 0"}}/></div>
+                        <span style={{fontSize:16,fontWeight:700,color:T.fg,fontVariantNumeric:"tabular-nums",minWidth:18,textAlign:"right"}}>{toutN}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{marginTop:14,paddingTop:12,borderTop:"1px solid "+urbLine,flex:1}}>
+                    {cap("Applications cl\u00e9s \u00b7 nombre de flux")}
+                    {rankedApps.slice(0,3).map(function(item){var cc=item.app.criticality==="Haute"?"#DC2626":item.app.criticality==="Moyenne"?"#F59E0B":"#16A34A";return <div key={item.app.id} title={item.app.name+" \u00b7 "+item.flowCount+" flux"} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) 72px 22px",alignItems:"center",gap:10,padding:"3px 0",fontSize:13,color:T.fg}}><span style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}><span style={{width:6,height:6,borderRadius:99,background:cc,flexShrink:0}}/><span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.app.name}</span></span><span style={{height:4,borderRadius:2,background:track,overflow:"hidden"}}><span style={{display:"block",height:"100%",width:(item.flowCount/maxF*100)+"%",background:cc,opacity:.85}}/></span><span style={{fontSize:11,color:urbMuted,textAlign:"right",fontVariantNumeric:"tabular-nums"}}>{item.flowCount}</span></div>;})}
+                    {rankedApps.length>3&&<div style={{fontSize:11,color:urbMuted,paddingTop:4}}>+{rankedApps.length-3} autres</div>}
+                  </div></>;
+                })()}
               </div>;
             })}
             {shown.length===0&&<div style={{...urbPanel,gridColumn:"1 / -1",padding:40,textAlign:"center",color:urbMuted,fontSize:14}}>{urbDomains.length===0?"Aucun domaine à afficher. Ajoutez des applications à la cartographie.":"Aucun résultat pour « "+urbSearch+" »"}</div>}
           </div>
             </>;
           })()}
-          {interDomLinks.length>0&&<div style={{...urbPanel,marginTop:28,overflow:"hidden"}}>
-            <div style={{padding:"18px 22px",display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:"1px solid "+urbLine}}><div><div style={{fontSize:15,fontWeight:800,color:T.fg}}>Connexions entre domaines</div><div style={{fontSize:12,color:urbMuted,marginTop:4}}>Les principaux ponts de votre architecture · cliquez pour ouvrir le domaine émetteur</div></div><span style={{fontSize:12,fontWeight:700,color:"#22d3ee",background:"rgba(34,211,238,.1)",padding:"5px 11px",borderRadius:99}}>{interDomLinks.length} liaisons</span></div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,340px),1fr))"}}>{interDomLinks.slice(0,8).map(function(link,i){var c1=(DC[link.d1]||DC.Autre).ac;var c2=(DC[link.d2]||DC.Autre).ac;var maxC=interDomLinks[0].cnt||1;return <div key={i} onClick={function(){setUrbZone(link.d1);setUrbSelApp(null);setUrbFlowPair(null);}} style={{padding:"14px 22px",cursor:"pointer",borderRight:"1px solid "+urbLine,borderBottom:"1px solid "+urbLine,transition:"background .15s"}} onMouseEnter={function(e){e.currentTarget.style.background=urbDark?"rgba(148,163,184,.06)":"#f8fafc";}} onMouseLeave={function(e){e.currentTarget.style.background="transparent";}}>
-              <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) 24px minmax(0,1fr) 40px",alignItems:"center",columnGap:8}}>
-                <span style={{display:"flex",alignItems:"center",gap:7,minWidth:0,fontSize:13,fontWeight:750,color:T.fg}}><span style={{width:8,height:8,borderRadius:99,background:c1,flexShrink:0}}/><span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{link.d1}</span></span>
-                <span style={{textAlign:"center",fontSize:14,color:urbMuted}}>→</span>
-                <span style={{display:"flex",alignItems:"center",gap:7,minWidth:0,fontSize:13,fontWeight:750,color:T.fg}}><span style={{width:8,height:8,borderRadius:99,background:c2,flexShrink:0}}/><span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{link.d2}</span></span>
-                <span style={{justifySelf:"end",fontSize:12,fontWeight:800,color:T.fg,background:urbDark?"rgba(148,163,184,.12)":"#f1f5f9",padding:"3px 8px",borderRadius:7,fontVariantNumeric:"tabular-nums"}}>{link.cnt}</span>
-              </div>
-              <div style={{height:4,borderRadius:99,marginTop:10,background:urbDark?"rgba(148,163,184,.12)":"#e9edf5",overflow:"hidden"}}><div style={{width:Math.max(6,link.cnt/maxC*100)+"%",height:"100%",borderRadius:99,background:"linear-gradient(90deg,"+c1+","+c2+")"}}/></div>
-            </div>;})}</div>
-          </div>}
+          {interDomLinks.length>0&&(function(){
+            var hmNames=urbDomains.map(function(d){return d.name;}).filter(function(n){return allDoms2.some(function(m){return (domFlowCounts[n+">>"+m]||0)+(domFlowCounts[m+">>"+n]||0)>0;})||(intraCounts[n]||0)>0;});
+            var cellVal=function(a,b){return a===b?(intraCounts[a]||0):(domFlowCounts[a+">>"+b]||0);};
+            var hmMax=1;hmNames.forEach(function(a){hmNames.forEach(function(b){hmMax=Math.max(hmMax,cellVal(a,b));});});
+            var cols="minmax(84px,120px) repeat("+hmNames.length+",minmax(0,1fr))";
+            return <div style={{...urbPanel,marginTop:28,overflow:"hidden"}}>
+            <div style={{padding:"18px 22px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap",borderBottom:"1px solid "+urbLine}}><div><div style={{fontSize:15,fontWeight:700,color:T.fg}}>Matrice des flux entre domaines</div><div style={{fontSize:12,color:urbMuted,marginTop:4}}>Lignes : domaine émetteur · colonnes : domaine récepteur · cliquez une cellule pour ouvrir l'émetteur</div></div><div style={{display:"flex",alignItems:"center",gap:8,fontSize:11,color:urbMuted}}>0<span style={{width:110,height:8,borderRadius:2,background:"linear-gradient(90deg,rgb(219,234,254),rgb(30,58,138))"}}/>{hmMax} flux</div></div>
+            <div style={{padding:"16px 22px 20px",overflowX:"auto"}}><div style={{minWidth:Math.max(520,hmNames.length*64+120),display:"grid",gridTemplateColumns:cols,gap:3}}>
+              <div/>{hmNames.map(function(n){return <div key={"h"+n} title={n} style={{fontSize:11,fontWeight:600,color:T.fg,textAlign:"center",padding:"0 2px 6px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",borderBottom:"2px solid "+(DC[n]||DC.Autre).ac}}>{n}</div>;})}
+              {hmNames.map(function(a){return [<div key={"r"+a} title={a} style={{display:"flex",alignItems:"center",gap:7,fontSize:12,fontWeight:600,color:T.fg,paddingRight:6,minWidth:0}}><span style={{width:4,height:16,borderRadius:2,background:(DC[a]||DC.Autre).ac,flexShrink:0}}/><span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a}</span></div>].concat(hmNames.map(function(b,bi){
+                var v=cellVal(a,b);var t=v/hmMax;var diag=a===b;
+                var lo=[219,234,254],hi2=[30,58,138];var bg=v===0?(urbDark?"rgba(148,163,184,.06)":"#F1F5F9"):"rgb("+lo.map(function(c,k){return Math.round(c+(hi2[k]-c)*t);}).join(",")+")";
+                return <div key={a+">"+b} role={v>0&&!diag?"button":undefined} title={diag?a+" : "+v+" flux internes":a+" → "+b+" : "+v+" flux"} onClick={v>0&&!diag?function(){setUrbZone(a);setUrbSelApp(null);setUrbFlowPair(null);}:undefined}
+                  style={{height:38,borderRadius:4,display:"grid",placeItems:"center",fontSize:12,fontWeight:700,fontVariantNumeric:"tabular-nums",background:bg,color:v===0?urbMuted:(t>.45?"#fff":"#1E3A8A"),cursor:v>0&&!diag?"pointer":"default",transition:"transform .12s, box-shadow .12s",animation:"cardIn .35s both",animationDelay:(bi*.025)+"s"}}
+                  onMouseEnter={function(e){if(v>0){e.currentTarget.style.transform="scale(1.08)";e.currentTarget.style.boxShadow="0 2px 8px rgba(15,23,42,.25)";}}}
+                  onMouseLeave={function(e){e.currentTarget.style.transform="";e.currentTarget.style.boxShadow="";}}>{v>0?v:""}</div>;}));})}
+            </div></div>
+          </div>;})()}
         </div>
       </div>
     </div></div></AppCtx.Provider>;
@@ -3589,22 +3329,21 @@ if(view==="urbanisme"){
   var selectedAppPairs=filteredPairList.length;
   var selectedAppStatusColor=urbSelApp&&urbSelApp.criticality==="Haute"?"#fb7185":urbSelApp&&urbSelApp.criticality==="Moyenne"?"#fbbf24":"#34d399";
   var selectedPairColor="#38bdf8";
-  var urbPanel={background:urbDark?"#10131f":"#FBFCFF",border:"1px solid "+urbLine,borderRadius:18,boxShadow:urbDark?"0 18px 50px rgba(0,0,0,0.2)":"0 14px 34px rgba(51,65,85,0.08)"};
+  var urbPanel={background:urbDark?"#10131f":"#FBFCFF",border:"1px solid "+urbLine,borderRadius:10,boxShadow:urbDark?"none":"0 1px 2px rgba(15,23,42,0.06)"};
   var zoneHigh=zoneApps.filter(function(a){return a.criticality==="Haute";}).length;
   var pairGrid="minmax(0,1fr) 30px minmax(0,1fr) 46px";
 
   return <AppCtx.Provider value={ctxValue}><div style={{height:"100vh",display:"flex",overflow:"hidden"}}><Sidebar/><div className="view-container" style={{flex:1,display:"flex",flexDirection:"column",background:T.bg,minWidth:0}}>
     <UrbTopbar/>
-    <div style={{flex:1,overflowY:"auto",padding:"clamp(18px,3vw,34px) clamp(16px,3vw,42px) 48px",background:urbDark?"radial-gradient(ellipse at 82% 0%, rgba(99,102,241,.09), transparent 38%), "+T.bg:"radial-gradient(ellipse at 12% 0%, rgba(99,102,241,.075), transparent 38%), radial-gradient(ellipse at 92% 78%, rgba(14,165,233,.045), transparent 34%), "+T.bg}}>
+    <div style={{flex:1,overflowY:"auto",padding:"clamp(18px,3vw,34px) clamp(16px,3vw,42px) 48px",background:T.bg}}>
       <div style={{maxWidth:urbExpanded?1500:1240,margin:"0 auto",transition:"max-width 0.25s ease"}}>
 
         {/* Zone header */}
-        <div style={{position:"relative",overflow:"hidden",borderRadius:18,marginBottom:17,padding:"23px clamp(18px,3vw,30px)",background:urbDark?"linear-gradient(112deg,"+zoneCC.ac+"35, #10131f 70%)":"linear-gradient(112deg,"+zoneCC.ac+"22, #FBFCFF 72%)",border:"1px solid "+zoneCC.ac+(urbDark?"45":"55"),boxShadow:urbDark?"0 18px 46px "+zoneCC.ac+"12":"0 16px 38px rgba(30,41,59,.08), 0 0 0 1px "+zoneCC.ac+"0A",animation:"cardIn .25s cubic-bezier(.16,1,.3,1)"}}>
-          <div style={{position:"absolute",width:220,height:220,right:-85,top:-118,borderRadius:"50%",background:"radial-gradient(circle,"+zoneCC.ac+"35,transparent 70%)",pointerEvents:"none"}}/>
-          <div style={{position:"relative",display:"flex",alignItems:"center",justifyContent:"space-between",gap:20,flexWrap:"wrap"}}>
-            <div style={{minWidth:0}}><div style={{fontSize:11,fontWeight:800,letterSpacing:".14em",textTransform:"uppercase",color:zoneCC.ac,marginBottom:8}}>Domaine métier</div><div style={{fontSize:"clamp(26px,3vw,36px)",fontWeight:850,letterSpacing:"-.04em",color:T.fg,lineHeight:1.05}}>{urbZone}</div></div>
+        <div style={{borderRadius:10,marginBottom:16,padding:"18px 22px",background:urbPanel.background,border:"1px solid "+urbLine,borderLeft:"4px solid "+zoneCC.ac,boxShadow:urbPanel.boxShadow}}>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:20,flexWrap:"wrap"}}>
+                    <div style={{minWidth:0}}><div style={{fontSize:12,fontWeight:600,color:urbMuted,marginBottom:4}}>Domaine</div><div style={{fontSize:24,fontWeight:700,letterSpacing:"-.01em",color:T.fg,lineHeight:1.1}}>{urbZone}</div></div>
             <div style={{display:"flex",gap:10,alignItems:"stretch",flexWrap:"wrap"}}>
-              {[["Applications",zoneApps.length,T.fg],["Flux associés",zoneFlowsOut.length+zoneFlowsIn.length,T.fg],["Connexions",pairList.length,T.fg],["Criticité haute",zoneHigh,zoneHigh>0?"#fb7185":T.fg]].map(function(k){return <div key={k[0]} style={{minWidth:104,padding:"10px 14px",borderRadius:12,background:urbDark?"rgba(2,6,23,.35)":"rgba(255,255,255,.78)",border:"1px solid "+urbLine,textAlign:"center"}}><div style={{fontSize:22,fontWeight:850,color:k[2],lineHeight:1,fontVariantNumeric:"tabular-nums"}}>{k[1]}</div><div style={{fontSize:10,color:urbMuted,marginTop:6,fontWeight:600,whiteSpace:"nowrap"}}>{k[0]}</div></div>;})}
+              {[["Applications",zoneApps.length,T.fg],["Flux associés",zoneFlowsOut.length+zoneFlowsIn.length,T.fg],["Connexions",pairList.length,T.fg],["Criticité haute",zoneHigh,zoneHigh>0?"#fb7185":T.fg]].map(function(k){return <div key={k[0]} style={{minWidth:90,padding:"2px 16px",borderLeft:"1px solid "+urbLine,textAlign:"left"}}><div style={{fontSize:22,fontWeight:700,color:k[2],lineHeight:1,fontVariantNumeric:"tabular-nums"}}>{k[1]}</div><div style={{fontSize:10,color:urbMuted,marginTop:6,fontWeight:600,whiteSpace:"nowrap"}}>{k[0]}</div></div>;})}
               <button onClick={function(e){e.stopPropagation();setUrbExpanded(function(p){return !p;});}} title={urbExpanded?"Réduire la largeur":"Élargir la largeur"} style={{alignSelf:"center",background:urbDark?"rgba(148,163,184,.12)":"#fff",border:"1px solid "+urbLine,color:T.fg,borderRadius:10,padding:"8px 12px",cursor:"pointer",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",gap:6}}>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">{urbExpanded?<><polyline points="15 18 9 12 15 6"/><polyline points="9 18 3 12 9 6"/></>:<><polyline points="9 6 15 12 9 18"/><polyline points="15 6 21 12 15 18"/></>}</svg>
                 {urbExpanded?"Réduire":"Élargir"}
@@ -3618,12 +3357,12 @@ if(view==="urbanisme"){
 
           {/* Left: quartiers */}
           <div style={{...urbPanel,padding:16,minWidth:0}}>
-            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}><span style={{width:28,height:28,borderRadius:9,display:"grid",placeItems:"center",background:zoneCC.ac+"20",color:zoneCC.ac,fontSize:11,fontWeight:850}}>01</span><div><div style={{fontSize:13,fontWeight:800,color:T.fg}}>Applications</div><div style={{fontSize:10,color:urbMuted,marginTop:3}}>{urbSelApp?"Point de départ sélectionné":"Choisissez une application"}</div></div><span style={{marginLeft:"auto",fontSize:9,color:urbMuted,background:urbDark?"rgba(148,163,184,.08)":"#f1f5f9",padding:"5px 7px",borderRadius:7}}>{zoneApps.length}</span></div>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}><div><div style={{fontSize:13,fontWeight:800,color:T.fg}}>Applications</div><div style={{fontSize:10,color:urbMuted,marginTop:3}}>{urbSelApp?"Point de départ sélectionné":"Choisissez une application"}</div></div><span style={{marginLeft:"auto",fontSize:9,color:urbMuted,background:urbDark?"rgba(148,163,184,.08)":"#f1f5f9",padding:"5px 7px",borderRadius:7}}>{zoneApps.length}</span></div>
             <div style={{display:"flex",flexDirection:"column",gap:10,maxHeight:"calc(100vh - 330px)",minHeight:200,overflowY:"auto",paddingRight:4}}>
               {quartierList.map(function(entry,qi){
                 var cat=entry[0];var catApps=entry[1];
                 var isOtherCategory=cat==="Autre";
-                return <div key={cat} style={isOtherCategory?{animation:"cardIn .2s cubic-bezier(.16,1,.3,1) both",animationDelay:(qi*.04)+"s"}:{background:urbDark?"rgba(148,163,184,.045)":"#F5F7FC",borderRadius:12,padding:"11px 12px",border:"1px solid "+urbLine,animation:"cardIn .2s cubic-bezier(.16,1,.3,1) both",animationDelay:(qi*.04)+"s"}}>
+                return <div key={cat} style={isOtherCategory?{animation:"cardIn .2s cubic-bezier(.16,1,.3,1) both",animationDelay:(qi*.04)+"s"}:{background:urbDark?"rgba(148,163,184,.045)":"#F5F7FC",borderRadius:8,padding:"11px 12px",border:"1px solid "+urbLine,animation:"cardIn .2s cubic-bezier(.16,1,.3,1) both",animationDelay:(qi*.04)+"s"}}>
                   {!isOtherCategory&&<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",fontSize:9,fontWeight:800,color:zoneCC.ac,textTransform:"uppercase",letterSpacing:".1em",marginBottom:9}}>{cat}<span style={{color:urbMuted,fontWeight:600,letterSpacing:0}}>{catApps.length} apps</span></div>}
                   <div style={{display:"flex",flexDirection:"column",gap:6}}>
                     {catApps.map(function(app){
@@ -3631,9 +3370,9 @@ if(view==="urbanisme"){
                       var isSelApp=urbSelApp&&urbSelApp.id===app.id;
                       return <div key={app.id} role="button" tabIndex={0} title={app.name+(nFlux>0?" · "+nFlux+" flux":"")} onClick={function(){setUrbSelApp(isSelApp?null:app);setUrbFlowPair(null);}} onKeyDown={function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();setUrbSelApp(isSelApp?null:app);setUrbFlowPair(null);}}}
                         style={{display:"flex",alignItems:"center",gap:9,background:isSelApp?zoneCC.ac+(urbDark?"20":"12"):(urbDark?"rgba(15,23,42,.52)":"#fff"),border:"1px solid "+(isSelApp?zoneCC.ac+"90":urbLine),borderRadius:10,padding:"9px 10px",fontSize:11,color:T.fg,fontWeight:650,position:"relative",cursor:"pointer",transition:"transform .16s ease, box-shadow .16s ease, border-color .16s ease",userSelect:"none"}}
-                        onMouseEnter={function(e){e.currentTarget.style.transform="translateX(2px)";e.currentTarget.style.boxShadow="0 5px 16px rgba(0,0,0,.13)";e.currentTarget.style.borderColor=zoneCC.ac+"90";}}
+                        onMouseEnter={function(e){e.currentTarget.style.boxShadow="0 1px 3px rgba(15,23,42,.12)";e.currentTarget.style.borderColor=zoneCC.ac+"90";}}
                         onMouseLeave={function(e){e.currentTarget.style.transform="";e.currentTarget.style.boxShadow="";e.currentTarget.style.borderColor=isSelApp?zoneCC.ac+"90":urbLine;}}>
-                        <span style={{width:25,height:25,flexShrink:0,borderRadius:8,display:"grid",placeItems:"center",background:zoneCC.ac+"20",color:zoneCC.ac,fontSize:11,fontWeight:800}}>▦</span>
+                        <span style={{width:4,height:18,flexShrink:0,borderRadius:2,background:zoneCC.ac}}/>
                         <span style={{minWidth:0,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{app.name}</span>
                         {app.criticality&&<span style={{width:7,height:7,borderRadius:99,background:app.criticality==="Haute"?"#fb7185":app.criticality==="Moyenne"?"#fbbf24":"#34d399",boxShadow:app.criticality==="Haute"?"0 0 8px #fb718580":"none"}} title={"Criticité "+app.criticality}/>}
                         <span style={{fontSize:10,fontWeight:650,color:urbMuted,background:urbDark?"rgba(148,163,184,.1)":"#f1f5f9",padding:"4px 8px",borderRadius:7,whiteSpace:"nowrap",minWidth:52,textAlign:"center",fontVariantNumeric:"tabular-nums",flexShrink:0}}>{nFlux} flux</span>
@@ -3649,7 +3388,7 @@ if(view==="urbanisme"){
           <div style={{...urbPanel,padding:16,minWidth:0}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
               <div style={{display:"flex",alignItems:"center",gap:10}}>
-                <span style={{width:28,height:28,borderRadius:9,display:"grid",placeItems:"center",background:"rgba(56,189,248,.13)",color:"#38bdf8",fontSize:11,fontWeight:850}}>02</span>
+                
                 <div><div style={{fontSize:13,fontWeight:800,color:T.fg}}>Connexions</div><div style={{fontSize:10,color:urbMuted,marginTop:3}}>{filteredPairList.length}{urbSelApp?" / "+pairList.length:""} itinéraires{urbSelApp?" · filtrés par application":" · dans le domaine"}</div></div>
               </div>
               {detailFlows&&<button onClick={function(){setUrbFlowPair(null);}} style={{fontSize:10,color:"#38bdf8",background:"rgba(56,189,248,.1)",border:"1px solid rgba(56,189,248,.2)",borderRadius:8,cursor:"pointer",padding:"6px 8px",fontWeight:700}}>Toutes</button>}
@@ -3685,7 +3424,7 @@ if(view==="urbanisme"){
 
           {/* Third step: selected application or selected flow details */}
           <div style={{...urbPanel,padding:16,minWidth:0,minHeight:250,animation:"cardIn .22s cubic-bezier(.16,1,.3,1) both"}}>
-            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}><span style={{width:28,height:28,borderRadius:9,display:"grid",placeItems:"center",background:"rgba(139,92,246,.14)",color:"#a78bfa",fontSize:11,fontWeight:850}}>03</span><div><div style={{fontSize:13,fontWeight:800,color:T.fg}}>{detailFlows?"Détail des flux":urbSelApp?"Fiche application":"Détail"}</div><div style={{fontSize:10,color:urbMuted,marginTop:3}}>{detailFlows?"Données échangées et protocoles":urbSelApp?"Dépendances et informations clés":"Sélectionnez une application ou une connexion"}</div></div></div>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}><div><div style={{fontSize:13,fontWeight:800,color:T.fg}}>{detailFlows?"Détail des flux":urbSelApp?"Fiche application":"Détail"}</div><div style={{fontSize:10,color:urbMuted,marginTop:3}}>{detailFlows?"Données échangées et protocoles":urbSelApp?"Dépendances et informations clés":"Sélectionnez une application ou une connexion"}</div></div></div>
 
             {detailFlows&&<div style={{display:"flex",flexDirection:"column",gap:10}}>
               <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) 34px minmax(0,1fr)",alignItems:"center",gap:7,padding:"14px 11px",borderRadius:14,background:"linear-gradient(120deg,"+(DC[detailFlows.from.domain]||DC.Autre).ac+"22, rgba(56,189,248,.10), "+(DC[detailFlows.to.domain]||DC.Autre).ac+"22)",border:"1px solid rgba(56,189,248,.24)"}}><div style={{minWidth:0}}><div style={{fontSize:8,color:urbMuted,textTransform:"uppercase",letterSpacing:".1em"}}>Émetteur</div><div style={{fontSize:11,fontWeight:800,color:T.fg,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginTop:4}}>{detailFlows.from.name}</div><div style={{fontSize:8,color:(DC[detailFlows.from.domain]||DC.Autre).ac,marginTop:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{detailFlows.from.domain}</div></div><div style={{width:32,height:32,borderRadius:11,display:"grid",placeItems:"center",background:"rgba(56,189,248,.16)",boxShadow:"0 0 18px rgba(56,189,248,.12)"}}><UrbFlowArrow color="#38bdf8" width={30}/></div><div style={{minWidth:0,textAlign:"right"}}><div style={{fontSize:8,color:urbMuted,textTransform:"uppercase",letterSpacing:".1em"}}>Récepteur</div><div style={{fontSize:11,fontWeight:800,color:T.fg,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginTop:4}}>{detailFlows.to.name}</div><div style={{fontSize:8,color:(DC[detailFlows.to.domain]||DC.Autre).ac,marginTop:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{detailFlows.to.domain}</div></div></div>
