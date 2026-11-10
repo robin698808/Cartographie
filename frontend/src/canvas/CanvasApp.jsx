@@ -4,6 +4,8 @@ import { ItsiBudgetWidget, ItsiPatrimoineWidget } from './ItsiWidgets';
 import { routeFlows, pathToD, placeLabels } from './flowRouting';
 import ViewsMenu from './ViewsMenu';
 import ExportModal from './ExportModal';
+import OptionListsEditor from './OptionListsEditor';
+import { STATUT_OPTS, STATUT_COLORS, applyOptionLists, currentLists } from './optionLists';
 import { translateString, getLang } from '../i18n';
 import { canonLabel, DOMAIN_OPTS } from './templateI18n';
 import API from '../api/client';
@@ -193,8 +195,6 @@ const SD2={"Clone & Clean":"#3B82F6","Transfert":"#10B981","Abandon":"#EF4444","
 const CRIT_OPTS=["Haute","Moyenne","Basse","Critique"];
 const D1_OPTS=["","Transfert TSA","Maintien","Rebuild","Abandon"];
 const D2_OPTS=["","Clone & Clean","Transfert","Abandon","Rebuild"];
-const STATUT_OPTS=["","Actif","Actif dégradé","Legacy","En décommissionnement","Décommissionné","En maintenance","Suspendu","Inconnu","Cible","À refondre","À migrer","À consolider","À décommissionner","À remplacer","À créer","En étude"];
-const STATUT_COLORS={"Actif":"#10B981","Actif dégradé":"#F59E0B","Legacy":"#8B5CF6","En décommissionnement":"#EF4444","Décommissionné":"#6B7280","En maintenance":"#3B82F6","Suspendu":"#F97316","Inconnu":"#9CA3AF","Cible":"#06B6D4","À refondre":"#EC4899","À migrer":"#14B8A6","À consolider":"#A78BFA","À décommissionner":"#F87171","À remplacer":"#FB923C","À créer":"#34D399","En étude":"#60A5FA"};
 const PROTOS = ["API","REST","SOAP","SFTP","ETL","JDBC","ODBC","Webhook","MQ","Batch","Manuel","Fichier","Autre"];
 const FREQS = ["","Temps réel","Horaire","Journalier","Hebdomadaire","Mensuel","À la demande"];
 const uid = () => Math.random().toString(36).slice(2,10);
@@ -502,7 +502,7 @@ function UrbFlowArrow({ color = "#38bdf8", width = 28 }){
 // ═══ APP CONTEXT ═══
 var AppCtx=React.createContext(null);
 
-function App({ initialSnapshot, onSave, wsMessage, projectId, onThemeChange, topOffset = 0, projectType = "deal", viewsSlot = null }) {
+function App({ initialSnapshot, onSave, wsMessage, projectId, onThemeChange, topOffset = 0, projectType = "deal", viewsSlot = null, isAdmin = false }) {
   var _stateKey = projectId ? "carto_state_" + projectId : "carto_state";
   var snapshotApplied = useRef(false);
   var [canvasReady, setCanvasReady] = useState(false);
@@ -559,6 +559,18 @@ function App({ initialSnapshot, onSave, wsMessage, projectId, onThemeChange, top
   const startDrag=(val)=>{dragRef.current=val;setDrag(val);};
   const stopDrag=()=>{dragRef.current=null;setDrag(null);};
   const [showAM,setShowAM]=useState(false);
+  const [listsV,setListsV]=useState(0);
+  const [listsEditor,setListsEditor]=useState(null);
+  useEffect(function(){API.get("/settings/option-lists").then(function(r){if(r.data){applyOptionLists(r.data);setListsV(function(v){return v+1;});}}).catch(function(){});},[]);
+  function migrateApp(a,migrations){var n=a;Object.keys(migrations).forEach(function(f){var m=migrations[f];var cv=a[f]||"";if(cv&&Object.prototype.hasOwnProperty.call(m,cv))n={...n,[f]:m[cv]};});return n;}
+  function saveOptionLists(lists,migrations){
+    return API.put("/settings/option-lists",lists).then(function(r){
+      applyOptionLists(r.data);
+      setApps(function(prev){return prev.map(function(a){return migrateApp(a,migrations);});});
+      setEApp(function(a){return a?migrateApp(a,migrations):a;});
+      setListsV(function(v){return v+1;});
+    });
+  }
   const [eApp,setEApp]=useState(null);
   const [eFlow,setEFlow]=useState(null);
   const [showFM,setShowFM]=useState(false);
@@ -3834,10 +3846,12 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
     </div></div></AppCtx.Provider>;
 
   /* ═══ MAPPING ═══ */
+  var pinBtn=<button onClick={toggleToolbar} title={toolbarHidden?"Afficher le bandeau":"Masquer le bandeau"} aria-expanded={!toolbarHidden} style={{width:22,height:22,flexShrink:0,padding:0,borderRadius:7,display:"grid",placeItems:"center",cursor:"pointer",border:"1px solid transparent",background:"transparent",color:T.fgMuted,opacity:.6,transition:"all .2s ease"}} onMouseEnter={e=>{e.currentTarget.style.opacity="1";e.currentTarget.style.background=T.bgAlt;e.currentTarget.style.borderColor=T.border;e.currentTarget.style.color="#2979FF";}} onMouseLeave={e=>{e.currentTarget.style.opacity=".6";e.currentTarget.style.background="transparent";e.currentTarget.style.borderColor="transparent";e.currentTarget.style.color=T.fgMuted;}}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{transform:toolbarHidden?"rotate(180deg)":"rotate(0deg)",transition:"transform .3s cubic-bezier(.34,1.56,.64,1)"}}><path d="m18 15-6-6-6 6"/></svg></button>;
   var toolbarSurface=isDark?"linear-gradient(145deg, rgba(38,41,68,.96), rgba(20,22,42,.96))":"linear-gradient(145deg,#FFFFFF,#F2F3FB)";
   return <AppCtx.Provider value={ctxValue}><div style={{height:"100%",display:"flex",overflow:"hidden"}}><Sidebar/><div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",position:"relative"}}>
-    <div style={{height:0,position:"relative",zIndex:300,flexShrink:0}}><button onClick={toggleToolbar} title={toolbarHidden?"?pingler le bandeau (afficher)":"D?s?pingler le bandeau (masquer)"} aria-pressed={!toolbarHidden} style={{position:"absolute",right:14,top:toolbarHidden?6:toolbarH+8,width:28,height:28,padding:0,borderRadius:"50%",display:"grid",placeItems:"center",cursor:"pointer",border:"1px solid "+(toolbarHidden?T.border:"#2979FF88"),background:toolbarHidden?T.bgAlt:"linear-gradient(135deg,#2979FF,#06B6D4)",color:toolbarHidden?T.fgMuted:"#fff",boxShadow:toolbarHidden?"0 3px 10px rgba(0,0,0,.2)":"0 4px 14px rgba(41,121,255,.45)",transition:"all .25s cubic-bezier(.4,0,.2,1)"}} onMouseEnter={e=>{e.currentTarget.style.transform="scale(1.12)";}} onMouseLeave={e=>{e.currentTarget.style.transform="scale(1)";}}><svg width="15" height="15" viewBox="0 0 24 24" fill={toolbarHidden?"none":"currentColor"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{transform:toolbarHidden?"rotate(45deg)":"rotate(0deg)",transition:"transform .3s cubic-bezier(.34,1.56,.64,1)"}}><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button></div>
-    <div ref={toolbarRef} className="mapping-toolbar" style={{background:"linear-gradient(180deg,"+T.bgAlt+","+T.bg+")",borderBottom:"1px solid "+T.borderLight,padding:"10px 12px",display:toolbarHidden?"none":"flex",alignItems:"center",gap:6,flexShrink:0,zIndex:200,flexWrap:"wrap",position:"relative",boxShadow:"0 8px 24px rgba(0,0,0,0.14)"}}>
+    <div style={{display:"flex",alignItems:"center",gap:8,overflow:"hidden",flexShrink:0,maxHeight:toolbarHidden?30:0,opacity:toolbarHidden?1:0,padding:toolbarHidden?"3px 12px":"0 12px",background:"linear-gradient(180deg,"+T.bgAlt+","+T.bg+")",borderBottom:toolbarHidden?"1px solid "+T.borderLight:"none",transition:"max-height .3s ease,opacity .25s ease,padding .3s ease"}}>{pinBtn}</div>
+    <div ref={toolbarRef} className="mapping-toolbar" style={{background:"linear-gradient(180deg,"+T.bgAlt+","+T.bg+")",borderBottom:"1px solid "+T.borderLight,padding:toolbarHidden?"0 12px":"10px 12px",display:"flex",alignItems:"center",gap:6,flexShrink:0,zIndex:200,flexWrap:"wrap",position:"relative",maxHeight:toolbarHidden?0:600,opacity:toolbarHidden?0:1,overflow:toolbarHidden?"hidden":"visible",pointerEvents:toolbarHidden?"none":"auto",borderBottomWidth:toolbarHidden?0:1,transition:"max-height .3s ease,opacity .25s ease,padding .3s ease",boxShadow:"0 8px 24px rgba(0,0,0,0.14)"}}>
+      {pinBtn}
       <input placeholder="Rechercher apps, domaines…" value={search} onChange={e=>setSearch(e.target.value)} style={{...I,width:180,padding:"8px 11px",borderRadius:10,boxShadow:isDark?"inset 0 1px 0 rgba(255,255,255,.03)":"0 2px 8px rgba(15,23,42,.04)"}}/>
       {/* Dropdown filters */}
       {[
@@ -4177,7 +4191,8 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
         Molette = déplacer · Ctrl+Molette = zoom · Échap = quitter
       </div>
     </div>}
-    {showAM&&eApp&&<div className="moverlay" style={{position:"fixed",inset:0,background:T.overlay,display:"flex",alignItems:"center",justifyContent:"center",zIndex:200}} onClick={()=>setShowAM(false)}><div style={{background:T.bgCard,borderRadius:8,padding:24,width:420,maxHeight:"80vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+    {listsEditor&&isAdmin&&<OptionListsEditor T={T} I={I} B={B} apps={apps} lists={currentLists()} initialTab={listsEditor} onSave={saveOptionLists} onClose={function(){setListsEditor(null);}}/>}
+      {showAM&&eApp&&<div className="moverlay" style={{position:"fixed",inset:0,background:T.overlay,display:"flex",alignItems:"center",justifyContent:"center",zIndex:200}} onClick={()=>setShowAM(false)}><div style={{background:T.bgCard,borderRadius:8,padding:24,width:420,maxHeight:"80vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
       <h3 style={{fontSize:16,fontWeight:700,marginBottom:16}}>{eApp.id&&apps.find(a=>a.id===eApp.id)?"Modifier":"Nouvelle"} application</h3>
       {[{k:"name",l:"Nom *",t:"text"},{k:"description",l:"Description",t:"text"},{k:"vendor",l:"Éditeur",t:"text"},{k:"version",l:"Version",t:"text"},{k:"owner",l:"Responsable",t:"text"},{k:"users",l:"Nb utilisateurs",t:"number"}].map(({k,l,t})=><div key={k} style={{marginBottom:10}}><label style={{fontSize:11,color:T.fgMuted,display:"block",marginBottom:3}}>{l}</label><input type={t} value={eApp[k]||""} onChange={e=>setEApp(p=>({...p,[k]:t==="number"?parseInt(e.target.value)||0:e.target.value}))} style={I}/></div>)}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:10}}>
@@ -4190,7 +4205,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
         <>
         <div style={{background:T.bgAlt,borderRadius:8,padding:10,marginTop:8}}>
           <div style={{fontSize:10,fontWeight:700,color:T.fgMuted,textTransform:"uppercase",letterSpacing:1,marginBottom:6}}>Statut</div>
-          <div><label style={{fontSize:11,color:T.fgMuted,display:"block",marginBottom:3}}>Statut</label><select value={eApp.statut||""} onChange={e=>setEApp(a=>({...a,statut:e.target.value}))} style={I}>{STATUT_OPTS.map(v=><option key={v} value={v}>{v||"— Non défini —"}</option>)}</select></div>
+          <div><label style={{fontSize:11,color:T.fgMuted,display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:3}}><span>Statut</span>{isAdmin&&<button type="button" title="Modifier la liste (administrateur)" onClick={function(){setListsEditor("statuts");}} style={{background:"transparent",border:"none",color:"#2979FF",cursor:"pointer",fontSize:10,padding:0}}>⚙ <span>Gérer</span></button>}</label><select value={eApp.statut||""} onChange={e=>setEApp(a=>({...a,statut:e.target.value}))} style={I}>{STATUT_OPTS.map(v=><option key={v} value={v}>{v||"— Non défini —"}</option>)}</select></div>
         </div>
                   </>
                 ):(
@@ -4205,7 +4220,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
                       <div><label style={{fontSize:11,color:T.fgMuted,display:"block",marginBottom:3}}>Nb licences</label><input type="number" min="0" value={eApp.licenses||""} onChange={e=>setEApp(p=>({...p,licenses:parseInt(e.target.value)||0}))} style={I}/></div>
                       <div><label style={{fontSize:11,color:T.fgMuted,display:"block",marginBottom:3}}>Fin de mise en service</label><input type="date" value={eApp.endOfService||""} onChange={e=>setEApp(p=>({...p,endOfService:e.target.value}))} style={I}/></div>
                       <div><label style={{fontSize:11,color:T.fgMuted,display:"block",marginBottom:3}}>Hébergement</label><select value={eApp.hosting||""} onChange={e=>setEApp(p=>({...p,hosting:e.target.value}))} style={I}><option value="">— Non défini —</option>{eApp.hosting&&!HOSTING_OPTS.includes(eApp.hosting)&&<option value={eApp.hosting}>{eApp.hosting}</option>}{HOSTING_OPTS.map(v=><option key={v} value={v}>{v}</option>)}</select></div>
-                      <div><label style={{fontSize:11,color:T.fgMuted,display:"block",marginBottom:3}}>Type d'application</label><select value={eApp.appType||""} onChange={e=>setEApp(p=>({...p,appType:e.target.value}))} style={I}><option value="">— Non défini —</option>{eApp.appType&&!APPTYPE_OPTS.includes(eApp.appType)&&<option value={eApp.appType}>{eApp.appType}</option>}{APPTYPE_OPTS.map(v=><option key={v} value={v}>{v}</option>)}</select></div>
+                      <div><label style={{fontSize:11,color:T.fgMuted,display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:3}}><span>Type d'application</span>{isAdmin&&<button type="button" title="Modifier la liste (administrateur)" onClick={function(){setListsEditor("appTypes");}} style={{background:"transparent",border:"none",color:"#2979FF",cursor:"pointer",fontSize:10,padding:0}}>⚙ <span>Gérer</span></button>}</label><select value={eApp.appType||""} onChange={e=>setEApp(p=>({...p,appType:e.target.value}))} style={I}><option value="">— Non défini —</option>{eApp.appType&&!APPTYPE_OPTS.includes(eApp.appType)&&<option value={eApp.appType}>{eApp.appType}</option>}{APPTYPE_OPTS.map(v=><option key={v} value={v}>{v}</option>)}</select></div>
                     </div>
                   </div>
       </div>

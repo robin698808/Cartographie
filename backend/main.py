@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base, settings
-from routes import users, projects, snapshots, views, ws, export
+from routes import users, projects, snapshots, views, ws, export, settings_routes
 
 
 def run_migrations(engine):
@@ -47,6 +47,7 @@ app.include_router(snapshots.router, prefix="/api", tags=["Snapshots"])
 app.include_router(views.router, prefix="/api", tags=["Views"])
 app.include_router(ws.router, tags=["WebSocket"])
 app.include_router(export.router, prefix="/api", tags=["Export"])
+app.include_router(settings_routes.router, prefix="/api", tags=["Settings"])
 
 
 @app.get("/api/health", tags=["Health"])

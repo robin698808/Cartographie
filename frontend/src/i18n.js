@@ -13,6 +13,16 @@ const DICT_LC = new Map();
 DICT.forEach((v, k) => DICT_LC.set(k.toLowerCase(), v));
 
 // Mots isolés, utilisés en dernier recours sur les textes composés (compteurs, libellés dynamiques)
+/* Ajoute des traductions FR->EN a chaud (referentiels personnalises) */
+export function addTranslations(map) {
+  Object.keys(map).forEach((fr) => {
+    const k = norm(fr);
+    DICT.set(k, map[fr]);
+    DICT_LC.set(k.toLowerCase(), map[fr]);
+    EN[fr] = map[fr];
+  });
+}
+
 const WORDS = {
   flux: 'flows', domaine: 'domain', domaines: 'domains', critique: 'critical', critiques: 'critical',
   criticité: 'criticality', criticités: 'criticalities', entrants: 'incoming', entrant: 'incoming',

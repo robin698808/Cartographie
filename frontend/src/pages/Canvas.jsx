@@ -273,6 +273,7 @@ export default function Canvas() {
             projectId={projectId}
             onThemeChange={setCanvasDark}
             topOffset={topOffset}
+            isAdmin={user?.role === 'admin'}
             projectType={project?.project_type || 'deal'}
             viewsSlot={viewsSlot}
           />
