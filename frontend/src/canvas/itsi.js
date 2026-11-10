@@ -27,11 +27,11 @@ export const EOS_BUCKETS = [
 export const ITSI_FIELDS = [
   { key: "budget",       label: "Coût annuel (€)",                patterns: ["cout annuel", "annual cost", "budget", "cout total"] },
   { key: "monthlyCost",  label: "Coût mensuel (€)",               patterns: ["cout mensuel", "monthly", "mensuel"] },
-  { key: "costType",     label: "Type de coût",                   patterns: ["type de cout", "type cout", "nature du cout", "capex", "opex"] },
+  { key: "costType",     label: "Type de coût",                   patterns: ["type de cout", "type cout", "nature du cout", "cost type", "capex", "opex"] },
   { key: "licenses",     label: "Nb licences",                    patterns: ["licence", "license"] },
   { key: "hosting",      label: "Hébergement",                    patterns: ["hebergement", "hosting"] },
-  { key: "appType",      label: "Type d'application",             patterns: ["type d'app", "type d’app", "type app", "typologie"] },
-  { key: "endOfService", label: "Date de fin de mise en service", patterns: ["fin de mise en service", "fin de service", "end of service", "fin de vie", "fin de support", "eol"] },
+  { key: "appType",      label: "Type d'application",             patterns: ["type d'app", "type d’app", "type app", "application type", "app type", "typologie"] },
+  { key: "endOfService", label: "Date de fin de mise en service", patterns: ["fin de mise en service", "fin de service", "end of service", "end-of-service", "fin de vie", "fin de support", "eol"] },
 ];
 
 export const DEAL_ONLY_PATTERNS = {
@@ -85,7 +85,7 @@ const OPTION_SYNONYMS = {
   "cloud public (iaas/paas)": ["cloud", "iaas", "paas", "aws", "azure", "gcp", "public cloud"],
   "saas": ["saas", "software as a service"],
   "hybride": ["hybrid", "hybride"],
-  "inconnu": ["inconnu", "n/a"],
+  "inconnu": ["inconnu", "unknown", "n/a"],
   "progiciel (cots)": ["cots", "progiciel", "package", "editeur"],
   "developpement specifique": ["specifique", "custom", "sur mesure", "in-house"],
   "open source": ["open source", "opensource", "oss"],

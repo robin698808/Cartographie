@@ -4,6 +4,8 @@ import { ItsiBudgetWidget, ItsiPatrimoineWidget } from './ItsiWidgets';
 import { routeFlows, pathToD, placeLabels } from './flowRouting';
 import ViewsMenu from './ViewsMenu';
 import ExportModal from './ExportModal';
+import { translateString, getLang } from '../i18n';
+import { canonLabel, DOMAIN_OPTS } from './templateI18n';
 import API from '../api/client';
 import { getMode, setMode, toggleMode } from '../utils/mode';
 import { createPortal } from 'react-dom';
@@ -188,6 +190,7 @@ const ALLDOM_DEFAULT = Object.keys(DC_DEFAULT);
 const CC = {Haute:"#FF5252",Moyenne:"#EF6C00",Basse:"#00C853"};
 const SD1={"Transfert TSA":"#F59E0B","Abandon":"#EF4444","Maintien":"#10B981","Rebuild":"#6366F1"};
 const SD2={"Clone & Clean":"#3B82F6","Transfert":"#10B981","Abandon":"#EF4444","Rebuild":"#8B5CF6"};
+const CRIT_OPTS=["Haute","Moyenne","Basse","Critique"];
 const D1_OPTS=["","Transfert TSA","Maintien","Rebuild","Abandon"];
 const D2_OPTS=["","Clone & Clean","Transfert","Abandon","Rebuild"];
 const STATUT_OPTS=["","Actif","Actif dégradé","Legacy","En décommissionnement","Décommissionné","En maintenance","Suspendu","Inconnu","Cible","À refondre","À migrer","À consolider","À décommissionner","À remplacer","À créer","En étude"];
@@ -240,6 +243,10 @@ const STATUT_DEFS = [
 const downloadTemplate = async (projectType = "deal") => {
   await ensureXLSX();
   const isDeal = projectType === "deal";
+  const en = getLang() === "en";
+  const T = (s) => (typeof s === "string" ? translateString(s).trim() : s);
+  const TR = (rows) => rows.map((r) => r.map(T));
+  const sheetName = (s) => T(s).replace(/[\\/?*\[\]:]/g, "-").slice(0, 31);
   const wb = XLSX.utils.book_new();
   const hdr = isDeal
     ? ["Nom Application","Catégorie","Domaine","Description","Criticité","Éditeur / Fournisseur","Version","Responsable","Nb Utilisateurs","Statut Day 1","Statut Day 2","Flux vers (séparés par |)","Protocole flux","Objet du flux (séparés par |)","Commentaires","Coût annuel (€)","Coût mensuel (€)","Type de coût","Nb licences","Hébergement","Type d'application","Date de fin de mise en service"]
@@ -276,24 +283,24 @@ const downloadTemplate = async (projectType = "deal") => {
   // Les flux sont décrits dans l'onglet « Flux Métier » : on retire les colonnes Flux vers / Protocole / Objet de l'onglet Applications
   const flowColIdx = isDeal ? [11,12,13] : [17,18,19];
   const dropFlowCols = (row)=>row.filter((_,i)=>!flowColIdx.includes(i));
-  const ws1 = XLSX.utils.aoa_to_sheet([dropFlowCols(hdr),...ex.map(dropFlowCols)]);
+  const ws1 = XLSX.utils.aoa_to_sheet(TR([dropFlowCols(hdr),...ex.map(dropFlowCols)]));
   ws1["!cols"]= (isDeal
     ? [{wch:22},{wch:20},{wch:16},{wch:35},{wch:12},{wch:12},{wch:22},{wch:12},{wch:18},{wch:14},{wch:18},{wch:18},{wch:28},{wch:16},{wch:30},{wch:28},{wch:16},{wch:16},{wch:12},{wch:12},{wch:24},{wch:28},{wch:18}]
     : [{wch:24},{wch:20},{wch:16},{wch:35},{wch:12},{wch:22},{wch:14},{wch:14},{wch:14},{wch:16},{wch:16},{wch:16},{wch:12},{wch:12},{wch:24},{wch:28},{wch:18},{wch:28},    {wch:16},{wch:30},{wch:28}]).filter((_,i)=>!flowColIdx.includes(i));
-  XLSX.utils.book_append_sheet(wb,ws1,"Applications");
+  XLSX.utils.book_append_sheet(wb,ws1,sheetName("Applications"));
   var fluxHdr=["N° Ordre","Application Émettrice","Application Réceptrice","Nom du Flux Métier","Protocole","Fréquence","Description"];
   var fluxEx=[[1,"SAP S/4HANA","Salesforce","Synchronisation clients","API","Temps réel","Envoi fiches clients"],[2,"SAP S/4HANA","Salesforce","Tarifs catalogue","API","Journalier","MAJ prix"],[3,"SAP S/4HANA","Power BI","Reporting financier","API","Journalier","Données comptables"],[4,"Salesforce","SAP S/4HANA","Commandes validées","REST","Temps réel","Retour commandes"],[5,"ADP","SAP S/4HANA","Écritures de paie","SFTP","Mensuel","Intégration paie"],[6,"MES Wonderware","SAP S/4HANA","Ordres de fabrication","API","Temps réel","Retour production"],[7,"WMS Reflex","SAP S/4HANA","Mouvements de stock","API","Temps réel","Entrées/sorties d'entrepôt"],[8,"DocuSign","Salesforce","Contrats signés","API","À la demande","Retour des signatures"],[9,"Workday","ADP","Données collaborateurs","API","Journalier","Synchronisation RH"],[10,"MES Wonderware","WMS Reflex","Bons de sortie","MQ","Temps réel","Préparation des expéditions"]];
-  var wsFlux=XLSX.utils.aoa_to_sheet([fluxHdr].concat(fluxEx));wsFlux["!cols"]=[{wch:10},{wch:24},{wch:24},{wch:28},{wch:14},{wch:16},{wch:45}];
-  XLSX.utils.book_append_sheet(wb,wsFlux,"Flux Métier");
+  var wsFlux=XLSX.utils.aoa_to_sheet(TR([fluxHdr].concat(fluxEx)));wsFlux["!cols"]=[{wch:10},{wch:24},{wch:24},{wch:28},{wch:14},{wch:16},{wch:45}];
+  XLSX.utils.book_append_sheet(wb,wsFlux,sheetName("Flux Métier"));
   const ref=[["Domaine","Description","Couleur"],["Finance","Comptabilité, controlling","#52B788"],["RH","Paie, talents, formation","#9D4EDD"],["IT","Infra, dev, BI","#548CA8"],["Commercial","CRM, ventes","#E06C75"],["Production","MES, qualité","#D4A017"],["Logistique","WMS, supply chain","#40A578"],["Marketing","Emailing, CMS","#D63384"],["Juridique","Contrats, conformité","#57A0A0"],["Direction","Reporting, stratégie","#7B78FF"],["Autre","Non classifié","#9E9E9E"]];
-  const ws2=XLSX.utils.aoa_to_sheet(ref); ws2["!cols"]=[{wch:16},{wch:40},{wch:12}]; XLSX.utils.book_append_sheet(wb,ws2,"Référentiel Domaines");
+  const ws2=XLSX.utils.aoa_to_sheet(TR(ref)); ws2["!cols"]=[{wch:16},{wch:40},{wch:12}]; XLSX.utils.book_append_sheet(wb,ws2,sheetName("Référentiel Domaines"));
   if(!isDeal){
-    const wsStatuts=XLSX.utils.aoa_to_sheet([["Statut","Définition"],...STATUT_DEFS]);
+    const wsStatuts=XLSX.utils.aoa_to_sheet(TR([["Statut","Définition"],...STATUT_DEFS]));
     wsStatuts["!cols"]=[{wch:22},{wch:90}];
-    XLSX.utils.book_append_sheet(wb,wsStatuts,"Référentiel Statuts");
+    XLSX.utils.book_append_sheet(wb,wsStatuts,sheetName("Référentiel Statuts"));
   }
   {
-    const wsPatr=XLSX.utils.aoa_to_sheet([["Champ","Valeur","Définition"],
+    const wsPatr=XLSX.utils.aoa_to_sheet(TR([["Champ","Valeur","Définition"],
       ["Type de coût","CAPEX","Investissement immobilisé : acquisition de licences perpétuelles, matériel, développement activé"],
       ["Type de coût","OPEX","Charge récurrente : abonnement, maintenance, support, hébergement, run"],
       ["Hébergement","On-premise","Hébergé sur les serveurs de l'entreprise ou d'un datacenter dédié"],
@@ -311,14 +318,14 @@ const downloadTemplate = async (projectType = "deal") => {
       ["Coût annuel (€)","Nombre","Coût annuel de l'application en euros HT, sans symbole ni séparateur de milliers (ex : 125000)"],
       ["Coût mensuel (€)","Nombre","Alternative au coût annuel : si seul le coût mensuel est renseigné, le coût annuel est calculé (×12)"],
       ["Nb licences","Entier","Nombre de licences ou de sièges achetés"],
-      ["Date de fin de mise en service","AAAA-MM-JJ","Date prévue d'arrêt ou de fin de support (ex : 2027-06-30). Les formats JJ/MM/AAAA, MM/AAAA et AAAA sont aussi reconnus"]]);
+      ["Date de fin de mise en service","AAAA-MM-JJ","Date prévue d'arrêt ou de fin de support (ex : 2027-06-30). Les formats JJ/MM/AAAA, MM/AAAA et AAAA sont aussi reconnus"]]));
     wsPatr["!cols"]=[{wch:30},{wch:32},{wch:95}];
-    XLSX.utils.book_append_sheet(wb,wsPatr,"Référentiel Patrimoine");
+    XLSX.utils.book_append_sheet(wb,wsPatr,sheetName("Référentiel Patrimoine"));
   }
   const ins = isDeal ? [["TEMPLATE CARTOGRAPHIE APPLICATIVE",""],["",""],["COLONNES OBLIGATOIRES",""],["Nom Application","Nom unique de l'application"],["Domaine","Finance, RH, IT, Commercial, Production, Logistique, Marketing, Juridique, Direction, Autre"],["",""],["COLONNES OPTIONNELLES",""],["Criticité","Haute / Moyenne / Basse"],["Statut Day 1","Stratégie de closing : Transfert TSA / Maintien / Rebuild / Abandon"],["Statut Day 2","Stratégie cible : Clone & Clean / Transfert / Rebuild / Abandon"],["Flux","Décrits dans l'onglet « Flux Métier » : une ligne par flux (application émettrice, réceptrice, nom, protocole, fréquence)"],["Coût annuel (€) / Coût mensuel (€)","Optionnel : l'un ou l'autre (annuel = mensuel ×12). Alimente le widget « Budget & coûts »"],["Type de coût","Optionnel : OPEX / CAPEX"],["Nb licences, Hébergement, Type d'application, Date de fin de mise en service","Optionnels : alimentent le widget « Patrimoine applicatif » (valeurs attendues : onglet « Référentiel Patrimoine »)"],["",""],["CONSEILS",""],["1.","Les noms des applications émettrice et réceptrice (onglet 'Flux Métier') = noms exacts de la colonne A"],["2.","Day 1 = statut de closing (J1) · Day 2 = vision cible à terme"],["3.","Voir onglet 'Référentiel Domaines' pour les couleurs"]]
   : [["TEMPLATE CARTOGRAPHIE APPLICATIVE",""],["",""],["COLONNES OBLIGATOIRES",""],["Nom Application","Nom unique de l'application"],["Domaine","Finance, RH, IT, Commercial, Production, Logistique, Marketing, Juridique, Direction, Autre"],["",""],["COLONNES OPTIONNELLES",""],["Criticité","Haute / Moyenne / Basse"],["Statut","Voir l'onglet 'Référentiel Statuts' pour la liste complète et les définitions"],["Coût annuel (€)","Coût annuel de l'application en euros HT (nombre, sans séparateur de milliers)"],["Coût mensuel (€)","Alternative au coût annuel (le coût annuel est alors calculé ×12)"],["Type de coût","OPEX / CAPEX"],["Nb licences","Nombre de licences ou de sièges"],["Hébergement","On-premise / Cloud privé / Cloud public (IaaS/PaaS) / SaaS / Hybride / Inconnu"],["Type d'application","Progiciel (COTS) / Développement spécifique / Open source / Socle / Middleware / Poste de travail / Bureautique / Autre"],["Date de fin de mise en service","Au format AAAA-MM-JJ (ex : 2027-06-30)"],["Flux","Décrits dans l'onglet « Flux Métier » : une ligne par flux (application émettrice, réceptrice, nom, protocole, fréquence)"],["",""],["CONSEILS",""],["1.","Les noms des applications émettrice et réceptrice (onglet 'Flux Métier') = noms exacts de la colonne A"],["2.","Voir onglet 'Référentiel Statuts' pour la liste des statuts d'application"],["3.","Voir onglet 'Référentiel Domaines' pour les couleurs"],["4.","Voir onglet 'Référentiel Patrimoine' pour les valeurs attendues (type de coût, hébergement, type d'application, formats)"],["5.","Colonnes Coût, Hébergement, Type d'application et Date de fin de mise en service : alimentent les widgets « Budget & coûts » et « Patrimoine applicatif » du dashboard"]];
-  const ws3=XLSX.utils.aoa_to_sheet(ins); ws3["!cols"]=[{wch:30},{wch:70}]; XLSX.utils.book_append_sheet(wb,ws3,"Instructions");
-  XLSX.writeFile(wb,"template_cartographie.xlsx");
+  const ws3=XLSX.utils.aoa_to_sheet(TR(ins)); ws3["!cols"]=[{wch:30},{wch:70}]; XLSX.utils.book_append_sheet(wb,ws3,sheetName("Instructions"));
+  XLSX.writeFile(wb,en?"application_map_template.xlsx":"template_cartographie.xlsx");
 };
 
 
@@ -890,15 +897,15 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
 
   const processImport=()=>{
     if(!cMap.name||!cMap.domain){alert("Mappez au minimum: Nom et Domaine");return;}
-    const na=rawData.map((r,i)=>({id:uid(),name:r[cMap.name]||"App_"+i,domain:r[cMap.domain]||"Autre",category:r[cMap.category]||"",description:r[cMap.description]||"",criticality:r[cMap.criticality]||"Moyenne",vendor:r[cMap.vendor]||"",version:r[cMap.version]||"",owner:r[cMap.owner]||"",users:parseInt(r[cMap.users])||0,statut:r[cMap.statut]||"",statusD1:r[cMap.statusD1]||"",statusD2:r[cMap.statusD2]||"",x:0,y:0,_ft:r[cMap.flowTo]||"",_fp:r[cMap.flowProtocol]||"",_fl:r[cMap.flowLabel]||"",...(function(){var an=parseAmount(r[cMap.budget]),mo=parseAmount(r[cMap.monthlyCost]);return{budget:an!=null?an:(mo!=null?Math.round(mo*12*100)/100:null),monthlyCost:mo!=null?mo:(an!=null?Math.round(an/12*100)/100:null)};})(),...{costType:canonOption(r[cMap.costType],COST_TYPES),licenses:parseInt(String(r[cMap.licenses]||"").replace(/\s/g,""))||0,hosting:canonOption(r[cMap.hosting],HOSTING_OPTS),appType:canonOption(r[cMap.appType],APPTYPE_OPTS),endOfService:parseDate(r[cMap.endOfService])}}));
+    const na=rawData.map((r,i)=>({id:uid(),name:r[cMap.name]||"App_"+i,domain:canonLabel(r[cMap.domain],DOMAIN_OPTS)||"Autre",category:r[cMap.category]||"",description:r[cMap.description]||"",criticality:canonLabel(r[cMap.criticality],CRIT_OPTS)||"Moyenne",vendor:r[cMap.vendor]||"",version:r[cMap.version]||"",owner:r[cMap.owner]||"",users:parseInt(r[cMap.users])||0,statut:canonLabel(r[cMap.statut],STATUT_OPTS),statusD1:canonLabel(r[cMap.statusD1],D1_OPTS),statusD2:canonLabel(r[cMap.statusD2],D2_OPTS),x:0,y:0,_ft:r[cMap.flowTo]||"",_fp:r[cMap.flowProtocol]||"",_fl:r[cMap.flowLabel]||"",...(function(){var an=parseAmount(r[cMap.budget]),mo=parseAmount(r[cMap.monthlyCost]);return{budget:an!=null?an:(mo!=null?Math.round(mo*12*100)/100:null),monthlyCost:mo!=null?mo:(an!=null?Math.round(an/12*100)/100:null)};})(),...{costType:canonOption(r[cMap.costType],COST_TYPES),licenses:parseInt(String(r[cMap.licenses]||"").replace(/\s/g,""))||0,hosting:canonOption(r[cMap.hosting],HOSTING_OPTS),appType:canonOption(r[cMap.appType],APPTYPE_OPTS),endOfService:parseDate(r[cMap.endOfService])}}));
     const nf=[];
     if(rawFluxData&&rawFluxData.length>0){
       var nrm=function(s){return(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim();};
       var fHdr=Object.keys(rawFluxData[0]);
       var findCol=function(kw){return fHdr.find(function(h){return kw.some(function(k){return nrm(h).indexOf(k)>=0;});});};
-      var colFrom=findCol(["emettrice","source","from"]);
-      var colTo=findCol(["receptrice","cible","to","vers"]);
-      var colName=findCol(["nom du flux","flux metier","nom flux","libelle","label","name"]);
+      var colFrom=findCol(["emettrice","source","from","sending"]);
+      var colTo=findCol(["receptrice","receiving","cible","to","vers"]);
+      var colName=findCol(["nom du flux","flux metier","nom flux","libelle","label","name","flow"]);
       var colProto=findCol(["protocole","protocol"]);
       var colFreq=findCol(["frequence","frequency"]);
       var colDesc=findCol(["description","desc"]);

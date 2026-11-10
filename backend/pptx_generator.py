@@ -1503,10 +1503,11 @@ def _layout_global(apps: List[Dict], region):
         groups.setdefault(_dom_of(a), []).append(a)
     doms = sorted(groups, key=lambda d: (-len(groups[d]), d))
     nd = len(doms)
-    GUT, PAD = 0.22, 0.10
+    GUT, PAD = 0.34, 0.10
     modes = []
     if len(apps) <= 60:
         modes.append((1.15, 0.27, 0.08, False))
+        modes.append((1.05, 0.21, 0.05, False))
     modes += [(0.17, 0.17, 0.07, True), (0.12, 0.12, 0.04, True)]
     col_opts = [c for c in (3, 2, 4, 1, 5, 6) if c <= nd] or [1]
     for pw, ph, gap, dot in modes:
@@ -1537,139 +1538,314 @@ def _layout_global(apps: List[Dict], region):
     return None
 
 
+def add_ortho(slide, pts, color, width=1.0):
+    """Native right-angle polyline with an arrow head on the last point."""
+    from pptx.oxml.ns import qn
+    from lxml import etree
+    fb = slide.shapes.build_freeform(int(Inches(pts[0][0])), int(Inches(pts[0][1])))
+    fb.add_line_segments([(int(Inches(x)), int(Inches(y))) for x, y in pts[1:]], close=False)
+    shp = fb.convert_to_shape()
+    shp.fill.background()
+    shp.line.color.rgb = hex_color(color)
+    shp.line.width = Pt(width)
+    try:
+        shp.shadow.inherit = False
+        tail = etree.SubElement(shp.line._get_or_add_ln(), qn('a:tailEnd'))
+        tail.set('type', 'triangle')
+        tail.set('w', 'med')
+        tail.set('len', 'med')
+    except Exception:
+        pass
+    return shp
+
+
+def add_flow_label(slide, text, x, y, color, align_right=False, font=7, max_w=1.35):
+    """Small white tag centred vertically on y; anchored left (or right) at x."""
+    from pptx.enum.shapes import MSO_AUTO_SHAPE_TYPE
+    from pptx.enum.text import MSO_ANCHOR
+    w = min(max_w, max(0.35, 0.058 * len(text) + 0.12))
+    left = x - w if align_right else x
+    shp = slide.shapes.add_shape(MSO_AUTO_SHAPE_TYPE.RECTANGLE, Inches(left), Inches(y - 0.07), Inches(w), Inches(0.14))
+    shp.fill.solid()
+    shp.fill.fore_color.rgb = hex_color('FFFFFF')
+    shp.line.color.rgb = hex_color(color)
+    shp.line.width = Pt(0.5)
+    try:
+        shp.shadow.inherit = False
+    except Exception:
+        pass
+    tf = shp.text_frame
+    tf.word_wrap = False
+    tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+    tf.margin_left = tf.margin_right = Inches(0.03)
+    tf.margin_top = tf.margin_bottom = 0
+    para = tf.paragraphs[0]
+    para.alignment = PP_ALIGN.CENTER
+    r = para.add_run()
+    r.text = text
+    r.font.size = Pt(font)
+    r.font.name = "Poppins"
+    r.font.color.rgb = hex_color('0F172A')
+    return shp
+
+
+def _assign_lanes(items):
+    """items: list of (key, lo, hi). Interval colouring: overlapping spans get distinct lanes."""
+    lanes: List[float] = []
+    out = {}
+    for key, lo, hi in sorted(items, key=lambda t: (t[1], t[2])):
+        for i, end in enumerate(lanes):
+            if end < lo - 0.03:
+                lanes[i] = hi
+                out[key] = i
+                break
+        else:
+            lanes.append(hi)
+            out[key] = len(lanes) - 1
+    return out, len(lanes)
+
+
 def add_carto_globale_slide(prs: Presentation, apps: List[Dict], flows: List[Dict], opts: Dict):
-    """One slide: every application grouped by domain, every individual flow drawn as an arrow."""
+    """All applications grouped by domain; inter-domain flows as labelled right-angle corridors."""
     colors = _dom_colors(apps)
     sl = prs.slides.add_slide(prs.slide_layouts[8])
     set_placeholders(sl, title="CARTOGRAPHIE GLOBALE", breadcrumb="Cartographie Applicative")
-    lay = _layout_global(apps, (0.55, 2.25, 11.65, 4.60))
+    lay = _layout_global(apps, (0.55, 2.55, 11.65, 4.30))
     if not lay:
         add_text(sl, "Périmètre trop volumineux pour une vue unique : voir les vues par domaine.",
                  1.25, 3.5, 10.0, 0.4, font_size=14, color_hex='64748B')
         return
     dom_of_id = {a['id']: _dom_of(a) for a in apps}
+    corr: Dict = {}
+    internal: Dict[str, int] = {}
+    for f in flows:
+        a, b = f.get('from'), f.get('to')
+        if a in dom_of_id and b in dom_of_id and a != b:
+            da, db = dom_of_id[a], dom_of_id[b]
+            if da == db:
+                internal[da] = internal.get(da, 0) + 1
+            else:
+                corr[(da, db)] = corr.get((da, db), 0) + 1
     for d in lay['doms']:
         x, y, w, h = lay['cells'][d]
-        _draw_group_box(sl, x, y, w, h, colors[d], f"{d.upper()}  ·  {len(lay['groups'][d])}")
-    agg: Dict = {}
-    for f in flows:
-        k = (f.get('from'), f.get('to'))
-        if k[0] in lay['pills'] and k[1] in lay['pills'] and k[0] != k[1]:
-            agg[k] = agg.get(k, 0) + 1
-    base = 0.6 if len(agg) > 120 else 0.9
-    for (a, b), n in agg.items():
-        add_flow_line(sl, lay['pills'][a], lay['pills'][b], colors[dom_of_id[a]], base + min(n - 1, 3) * 0.5)
+        extra = f"  ·  {internal[d]} flux int." if internal.get(d) else ''
+        _draw_group_box(sl, x, y, w, h, colors[d], f"{d.upper()}  ·  {len(lay['groups'][d])}{extra}")
+
+    cells = lay['cells']
+    row_ys = sorted({round(c[1], 3) for c in cells.values()})
+    gutters: Dict[tuple, List] = {}
+    plan = []
+    shown = 0
+    for (da, db), n in sorted(corr.items(), key=lambda kv: -kv[1]):
+        if len(plan) >= 24:
+            break
+        ca, cb = cells[da], cells[db]
+        ra, rb = row_ys.index(round(ca[1], 3)), row_ys.index(round(cb[1], 3))
+        down = rb > ra
+        side = 'bottom' if down else 'top'
+        gkey = (ra, side)
+        xa, xb = ca[0] + ca[2] / 2, cb[0] + cb[2] / 2
+        items = gutters.setdefault(gkey, [])
+        _, nl = _assign_lanes([(i[0], i[1], i[2]) for i in items] + [((da, db), min(xa, xb), max(xa, xb))])
+        if nl > 3:
+            continue
+        items.append(((da, db), min(xa, xb), max(xa, xb)))
+        plan.append(((da, db), n, gkey, down))
+    lane_of: Dict = {}
+    for gkey, items in gutters.items():
+        res, _ = _assign_lanes(items)
+        lane_of.update({(gkey, k): v for k, v in res.items()})
+
+    ports: Dict = {}
+    for (da, db), n, gkey, down in plan:
+        ports.setdefault((da, 'out', gkey[1]), []).append((cells[db][0], (da, db)))
+        ports.setdefault((db, 'in', 'top' if down else 'bottom'), []).append((cells[da][0], (da, db)))
+    px: Dict = {}
+    for (dom, _, side), lst in ports.items():
+        lst.sort()
+        c = cells[dom]
+        for k, (_, key) in enumerate(lst):
+            px[(dom, side, key)] = c[0] + 0.30 + (c[2] - 0.60) * (k + 0.5) / len(lst)
+
+    for (da, db), n, gkey, down in plan:
+        ca, cb = cells[da], cells[db]
+        ra = gkey[0]
+        side = gkey[1]
+        gy = (ca[1] + ca[3] + (row_ys[ra + 1] - (ca[1] + ca[3])) / 2) if down else (ca[1] - 0.15)
+        if down and ra + 1 >= len(row_ys):
+            gy = ca[1] + ca[3] + 0.17
+        gy += (lane_of[(gkey, (da, db))] - 1) * 0.085
+        x1 = px[(da, side, (da, db))]
+        x2 = px[(db, 'top' if down else 'bottom', (da, db))]
+        y1 = ca[1] + ca[3] if down else ca[1]
+        y2 = cb[1] if down else cb[1] + cb[3]
+        wdt = min(3.5, 1.0 + 0.12 * n)
+        add_ortho(sl, [(x1, y1), (x1, gy), (x2, gy), (x2, y2)], colors[da], wdt)
+        add_flow_label(sl, f"{n} flux", (x1 + x2) / 2, gy, colors[da], font=7)
+        shown += 1
     for a in apps:
         add_pill(sl, lay['pills'][a['id']], _short(a.get('name', ''), 17), colors[dom_of_id[a['id']]],
                  font=8, dot=lay['dot'], name=a.get('name', ''))
-    note = "Flèches : flux (couleur = domaine émetteur, épaisseur = nombre de flux entre les deux applications)"
-    if lay['dot']:
-        note += " · noms des applications dans les vues par domaine"
+    hidden = len(corr) - shown
+    note = "Flèches : flux regroupés entre domaines (couleur = domaine émetteur)"
+    if hidden > 0:
+        note += f" · {hidden} liaison(s) secondaire(s) non tracée(s)"
+    note += " · détail flux par flux dans les vues par domaine"
     add_text(sl, note, 0.55, 6.92, 11.6, 0.2, font_size=8, color_hex='64748B')
+
+
+PORT_SP = 0.16
+ROW_MIN = 0.30
+COL_AVAIL = 4.10
+
+
+def _flows_for(ids, by_id, flows):
+    return [f for f in flows if (f.get('from') in ids or f.get('to') in ids)
+            and f.get('from') in by_id and f.get('to') in by_id and f.get('from') != f.get('to')]
+
+
+def _counts(rel):
+    cnt: Dict[str, int] = {}
+    for f in rel:
+        for e in (f['from'], f['to']):
+            cnt[e] = cnt.get(e, 0) + 1
+    return cnt
+
+
+def _col_h(members, cnt, k=1.0):
+    return sum(max(ROW_MIN, PORT_SP * cnt.get(m, 0) * k + 0.04) + 0.06 for m in members)
+
+
+def _chunk_domain(dom_apps, by_id, flows):
+    chunks, cur = [], []
+    for a in dom_apps:
+        trial = cur + [a]
+        ids = {x['id'] for x in trial}
+        rel = _flows_for(ids, by_id, flows)
+        cnt = _counts(rel)
+        ext = [e for e in cnt if e not in ids]
+        if cur and max(_col_h([x['id'] for x in trial], cnt, 0.75), _col_h(ext, cnt, 0.75)) > COL_AVAIL:
+            chunks.append(cur)
+            cur = [a]
+        else:
+            cur = trial
+    if cur:
+        chunks.append(cur)
+    return chunks
 
 
 def _domain_slide(prs, dom, chunk, ci, nchunks, dom_total, by_id, flows, colors):
     col = colors[dom]
     ids = {a['id'] for a in chunk}
-    rel = [f for f in flows if (f.get('from') in ids or f.get('to') in ids)
-           and f.get('from') in by_id and f.get('to') in by_id and f.get('from') != f.get('to')]
+    rel = _flows_for(ids, by_id, flows)
+    cnt = _counts(rel)
+    ext_ids = [e for e in cnt if e not in ids]
+    internal = sum(1 for f in rel if f['from'] in ids and f['to'] in ids)
+    out_ext = sum(1 for f in rel if f['from'] in ids and f['to'] not in ids)
+    in_ext = sum(1 for f in rel if f['to'] in ids and f['from'] not in ids)
+
     sl = prs.slides.add_slide(prs.slide_layouts[8])
     title = f"DOMAINE — {dom.upper()}" + (f" ({ci + 1}/{nchunks})" if nchunks > 1 else "")
-
-    LX, LY, LW, LH = 0.55, 2.25, 6.35, 4.60
-    pw, ph, gap, PAD, per_row = 1.95, 0.30, 0.10, 0.12, 3
-    rows = math.ceil(len(chunk) / per_row)
-    box_h = min(LH, max(2.4, _G_HDR + 2 * PAD + rows * (ph + gap) - gap))
-    pos = {a['id']: (LX + PAD + (i % per_row) * (pw + gap), LY + _G_HDR + PAD + (i // per_row) * (ph + gap), pw, ph)
-           for i, a in enumerate(chunk)}
-
-    ext_conn: Dict[str, List[float]] = {}
-    partner: Dict[str, int] = {}
-    internal = out_ext = in_ext = 0
-    for f in rel:
-        a, b = f['from'], f['to']
-        if a in ids and b in ids:
-            internal += 1
-        elif a in ids:
-            out_ext += 1
-            ext_conn.setdefault(b, []).append(pos[a][1])
-            partner[_dom_of(by_id[b])] = partner.get(_dom_of(by_id[b]), 0) + 1
-        else:
-            in_ext += 1
-            ext_conn.setdefault(a, []).append(pos[b][1])
-            partner[_dom_of(by_id[a])] = partner.get(_dom_of(by_id[a]), 0) + 1
-
-    sub = f"{dom_total} applications · {internal} flux internes · {out_ext} sortants · {in_ext} entrants"
-    top = [d for d, _ in sorted(partner.items(), key=lambda kv: -kv[1]) if d != dom][:1]
-    if top:
-        sub += f" — partenaire principal : {top[0]}"
+    sub = f"{len(chunk)} application(s) · {internal} flux internes · {out_ext} sortants · {in_ext} entrants"
     set_placeholders(sl, title=title, breadcrumb="Cartographie Applicative > Vue par domaine", subtitle=sub)
 
-    egroups: Dict[str, List] = {}
-    for eid, ys in ext_conn.items():
-        egroups.setdefault(_dom_of(by_id[eid]), []).append((sum(ys) / len(ys), len(ys), eid))
-    for d in egroups:
-        egroups[d].sort()
-    gorder = sorted(egroups, key=lambda d: sum(t[0] for t in egroups[d]) / len(egroups[d]))
+    LY = 2.25
+    k = 1.0
+    while max(_col_h(list(ids), cnt, k), _col_h(ext_ids, cnt, k)) > COL_AVAIL and k > 0.3:
+        k -= 0.05
+    sp = PORT_SP * k
+    show_labels = sp >= 0.105
 
-    def total_h(s):
-        eph, egap, ehdr, egp, ec = s
-        return (sum(ehdr + 2 * egp + math.ceil(len(egroups[d]) / ec) * (eph + egap) - egap for d in gorder)
-                + max(len(gorder) - 1, 0) * 0.1)
+    def rows(members, y0):
+        pos, y = {}, y0
+        for m in members:
+            rh = max(ROW_MIN, PORT_SP * cnt.get(m, 0) * k + 0.04)
+            pos[m] = (y, rh)
+            y += rh + 0.06
+        return pos, y
 
-    sizes = [(0.28, 0.06, _G_HDR, 0.06, 1), (0.22, 0.04, 0.24, 0.04, 1),
-             (0.22, 0.04, 0.24, 0.04, 2), (0.18, 0.03, 0.20, 0.03, 2), (0.15, 0.02, 0.18, 0.02, 2), (0.15, 0.02, 0.18, 0.02, 3)]
-    chosen = sizes[-1]
-    dropped = 0
-    for s in sizes:
-        if total_h(s) <= LH:
-            chosen = s
-            break
-    else:
-        while gorder and total_h(chosen) > LH:
-            worst = min(((t[1], d, t) for d in gorder for t in egroups[d]), key=lambda z: z[0])
-            egroups[worst[1]].remove(worst[2])
-            dropped += 1
-            if not egroups[worst[1]]:
-                gorder.remove(worst[1])
-                del egroups[worst[1]]
-    eph, egap, ehdr, egp, ec = chosen
-
-    _draw_group_box(sl, LX, LY, LW, box_h, col, f"{dom.upper()}  ·  {len(chunk)} application(s)")
-    epos: Dict[str, tuple] = {}
-    y = LY
-    for d in gorder:
-        n = len(egroups[d])
-        h = ehdr + 2 * egp + math.ceil(n / ec) * (eph + egap) - egap
-        dc = colors.get(d, DOM_PAL[0])
-        add_rect(sl, 8.65, y, 3.55, h, fill_hex=lighten(dc, 0.93), line_hex=lighten(dc, 0.55), line_w=0.75)
-        add_rect(sl, 8.65, y, 3.55, ehdr, fill_hex=dc)
-        add_text(sl, ("SUITE DU DOMAINE" if d == dom else d.upper()) + f"  ·  {n}", 8.75, y + 0.02, 3.35, ehdr - 0.04,
-                 font_size=8, bold=True, color_hex='FFFFFF')
-        for i, (_, _, eid) in enumerate(egroups[d]):
-            ew = (3.15 - 0.08 * (ec - 1)) / ec
-            epos[eid] = (8.85 + (i % ec) * (ew + 0.08), y + ehdr + egp + (i // ec) * (eph + egap), ew, eph)
-        y += h + 0.1
-
+    left_ids = [a['id'] for a in sorted(chunk, key=lambda a: a.get('name', ''))]
+    lpos, lend = rows(left_ids, LY + _G_HDR + 0.08)
+    ly_center = {m: p[0] + p[1] / 2 for m, p in lpos.items()}
+    nbr: Dict[str, List[float]] = {}
     for f in rel:
         a, b = f['from'], f['to']
-        pa, pb = pos.get(a) or epos.get(a), pos.get(b) or epos.get(b)
-        if pa and pb:
-            add_flow_line(sl, pa, pb, colors.get(_dom_of(by_id[a]), col))
-    for a in chunk:
-        add_pill(sl, pos[a['id']], _short(a.get('name', ''), 28), col, font=8, name=a.get('name', ''))
-    fs = 8 if eph >= 0.26 else (7 if eph >= 0.2 else 6)
-    for eid, p in epos.items():
-        add_pill(sl, p, _short(by_id[eid].get('name', ''), 34 if ec == 1 else (17 if ec == 2 else 11)), colors.get(_dom_of(by_id[eid]), col), font=fs,
-                 name=by_id[eid].get('name', ''))
+        if a in ids and b not in ids:
+            nbr.setdefault(b, []).append(ly_center[a])
+        elif b in ids and a not in ids:
+            nbr.setdefault(a, []).append(ly_center[b])
+    ext_ids.sort(key=lambda e: (sum(nbr[e]) / len(nbr[e]), by_id[e].get('name', '')))
+    epos, eend = rows(ext_ids, LY + _G_HDR + 0.08)
+
+    LXP, LW = 0.55, 2.30
+    EXP, EW = 9.90, 2.30
+    _draw_group_box(sl, LXP, LY, LW, lend - LY + 0.02, col, f"{dom.upper()} · {len(chunk)}")
+    if ext_ids:
+        add_rect(sl, EXP, LY, EW, eend - LY + 0.02, fill_hex='F1F5F9', line_hex='CBD5E1', line_w=0.75)
+        add_rect(sl, EXP, LY, EW, _G_HDR, fill_hex='64748B')
+        add_text(sl, f"AUTRES APPLICATIONS · {len(ext_ids)}", EXP + 0.10, LY + 0.02, EW - 0.2, _G_HDR - 0.04,
+                 font_size=9, bold=True, color_hex='FFFFFF')
+
+    pill = {}
+    for m, (y, rh) in lpos.items():
+        pill[m] = (LXP + 0.10, y, LW - 0.20, rh - 0.02, 'L')
+    for m, (y, rh) in epos.items():
+        pill[m] = (EXP + 0.10, y, EW - 0.20, rh - 0.02, 'R')
+
+    slots: Dict[str, List] = {}
+    for i, f in enumerate(rel):
+        for end, other in (('from', 'to'), ('to', 'from')):
+            e = f[end]
+            slots.setdefault(e, []).append((pill[f[other]][1], i))
+    port_y: Dict = {}
+    for e, lst in slots.items():
+        lst.sort()
+        _, y, _, h, _ = pill[e]
+        for j, (_, i) in enumerate(lst):
+            port_y[(e, i)] = y + h * (j + 0.5) / len(lst)
+
+    L_STUB_END = LXP + 0.10 + (LW - 0.20)
+    E_STUB_START = EXP + 0.10
+    lane_lo, lane_hi = L_STUB_END + 1.50, E_STUB_START - 1.50
+    spans = []
+    for i, f in enumerate(rel):
+        y1, y2 = port_y[(f['from'], i)], port_y[(f['to'], i)]
+        spans.append((i, min(y1, y2), max(y1, y2)))
+    lane_idx, nl = _assign_lanes(spans)
+    step = min(0.15, (lane_hi - lane_lo) / max(nl, 1))
+
+    for i, f in enumerate(rel):
+        a, b = f['from'], f['to']
+        ya, yb = port_y[(a, i)], port_y[(b, i)]
+        sa, sb = pill[a][4], pill[b][4]
+        xa = L_STUB_END if sa == 'L' else E_STUB_START
+        xb = L_STUB_END if sb == 'L' else E_STUB_START
+        if sa == 'L' and sb == 'L':
+            lx = L_STUB_END + 0.25 + (lane_idx[i] % 6) * 0.14
+        else:
+            lx = lane_lo + lane_idx[i] * step
+        c = colors.get(_dom_of(by_id[a]), col)
+        add_ortho(sl, [(xa, ya), (lx, ya), (lx, yb), (xb, yb)], c, 1.0)
+        if show_labels:
+            txt = _short(f.get('label') or f.get('name') or '', 22)
+            if txt:
+                if sa == 'L':
+                    add_flow_label(sl, txt, xa + 0.05, ya, c, font=7)
+                else:
+                    add_flow_label(sl, txt, xa - 0.05, ya, c, align_right=True, font=7)
+    for m, (x, y, w, h, _) in pill.items():
+        dc = colors.get(_dom_of(by_id[m]), col)
+        name = by_id[m].get('name', '')
+        txt = _short(name, 30) if m in ids else _short(f"{name} · {_dom_of(by_id[m])}", 34)
+        add_pill(sl, (x, y, w, h), txt, dc, font=8 if h >= 0.26 else 7, name=name)
     note = f"Flèches : flux (couleur = domaine émetteur) · {len(rel)} flux"
-    if dropped:
-        note += f" · {dropped} application(s) connectée(s) peu liée(s) non affichée(s)"
+    if not show_labels:
+        note += " · étiquettes masquées (trop de flux sur une application)"
     add_text(sl, note, 0.55, 6.92, 11.6, 0.2, font_size=8, color_hex='64748B')
 
 
 def add_domain_view_slides(prs: Presentation, apps: List[Dict], flows: List[Dict], opts: Dict):
-    """One slide per domain (split every 24 applications): its applications and all their flows."""
+    """One or more slides per domain: its applications, linked applications and every flow, labelled."""
     colors = _dom_colors(apps)
     by_id = {a['id']: a for a in apps}
     groups: Dict[str, List[Dict]] = {}
@@ -1677,7 +1853,7 @@ def add_domain_view_slides(prs: Presentation, apps: List[Dict], flows: List[Dict
         groups.setdefault(_dom_of(a), []).append(a)
     for dom in sorted(groups, key=lambda d: (-len(groups[d]), d)):
         dom_apps = sorted(groups[dom], key=lambda a: a.get('name', ''))
-        chunks = [dom_apps[i:i + 24] for i in range(0, len(dom_apps), 24)]
+        chunks = _chunk_domain(dom_apps, by_id, flows)
         for ci, chunk in enumerate(chunks):
             _domain_slide(prs, dom, chunk, ci, len(chunks), len(dom_apps), by_id, flows, colors)
 
