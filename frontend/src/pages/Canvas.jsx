@@ -20,13 +20,20 @@ export default function Canvas() {
   const navigate      = useNavigate();
   const wsRef         = useRef(null);
   const canvasStateRef = useRef(null);
+  const lastCanvasStateRef = useRef(null);
+  const autoSaveTimerRef = useRef(null);
+  const savingRef = useRef(false);
+  const canvasInitializedRef = useRef(false);
 
   const [project,         setProject]         = useState(null);
   const [saving,          setSaving]          = useState(false);
+  const [unsavedChanges,  setUnsavedChanges]  = useState(false);
+  const [saveFailed,      setSaveFailed]      = useState(false);
   const [viewsSlot,       setViewsSlot]       = useState(null);
   const [lastSaved,       setLastSaved]       = useState(null);
   const [presence,        setPresence]        = useState([]);
   const [initialSnapshot, setInitialSnapshot] = useState(null);
+  const [snapshotLoaded,  setSnapshotLoaded]  = useState(false);
   const [wsMessage,       setWsMessage]       = useState(null);
   // Suit le thème du canvas pour adapter la barre de contexte
   const [canvasDark,      setCanvasDark]      = useState(true);
@@ -43,6 +50,18 @@ export default function Canvas() {
   /* Charger projet + snapshot */
   useEffect(() => {
     const load = async () => {
+      canvasInitializedRef.current = false;
+      lastCanvasStateRef.current = null;
+      canvasStateRef.current = null;
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = null;
+      }
+      setLastSaved(null);
+      setUnsavedChanges(false);
+      setSaveFailed(false);
+      setSnapshotLoaded(false);
+      setInitialSnapshot(null);
       const res  = await getProjects();
       const proj = res.data.find((p) => p.id === parseInt(projectId));
       setProject(proj);
@@ -50,6 +69,7 @@ export default function Canvas() {
         const snap = await getLatestSnapshot(projectId);
         setInitialSnapshot(snap.data);
       } catch { /* canvas vierge */ }
+      finally { setSnapshotLoaded(true); }
     };
     load();
   }, [projectId]);
@@ -72,29 +92,64 @@ export default function Canvas() {
     return () => ws.close();
   }, [projectId]);
 
-  const handleCanvasSave = useCallback((state) => { canvasStateRef.current = state; }, []);
-
-  const handleSave = useCallback(async () => {
+  const handleSave = useCallback(async (label = 'Sauvegarde manuelle') => {
     const state = canvasStateRef.current;
-    if (!state) return;
+    if (!state || savingRef.current) return;
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+    }
+    savingRef.current = true;
     setSaving(true);
+    setSaveFailed(false);
     try {
       await saveSnapshot(projectId, {
         apps:       state.apps      || [],
         flows:      state.flows     || [],
         dom_colors: state.domColors || {},
-        label:      'Auto-save',
+        label,
       });
       setLastSaved(new Date());
+      if (JSON.stringify(canvasStateRef.current) === JSON.stringify(state)) {
+        setUnsavedChanges(false);
+      }
+    } catch {
+      setSaveFailed(true);
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   }, [projectId]);
 
-  useEffect(() => {
-    const timer = setInterval(handleSave, 30000);
-    return () => clearInterval(timer);
+  const handleCanvasSave = useCallback((state) => {
+    canvasStateRef.current = state;
+    const signature = JSON.stringify(state);
+    if (!canvasInitializedRef.current) {
+      canvasInitializedRef.current = true;
+      lastCanvasStateRef.current = signature;
+      return;
+    }
+    if (signature === lastCanvasStateRef.current) return;
+    lastCanvasStateRef.current = signature;
+    setUnsavedChanges(true);
+    setSaveFailed(false);
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    const runAutoSave = () => {
+      if (savingRef.current) {
+        autoSaveTimerRef.current = setTimeout(runAutoSave, 250);
+        return;
+      }
+      autoSaveTimerRef.current = null;
+      void handleSave('Sauvegarde automatique');
+    };
+    autoSaveTimerRef.current = setTimeout(runAutoSave, 2000);
   }, [handleSave]);
+
+  useEffect(() => {
+    return () => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    };
+  }, [projectId]);
 
   const others = presence.filter((p) => p.user_id !== user?.id);
 
@@ -152,6 +207,14 @@ export default function Canvas() {
             <span style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, color:ctxMuted }}>
               <span style={{ width:6, height:6, borderRadius:'50%', background:'currentColor', display:'inline-block' }} /> Sauvegarde…
             </span>
+          ) : saveFailed ? (
+            <span style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, color:'#EF4444' }}>
+              <span style={{ width:6, height:6, borderRadius:'50%', background:'currentColor', display:'inline-block' }} /> Échec de la sauvegarde
+            </span>
+          ) : unsavedChanges ? (
+            <span style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, color:ctxMuted }}>
+              <span style={{ width:6, height:6, borderRadius:'50%', background:'currentColor', display:'inline-block' }} /> Modifications en attente
+            </span>
           ) : lastSaved ? (
             <span style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, color: canvasDark ? '#4CAF50' : '#059669' }}>
               <span style={{ width:6, height:6, borderRadius:'50%', background:'currentColor', display:'inline-block' }} />
@@ -165,7 +228,7 @@ export default function Canvas() {
           <div ref={setViewsSlot} style={{ display:'flex' }} />
           <LangToggle />
           <ThemeToggle />
-          <button onClick={handleSave} disabled={saving} style={{ background:'linear-gradient(135deg,#6366F1,#8B5CF6)', color:'#fff', border:'none', padding:'6px 14px', borderRadius:6, fontSize:12, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:6, fontFamily:'inherit', opacity: saving ? 0.5 : 1 }}>
+          <button onClick={() => handleSave()} disabled={saving} style={{ background:'linear-gradient(135deg,#6366F1,#8B5CF6)', color:'#fff', border:'none', padding:'6px 14px', borderRadius:6, fontSize:12, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:6, fontFamily:'inherit', opacity: saving ? 0.5 : 1 }}>
             {saving ? <span style={{ width:12, height:12, border:'2px solid rgba(255,255,255,0.3)', borderTopColor:'#fff', borderRadius:'50%', display:'inline-block', animation:'_spin 0.6s linear infinite' }} /> : '💾'} Sauvegarder
           </button>
           <div onClick={() => setShowProfile(true)} title="Modifier mon profil"
@@ -187,6 +250,13 @@ export default function Canvas() {
 
       {/* ── Canvas ── */}
       <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
+        {!snapshotLoaded && (
+          <div style={{ height:'100%', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', background:'#08080F', gap:16 }}>
+            <div style={{ width:40, height:40, borderRadius:10, background:'linear-gradient(135deg,#6366F1,#8B5CF6)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20 }}>🗺️</div>
+            <div style={{ color:'#9090B8', fontSize:13 }}>Chargement de la cartographie…</div>
+          </div>
+        )}
+        {snapshotLoaded && (
         <Suspense fallback={
           <div style={{ height:'100%', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', background:'#08080F', gap:16 }}>
             <div style={{ width:40, height:40, borderRadius:10, background:'linear-gradient(135deg,#6366F1,#8B5CF6)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20 }}>🗺️</div>
@@ -207,6 +277,7 @@ export default function Canvas() {
             viewsSlot={viewsSlot}
           />
         </Suspense>
+        )}
       </div>
     </div>
   );

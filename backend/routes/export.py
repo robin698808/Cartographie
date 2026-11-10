@@ -6,7 +6,7 @@ import io
 
 import os
 import auth
-from pptx_generator import generate_pptx
+from pptx_generator import generate_pptx, plan_pptx, SECTIONS
 
 router = APIRouter(prefix="/export")
 
@@ -19,6 +19,22 @@ class ExportPptxRequest(BaseModel):
     apps: List[Dict[str, Any]] = []
     flows: List[Dict[str, Any]] = []
     opts: Dict[str, Any] = {}
+
+
+@router.get("/pptx/sections")
+async def export_sections(current_user=Depends(auth.get_current_user)):
+    return {"sections": SECTIONS}
+
+
+@router.post("/pptx/plan")
+async def export_pptx_plan(
+    payload: ExportPptxRequest,
+    current_user=Depends(auth.get_current_user),
+):
+    try:
+        return plan_pptx(payload.apps, payload.flows, payload.opts, TEMPLATE_PATH)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur plan PPTX: {str(e)}")
 
 
 @router.post("/pptx")
