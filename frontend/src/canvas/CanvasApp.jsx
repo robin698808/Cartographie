@@ -1674,10 +1674,10 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     });
     var lf=Math.max(8,flowFontSize);
     var specs=visFlows.filter(function(f){return routed[f.id]&&shortTxt(f);}).map(function(f){return flowLabelSpec(f,lf,zm);});
-    var labelSig=JSON.stringify([routed,specs,cards]);
+    var labelSig=JSON.stringify([routed,specs,cards,flowShape]);
     if(labelCacheRef.current.sig===labelSig)labelPos=labelCacheRef.current.positions;
     else{
-      labelPos=placeLabels(routed,specs,cards);
+      labelPos=placeLabels(routed,specs,cards,{verticesOnly:flowShape==="curved"});
       labelCacheRef.current={sig:labelSig,positions:labelPos};
     }
     var clip=function(cx2,cy2,w,h,tx,ty){var ddx=tx-cx2,ddy=ty-cy2;if(Math.abs(ddx)<0.5&&Math.abs(ddy)<0.5)return{x:cx2,y:cy2};var sx2=Math.abs(ddx)>0.5?(w/2)/Math.abs(ddx):9999;var sy2=Math.abs(ddy)>0.5?(h/2)/Math.abs(ddy):9999;var s=Math.min(sx2,sy2);return{x:cx2+ddx*s,y:cy2+ddy*s};};
@@ -1704,12 +1704,6 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         var txt=shortTxt(f);
         var labelFont=Math.max(8,flowFontSize);
         var lblW=Math.max(60,txt.length*labelFont*0.55+16);
-        var label=labelPos[f.id],leaderEnd=null;
-        if(label&&label.anchorX!==undefined){
-          var lx=label.anchorX-labelX,ly=label.anchorY-labelY;
-          var edgeScale=Math.min(lx?lblW*lblScale/2/Math.abs(lx):Infinity,ly?labelFont*1.5*lblScale/2/Math.abs(ly):Infinity,1);
-          leaderEnd={x:labelX+lx*edgeScale,y:labelY+ly*edgeScale};
-        }
         return {id:f.id,line:<g>
           {flowArrowStyle!=="none"&&<defs><marker id={arrowId} viewBox="0 0 10 7" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><FlowArrowShape style={flowArrowStyle} color={flowColor}/></marker></defs>}
           <path d={pathD} stroke="transparent" strokeWidth={Math.max(16,flowThickness*4)} fill="none" style={{cursor:"pointer",pointerEvents:"stroke"}}
@@ -1723,7 +1717,6 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
           <circle cx={ep.x} cy={ep.y} r={Math.max(3,flowThickness+1)} fill={flowColor} fillOpacity={flowOpacity}/>
           {!staticMode&&flowIndex<16&&<circle r="3.2" fill={flowColor} opacity={flowOpacity} style={{filter:"drop-shadow(0 0 4px "+flowColor+")",pointerEvents:"none"}}><animateMotion path={pathD} dur={(1.5+(flowIndex%4)*0.22)+"s"} begin={(flowIndex%8)*0.13+"s"} repeatCount="indefinite"/></circle>}
         </g>,label:txt&&<g>
-          {txt&&leaderEnd&&<path d={"M"+label.anchorX+" "+label.anchorY+" L"+leaderEnd.x+" "+leaderEnd.y} stroke={flowColor} strokeWidth={1/Math.max(0.08,zm)} strokeOpacity={flowLabelOpacity*0.8} fill="none" style={{pointerEvents:"none"}}/>}
           <g opacity={flowLabelOpacity} transform={"translate("+labelX+" "+labelY+") scale("+lblScale+") translate("+(-labelX)+" "+(-labelY)+")"}>
             <rect x={labelX-lblW/2} y={labelY-labelFont*0.75} width={lblW} height={labelFont*1.5} rx="4" fill={T.bgCard} fillOpacity="0.96" stroke={flowColor} strokeWidth="0.8" strokeOpacity="0.55"/>
             <text x={labelX} y={labelY+labelFont*0.25} fill={flowColor} fontSize={labelFont} textAnchor="middle" fontFamily="inherit" fontWeight="600" style={{pointerEvents:"none"}}>{txt}</text>

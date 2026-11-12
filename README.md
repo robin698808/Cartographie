@@ -117,9 +117,10 @@ est calculée sans évaluation détaillée. Les croisements ne peuvent pas toujo
 
 En affichage statique comme au survol, les flux restent individuels. Le routage
 privilégie les couloirs moins encombrés et pénalise les croisements. Les
-étiquettes peuvent être décalées lorsque leur placement sur le flux masquerait
-une application, une autre étiquette ou un autre flux ; un trait les relie alors
-à leur flux. Les styles de tracé et les filtres restent disponibles.
+étiquettes restent sur leur flux et leur emplacement est choisi pour limiter les
+chevauchements avec les applications, les autres étiquettes et les autres flux.
+Certains chevauchements peuvent rester inévitables sur une carte dense. Les
+styles de tracé et les filtres restent disponibles.
 
 Dans **Flux → Forme des flux**, « Courbes » applique aux flux visibles un
 tracé courbe basé sur les mêmes trajets, en modes statique et survol. Certains

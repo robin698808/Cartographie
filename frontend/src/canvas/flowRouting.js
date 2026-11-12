@@ -339,10 +339,9 @@ export function curvedFlowPath(points,cards,sourceId,targetId){
 
 /**
  * specs: [{id,w,h}] (dimensions en unités canvas), cards: [{x,y,w,h}].
- * Les étiquettes peuvent être décalées de leur segment ; anchorX/anchorY indiquent
- * alors le point du flux à relier visuellement à l'étiquette.
+ * Les étiquettes restent sur le tracé, même lorsqu'un chevauchement est inévitable.
  */
-export function placeLabels(paths,specs,cards){
+export function placeLabels(paths,specs,cards,options={}){
   const segs=[];
   Object.keys(paths).forEach(id=>{
     const p=paths[id];if(!p)return;
@@ -363,21 +362,11 @@ export function placeLabels(paths,specs,cards){
       const L=Math.abs(b.x-a.x)+Math.abs(b.y-a.y);
       const length=Math.hypot(b.x-a.x,b.y-a.y);
       const inset=length?Math.min(0.5,24/length):0.5;
-      [0.5,0.3,0.7,0.15,0.85].forEach(candidate=>{
-        const t=Math.max(inset,Math.min(1-inset,candidate));
+      (options.verticesOnly?[0,1]:[0.5,0.3,0.7,0.15,0.85]).forEach(candidate=>{
+        const t=options.verticesOnly?candidate:Math.max(inset,Math.min(1-inset,candidate));
         const x=a.x+(b.x-a.x)*t,y=a.y+(b.y-a.y)*t;
         const base=(horiz?0:6)+(L<(horiz?sp.w:sp.h)?40:0)+Math.abs(t-0.5)*10-Math.min(L,500)/100;
         cands.push({x:x,y:y,base:base});
-        if(length){
-          const nx=-(b.y-a.y)/length,ny=(b.x-a.x)/length;
-          const clearance=(Math.abs(nx)*sp.w+Math.abs(ny)*sp.h)/2;
-          [8,24,48].forEach(gap=>{
-            [-1,1].forEach(side=>{
-              const distance=clearance+gap;
-              cands.push({x:x+nx*distance*side,y:y+ny*distance*side,anchorX:x,anchorY:y,base:base+15+gap/4});
-            });
-          });
-        }
       });
     }
     let best=null;
@@ -391,14 +380,9 @@ export function placeLabels(paths,specs,cards){
         if(s.x1>r.x+r.w||s.x2<r.x||s.y1>r.y+r.h||s.y2<r.y)return;
         if(segmentIntersectsRect(s.a,s.b,r))score+=250;
       });
-      if(c.anchorX!==undefined){
-        const anchor={x:c.anchorX,y:c.anchorY},center={x:c.x,y:c.y};
-        cards.forEach(card=>{if(segmentIntersectsRect(anchor,center,card))score+=10000;});
-        placed.forEach(label=>{if(segmentIntersectsRect(anchor,center,label))score+=1000;});
-      }
       if(!best||score<best.score)best={...c,score:score,r:r};
     });
-    if(best){out[sp.id]={x:best.x,y:best.y};if(best.anchorX!==undefined){out[sp.id].anchorX=best.anchorX;out[sp.id].anchorY=best.anchorY;}placed.push(best.r);}
+    if(best){out[sp.id]={x:best.x,y:best.y};placed.push(best.r);}
   });
   return out;
 }
@@ -424,7 +408,7 @@ export function evaluateFlowLayout(cards, flows, fontSize, zoom, flowShape='defa
     if(flowShape==='curved'&&paths[f.id])paths[f.id]=curvedFlowPath(paths[f.id],cards,f.from,f.to).points;
   });
   const specs=valid.filter(f=>paths[f.id]).map(f=>flowLabelSpec(f,fontSize,zoom));
-  const labels=placeLabels(paths,specs,cards);
+  const labels=placeLabels(paths,specs,cards,{verticesOnly:flowShape==='curved'});
   const rects=specs.filter(s=>labels[s.id]).map(s=>({id:s.id,x:labels[s.id].x-s.w/2,y:labels[s.id].y-s.h/2,w:s.w,h:s.h}));
   let labelOverlaps=0,cardOverlaps=0,flowOverlaps=0,flowCrossings=0;
   rects.forEach((rect,i)=>{

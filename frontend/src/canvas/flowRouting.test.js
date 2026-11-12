@@ -139,14 +139,12 @@ test('layout evaluation supports curved routes', () => {
   assert.equal(report.cardOverlaps,0);
 });
 
-test('a displaced label has an anchor on the flow and avoids an obstacle', () => {
+test('a label stays on its flow even when an obstacle overlaps it', () => {
   const paths={f:[{x:0,y:0},{x:200,y:0}]};
   const positions=placeLabels(paths,[{id:'f',w:60,h:20}],[{x:40,y:-10,w:120,h:20}]);
-  assert.notEqual(positions.f.y,0);
-  assert.equal(positions.f.anchorY,0);
-  assert.ok(positions.f.anchorX>=0&&positions.f.anchorX<=200);
-  assert.ok(Math.abs(positions.f.y)>=20);
-  assert.ok(positions.f.anchorX<40 || positions.f.anchorX>160);
+  assert.equal(positions.f.y,0);
+  assert.ok(positions.f.x>=0&&positions.f.x<=200);
+  assert.deepEqual(Object.keys(positions.f).sort(),['x','y']);
 });
 
 test('unobstructed labels stay on horizontal, vertical and diagonal segments', () => {
@@ -156,12 +154,19 @@ test('unobstructed labels stay on horizontal, vertical and diagonal segments', (
   }
 });
 
-test('overlapping flows get separate labels anchored to the corresponding flow', () => {
-  const paths={a:[{x:0,y:0},{x:200,y:0}],b:[{x:0,y:0},{x:200,y:0}]};
-  const positions=placeLabels(paths,[{id:'a',w:190,h:20},{id:'b',w:190,h:20}],[]);
-  assert.ok(Math.abs(positions.a.y-positions.b.y)>=20);
-  assert.equal(positions.a.anchorY,0);
-  assert.equal(positions.b.anchorY,0);
+test('labels on the same flow avoid overlap when there is room', () => {
+  const paths={a:[{x:0,y:0},{x:500,y:0}],b:[{x:0,y:0},{x:500,y:0}]};
+  const positions=placeLabels(paths,[{id:'a',w:120,h:20},{id:'b',w:120,h:20}],[]);
+  assert.equal(positions.a.y,0);
+  assert.equal(positions.b.y,0);
+  assert.ok(Math.abs(positions.a.x-positions.b.x)>=120);
+});
+
+test('curved labels use actual sampled points on the curve', () => {
+  const curve=curvedFlowPath([{x:0,y:0},{x:300,y:0}],[],null,null);
+  const position=placeLabels({f:curve.points},[{id:'f',w:60,h:20}],[],{verticesOnly:true}).f;
+  assert.ok(curve.points.some(point=>point.x===position.x&&point.y===position.y));
+  assert.deepEqual(Object.keys(position).sort(),['x','y']);
 });
 
 test('layout evaluation reports missing endpoints and uses full label dimensions', () => {
@@ -172,7 +177,7 @@ test('layout evaluation reports missing endpoints and uses full label dimensions
   const report=evaluateFlowLayout([a,b],[{id:'f',from:'a',to:'b',label},{id:'missing',from:'a',to:'unknown'}],13,1);
   assert.equal(report.unrouted,1);
   assert.equal(report.labelOverlaps,0);
-  assert.equal(report.cardOverlaps,0);
+  assert.ok(report.cardOverlaps>0);
 });
 
 test('layout evaluation reports a blocked straight route', () => {
