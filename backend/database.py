@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
     SMTP_FROM: str = ""
+    # API HTTP Brevo (prioritaire sur SMTP : Railway bloque les ports SMTP sortants)
+    BREVO_API_KEY: str = ""
     FRONTEND_URL: str = "http://localhost:5173"
 
     class Config:
