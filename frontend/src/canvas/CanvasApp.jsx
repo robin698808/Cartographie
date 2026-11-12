@@ -11,6 +11,7 @@ import './Sidebar.css';
 import WidgetHeader from './WidgetHeader';
 import DashboardInsights, { healthScore } from './DashboardInsights';
 import { routeFlows, pathToD, curvedFlowPath, placeLabels, straightFlowPath, flowLabelSpec, evaluateFlowLayout } from './flowRouting';
+import { placeMostConnectedFirst, gridOffsets } from './layoutDensity';
 import ViewsMenu from './ViewsMenu';
 import ExportModal from './ExportModal';
 import OptionListsEditor from './OptionListsEditor';
@@ -1185,6 +1186,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     var layoutApps=sourceApps||apps;
     if(layoutApps.length===0)return;
     const makeLayout=(extraGap,orderByConnections=false)=>{
+    const central=orderByConnections==="central";
     const cW=Math.round(AW_BASE*globalScale*Math.max(0.7,fontScale));
     const cH=Math.round(AH_BASE*globalScale*Math.max(0.7,fontScale));
     const hasFlowsToRoute=flows.length>0;
@@ -1224,10 +1226,12 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
           });
           return targets.length?targets.reduce((sum,n)=>sum+n,0)/targets.length:domainOrder.length;
         };
-        var groupApps=groups[category].slice().sort(function(a,b){return(orderByConnections?targetOrder(a)-targetOrder(b):0)||(appConn[b.id]||0)-(appConn[a.id]||0);});
+        var groupApps=groups[category].slice().sort(function(a,b){return(orderByConnections===true?targetOrder(a)-targetOrder(b):0)||(appConn[b.id]||0)-(appConn[a.id]||0);});
         var cols=Math.max(1,Math.min(3,Math.ceil(Math.sqrt(groupApps.length))));
         var rows=Math.ceil(groupApps.length/cols);
-        return{category:category,apps:groupApps,cols:cols,rows:rows,w:cols*appW+(cols-1)*cGx,h:rows*appH+(rows-1)*cGy};
+        if(central)groupApps=placeMostConnectedFirst(groupApps,cols,appConn);
+        var grid=gridOffsets(groupApps,cols,appW,appH,cGx,cGy,appConn,central?4:0);
+        return{category:category,apps:groupApps,cols:cols,rows:rows,w:grid.w,h:grid.h,xOffsets:grid.x,yOffsets:grid.y};
       }).sort(function(a,b){return b.apps.length-a.apps.length;});
       var categoryCols=Math.max(1,Math.min(3,Math.ceil(Math.sqrt(layouts.length))));
       var categoryRows=Math.ceil(layouts.length/categoryCols);
@@ -1257,8 +1261,9 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     var domainLayouts=domainOrder.map(function(dom){return{domain:dom,size:getDomSize(dom),apps:domAppCnt[dom]||0,flows:domFlows[dom]||0};});
     var domainCols=Math.min(3,Math.max(1,Math.ceil(Math.sqrt(domainLayouts.length/2))));
     var domainRows=Math.ceil(domainLayouts.length/domainCols);
+    if(central)domainLayouts=placeMostConnectedFirst(domainLayouts.map(item=>({...item,id:item.domain})),domainCols,domFlows);
     // Affinage : ?changes de domaines entre cases pour minimiser flux x distance.
-    var slotCost=function(arr){var c=0;for(var i=0;i<arr.length;i++)for(var j=i+1;j<arr.length;j++){var w=pairFlows[[arr[i].domain,arr[j].domain].sort().join("\x00")]||0;if(w)c+=w*(Math.abs(i%domainCols-j%domainCols)+Math.abs(Math.floor(i/domainCols)-Math.floor(j/domainCols)));}return c;};
+    var slotCost=function(arr){var c=0;for(var i=0;i<arr.length;i++){if(central)c+=arr[i].flows*(Math.abs(i%domainCols-(domainCols-1)/2)+Math.abs(Math.floor(i/domainCols)-(domainRows-1)/2));for(var j=i+1;j<arr.length;j++){var w=pairFlows[[arr[i].domain,arr[j].domain].sort().join("\x00")]||0;if(w)c+=w*(Math.abs(i%domainCols-j%domainCols)+Math.abs(Math.floor(i/domainCols)-Math.floor(j/domainCols)));}}return c;};
     for(var pass=0;pass<12;pass++){
       var improvedSwap=false;
       for(var si=0;si<domainLayouts.length;si++)for(var sj=si+1;sj<domainLayouts.length;sj++){
@@ -1288,8 +1293,8 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       item.size.layouts.forEach(function(group){group.apps.forEach(function(app,indexInGroup){
         var target=na.find(function(candidate){return candidate.id===app.id;});
         if(!target)return;
-        target.x=domainX+group.x+(indexInGroup%group.cols)*(item.size.appW+cGx);
-        target.y=domainY+group.y+Math.floor(indexInGroup/group.cols)*(item.size.appH+cGy);
+        target.x=domainX+group.x+group.xOffsets[indexInGroup%group.cols];
+        target.y=domainY+group.y+group.yOffsets[Math.floor(indexInGroup/group.cols)];
       });});
     });
     // Compute category bounds from their own applications so groups stay distinct.
@@ -1306,14 +1311,14 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     });
     return {apps:na,catBounds:newCatBounds};
     };
-    let best=makeLayout(0),bestReport=null;
+    let best=makeLayout(interactive&&flows.length>120?250:0,interactive&&flows.length>120?"central":false),bestReport=null;
     if(interactive&&flows.length&&flows.length<=120){
-      const attempts=flows.length<=40&&layoutApps.length<=100?[[0,false],[80,false],[180,false],[0,true],[80,true],[180,true]]:layoutApps.length<=100?[[0,false],[80,false],[0,true]]:[[0,false]];
+      const attempts=layoutApps.length<=100?[[0,"central"],[120,"central"],[300,"central"],[550,"central"]]:[[0,"central"],[250,"central"]];
       let bestScore=Infinity;
       try{
         attempts.forEach(function([gap,orderByConnections],index){
-          const candidate=index===0?best:makeLayout(gap,orderByConnections);
-          const geometry=getCanvasFrame(candidate.apps);
+          const candidate=makeLayout(gap,orderByConnections);
+          const geometry=getOptimizedFrame(candidate.apps);
           const report=evaluateFlowLayout(candidate.apps.map(cardDims),flows,flowFontSize,geometry.zoom,flowShape);
           const score=report.unrouted*100000+(report.labelOverlaps+report.cardOverlaps)*1000+report.flowOverlaps*10+report.flowCrossings*5+report.straightFallbacks;
           if(score<bestScore){bestScore=score;best=candidate;bestReport={...report,smallLabels:flowFontSize*geometry.zoom*Math.min(1/Math.max(0.08,geometry.zoom),1.6)<10};}
@@ -1323,7 +1328,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         setLayoutReport({error:true});
         return;
       }
-      setLayoutReport({...bestReport,limited:attempts.length===1});
+      setLayoutReport({...bestReport,attempts:attempts.length});
     }else if(interactive){
       setLayoutReport(flows.length?{skipped:true}:{empty:true});
     }
@@ -1331,7 +1336,11 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     setApps(best.apps);
     setCatBounds(best.catBounds);
     setDomPads({});
-    setTimeout(function(){fitCanvas(best.apps);},50);
+    if(interactive){
+      const frame=getOptimizedFrame(best.apps);
+      setZm(frame.zoom);
+      setOff(frame.offset);
+    }else setTimeout(function(){fitCanvas(best.apps);},50);
   };
 
   const getCanvasFrame=(layoutApps)=>{
@@ -1347,6 +1356,22 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     const fitZm=Math.min((vw-40)/boundsW,(vh-40)/boundsH,1.5);
     const finalZm=Math.max(0.08,Math.min(fitZm,1.5));
     return {zoom:finalZm,offset:{x:(vw-boundsW*finalZm)/2-(minX-framePad)*finalZm,y:(vh-boundsH*finalZm)/2-(minY-framePad)*finalZm}};
+  };
+  const getOptimizedFrame=(layoutApps)=>{
+    const frame=getCanvasFrame(layoutApps);
+    if(frame.zoom>=0.6)return frame;
+    const connections={};
+    flows.forEach(f=>{connections[f.from]=(connections[f.from]||0)+1;connections[f.to]=(connections[f.to]||0)+1;});
+    const hub=layoutApps.slice().sort((a,b)=>(connections[b.id]||0)-(connections[a.id]||0)||String(a.id).localeCompare(String(b.id)))[0];
+    const card=cardDims(hub),rect=cvRef.current?.getBoundingClientRect();
+    const vw=rect?.width||window.innerWidth||1400,vh=rect?.height||((window.innerHeight||800)-100);
+    const neighborIds=new Set(flows.flatMap(f=>f.from===hub.id?[f.to]:f.to===hub.id?[f.from]:[]));
+    const neighbors=layoutApps.filter(a=>neighborIds.has(a.id)).map(cardDims).sort((a,b)=>Math.hypot(a.x+a.w/2-card.x-card.w/2,a.y+a.h/2-card.y-card.h/2)-Math.hypot(b.x+b.w/2-card.x-card.w/2,b.y+b.h/2-card.y-card.h/2)).slice(0,2);
+    const focus=[card,...neighbors];
+    const x1=Math.min(...focus.map(c=>c.x)),x2=Math.max(...focus.map(c=>c.x+c.w));
+    const y1=Math.min(...focus.map(c=>c.y)),y2=Math.max(...focus.map(c=>c.y+c.h));
+    const zoom=Math.max(0.35,Math.min(0.75,(vw-80)/(x2-x1+100),(vh-80)/(y2-y1+100)));
+    return {zoom,offset:{x:vw/2-(x1+x2)/2*zoom,y:vh/2-(y1+y2)/2*zoom}};
   };
   const fitCanvas=(layoutApps=filtered)=>{
     if(!layoutApps.length)return;
@@ -1552,7 +1577,8 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   const doms=[...new Set(apps.map(a=>a.domain))];
 
   /* ── Components ── */
-  const AW_BASE=220,AH_BASE=84;
+  const appCardFontFactor=Math.max(1,appFontScale/2.4);
+  const AW_BASE=220*appCardFontFactor,AH_BASE=84*appCardFontFactor;
   const fs=fontScale;
   const AW=Math.round(AW_BASE*globalScale*Math.max(0.7,fs)),AH=Math.round(AH_BASE*globalScale*Math.max(0.7,fs));
   const domSc=(d)=>(domScales[d]||1)*globalScale;
@@ -1578,6 +1604,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     const isNeg=app.statusD1==="Abandon"||(app.statusD2==="Abandon"&&!app.statusD1);
     const ds=domScales[app.domain]||1;
     const fsD=fs*ds;
+    const statusHeight=appFontScale>2.4?Math.max(10,Math.round(7.5*fsD*appFontScale)):Math.max(10,Math.round(9*fsD));
     const aw=Math.round(AW_BASE*globalScale*ds*Math.max(0.7,fs)),ah=Math.round(AH_BASE*globalScale*ds*Math.max(0.7,fs));
     var isFocusTarget=flowDisplayMode==="static"||!focusApp||focusApp===app.id||flows.some(function(f){return(f.from===focusApp&&f.to===app.id)||(f.to===focusApp&&f.from===app.id);});
     var dimmed=flowDisplayMode!=="static"&&focusApp&&!isFocusTarget;
@@ -1602,10 +1629,10 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
 
       {/* D1/Statut bandeau bas */}
       {projectType==='deal'?
-        (app.statusD1&&<div style={{position:"absolute",bottom:0,left:0,right:0,height:Math.max(10,Math.round(9*fsD)),background:d1C,display:"flex",alignItems:"center",justifyContent:"center",zIndex:2}}>
+        (app.statusD1&&<div style={{position:"absolute",bottom:0,left:0,right:0,height:statusHeight,background:d1C,display:"flex",alignItems:"center",justifyContent:"center",zIndex:2}}>
           <span style={{fontSize:Math.max(7,Math.round(6*fsD*appFontScale)),color:"#fff",fontWeight:800,letterSpacing:0.5,textTransform:"uppercase",opacity:0.97}}>{app.statusD1==="Transfert TSA"?"TSA":app.statusD1}</span>
         </div>)
-        :(app.statut&&<div style={{position:"absolute",bottom:0,left:0,right:0,height:Math.max(10,Math.round(9*fsD)),background:statutC,display:"flex",alignItems:"center",justifyContent:"center",zIndex:2}}>
+        :(app.statut&&<div style={{position:"absolute",bottom:0,left:0,right:0,height:statusHeight,background:statutC,display:"flex",alignItems:"center",justifyContent:"center",zIndex:2}}>
           <span style={{fontSize:Math.max(7,Math.round(6*fsD*appFontScale)),color:"#fff",fontWeight:800,letterSpacing:0.5,textTransform:"uppercase",opacity:0.97}}>{app.statut}</span>
         </div>)
       }
@@ -1613,7 +1640,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
 
 
       {/* Content */}
-      <div style={{display:"flex",alignItems:"center",gap:6,padding:"0 8px 0 12px",height:"100%",position:"relative",zIndex:1}}>
+      <div style={{display:"flex",alignItems:"center",gap:6,padding:"0 8px 0 12px",height:appFontScale>2.4&&(projectType==='deal'?app.statusD1:app.statut)?"calc(100% - "+statusHeight+"px)":"100%",position:"relative",zIndex:1}}>
         <div style={{overflow:"hidden",flex:1,minWidth:0}}>
           <div style={{color:cardFg,fontSize:Math.round(15*fsD*appFontScale),fontWeight:900,lineHeight:1.12,letterSpacing:"-0.025em",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textDecoration:isNeg?"line-through":"none"}}>{app.name}</div>
           <div style={{color:cardFgSub,fontSize:Math.round(11*fsD*appFontScale),fontWeight:600,lineHeight:1.2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{app.vendor||app.category||""}</div>
@@ -3716,7 +3743,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
         </div>;})}
       {activeFilters&&<button onMouseDown={e=>{e.stopPropagation();setSelDom([]);setSelCat([]);setSelCrit([]);setSelHost([]);setSelAType([]);setSelEos([]);setSelD1("");setSelD2("");setSelStatut("");setFlowDir("");}} style={{...B,padding:"4px 8px",fontSize:11,background:"#FF525220",color:"#FF5252",borderRadius:4}}>✕</button>}
       <div style={{flex:1}}/>
-      {!readOnly&&<button className="mapping-trigger mapping-trigger-primary" onMouseDown={e=>{e.stopPropagation();applyStarLayout(undefined,true);}} title="Regroupe les applications par catégorie, rapproche les domaines les plus connectés et cadre la carte. Les fonctions d’édition restent disponibles." style={{...B,padding:"7px 11px",fontSize:9.5,background:"linear-gradient(120deg,#4F46E5,#6366F1 58%,#0EA5E9)",color:"#fff",border:"1px solid rgba(165,180,252,.45)",borderRadius:11,display:"flex",alignItems:"center",gap:6,fontWeight:800,boxShadow:"0 6px 16px rgba(79,70,229,.28)"}}><span style={{fontSize:13}}>✦</span> Optimiser la disposition</button>}
+      {!readOnly&&<button className="mapping-trigger mapping-trigger-primary" onMouseDown={e=>{e.stopPropagation();applyStarLayout(undefined,true);}} title="Rapproche les applications et domaines connectés et adapte les espacements. La carte peut dépasser l'écran ; utilisez Recentrer pour la vue d'ensemble." style={{...B,padding:"7px 11px",fontSize:9.5,background:"linear-gradient(120deg,#4F46E5,#6366F1 58%,#0EA5E9)",color:"#fff",border:"1px solid rgba(165,180,252,.45)",borderRadius:11,display:"flex",alignItems:"center",gap:6,fontWeight:800,boxShadow:"0 6px 16px rgba(79,70,229,.28)"}}><span style={{fontSize:13}}>✦</span> Optimiser la disposition</button>}
       {!readOnly&&layoutUndo&&<button type="button" className="mapping-trigger" onClick={function(){setApps(current=>current.map(a=>layoutUndo.positions[a.id]?{...a,x:layoutUndo.positions[a.id][0],y:layoutUndo.positions[a.id][1]}:a));setCatBounds(layoutUndo.catBounds);setDomPads(layoutUndo.domPads);setZm(layoutUndo.zoom);setOff(layoutUndo.offset);setLayoutUndo(null);setLayoutReport(null);}} style={{...B,padding:"7px 10px",fontSize:10,background:toolbarSurface,color:T.fg,border:"1px solid "+T.border}}>Annuler l'optimisation</button>}
       {/* ── Création menu ── */}
       {!readOnly&&<div className="mapping-trigger-anchor" style={{position:"relative"}}>
@@ -3765,7 +3792,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
           <div className="mapping-menu-section-title">Lecture des flux</div>
           <div className="mapping-segmented">
             <button aria-pressed={flowDisplayMode==="dynamic"} onClick={function(){setFlowDisplayMode("dynamic");setFlowSuppressed(false);setFocusApp(null);setSelFlow(null);}} style={{...B,flex:1,padding:"8px 10px",fontSize:11,background:flowDisplayMode==="dynamic"?"linear-gradient(135deg,#2563EB,#0EA5E9)":"transparent",color:flowDisplayMode==="dynamic"?"#fff":T.fgMuted,border:flowDisplayMode==="dynamic"?"1px solid #38BDF8":"1px solid transparent",borderRadius:8}}>Au survol</button>
-            <button aria-pressed={flowDisplayMode==="static"} onClick={function(){setFlowDisplayMode("static");setFlowSuppressed(false);setFocusApp(null);setSelFlow(null);setFlowProto("");setFlowCrit("");setTimeout(function(){fitCanvas();},80);}} style={{...B,flex:1,padding:"8px 10px",fontSize:11,background:flowDisplayMode==="static"?"linear-gradient(135deg,#2563EB,#0EA5E9)":"transparent",color:flowDisplayMode==="static"?"#fff":T.fgMuted,border:flowDisplayMode==="static"?"1px solid #38BDF8":"1px solid transparent",borderRadius:8}}>Statique</button>
+            <button aria-pressed={flowDisplayMode==="static"} onClick={function(){setFlowDisplayMode("static");setFlowSuppressed(false);setFocusApp(null);setSelFlow(null);setFlowProto("");setFlowCrit("");if(!layoutUndo)setTimeout(function(){fitCanvas();},80);}} style={{...B,flex:1,padding:"8px 10px",fontSize:11,background:flowDisplayMode==="static"?"linear-gradient(135deg,#2563EB,#0EA5E9)":"transparent",color:flowDisplayMode==="static"?"#fff":T.fgMuted,border:flowDisplayMode==="static"?"1px solid #38BDF8":"1px solid transparent",borderRadius:8}}>Statique</button>
           </div>
           <button type="button" className="mapping-menu-action" onClick={function(){setPresMode(true);setOpenMenu(null);}} style={{display:"block",width:"calc(100% - 4px)",textAlign:"left"}}>▶ Lancer le mode présentation</button>
           <div style={{height:1,background:T.border,margin:"3px 4px 8px"}}/>
@@ -3775,10 +3802,11 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
             <input aria-label="Police générale" type="range" min="0.8" max="2.2" step="0.1" value={fontScale} onChange={function(e){setFontScale(parseFloat(e.target.value));}} style={{flex:1,cursor:"pointer"}}/>
             <span style={{fontSize:10,color:T.fg,minWidth:32,textAlign:"right"}}>{Math.round(fontScale*100)}%</span>
           </div>
-          {[{label:"Applications",value:appFontScale,set:setAppFontScale},{label:"Domaines",value:domainFontScale,set:setDomainFontScale},{label:"Catégories",value:categoryFontScale,set:setCategoryFontScale}].map(function(item){return <div key={item.label} style={{padding:"4px 6px"}}>
+          {[{label:"Applications",value:appFontScale,set:setAppFontScale,max:3.6},{label:"Domaines",value:domainFontScale,set:setDomainFontScale,max:3.6},{label:"Catégories",value:categoryFontScale,set:setCategoryFontScale,max:2.4}].map(function(item){return <div key={item.label} style={{padding:"4px 6px"}}>
             <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:T.fgMuted,marginBottom:2}}><span>{item.label}</span><span style={{color:T.fg}}>{Math.round(item.value*100)}%</span></div>
-            <input aria-label={"Police "+item.label} type="range" min="0.8" max="2.4" step="0.1" value={item.value} onChange={function(e){item.set(parseFloat(e.target.value));}} style={{width:"100%",cursor:"pointer"}}/>
+            <input aria-label={"Police "+item.label} type="range" min="0.8" max={item.max} step="0.1" value={item.value} onChange={function(e){item.set(parseFloat(e.target.value));}} style={{width:"100%",cursor:"pointer"}}/>
           </div>;})}
+          <div className="mapping-menu-subtitle" style={{padding:"0 6px 6px"}}>Les grandes polices agrandissent les applications et peuvent nécessiter une nouvelle optimisation de la disposition.</div>
           <div style={{height:1,background:T.border,margin:"5px 4px 8px"}}/>
           <div className="mapping-menu-section-title">Dimensions</div>
           {[{label:"Applications",value:globalScale,min:0.5,max:2,step:0.1,set:setGlobalScale,format:function(v){return Math.round(v*100)+"%";}},{label:"Domaines · marge",value:domainPadding,min:20,max:100,step:5,set:setDomainPadding,format:function(v){return v+" px";}},{label:"Catégories · taille",value:categoryScale,min:0.6,max:1.8,step:0.1,set:setCategoryScale,format:function(v){return Math.round(v*100)+"%";}}].map(function(item){return <div key={item.label} style={{padding:"4px 6px"}}>
@@ -3834,7 +3862,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
           </div>
           <div className="mapping-menu-section-title">Taille des libellés</div>
           <div style={{display:"flex",alignItems:"center",gap:6,padding:"4px 8px"}}>
-            <input aria-label="Police étiquettes de flux" type="range" min="8" max="32" step="1" value={flowFontSize} onChange={function(e){setFlowFontSize(parseInt(e.target.value));}} style={{flex:1,cursor:"pointer"}}/>
+            <input aria-label="Police étiquettes de flux" type="range" min="8" max="64" step="1" value={flowFontSize} onChange={function(e){setFlowFontSize(parseInt(e.target.value));}} style={{flex:1,cursor:"pointer"}}/>
             <span style={{fontSize:10,color:T.fg,minWidth:24}}>{flowFontSize}pt</span>
           </div>
           <div className="mapping-menu-section-title">Style de trait</div>
@@ -3879,10 +3907,11 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
           <div>{layoutReport.unrouted} flux non routés · {layoutReport.labelOverlaps} chevauchements d'étiquettes · {layoutReport.cardOverlaps} étiquettes sur des applications · {layoutReport.flowOverlaps} étiquettes sur d'autres flux</div>
           <div>{layoutReport.flowCrossings} croisements de flux détectés</div>
           {layoutReport.straightFallbacks>0&&<div>{layoutReport.straightFallbacks} tracés droits utilisent le tracé automatique à cause d'un obstacle.</div>}
-          {layoutReport.limited&&<div>Carte volumineuse : une seule disposition a été évaluée.</div>}
+          <div>{layoutReport.attempts} dispositions évaluées.</div>
           {layoutReport.smallLabels&&<div>Les étiquettes peuvent nécessiter un zoom pour être lisibles.</div>}
         </>}
         {(appFiltered.length!==apps.length||flowFilterActive||search)&&<div>Des filtres ou une recherche masquent des éléments ; le bilan porte sur tous les flux.</div>}
+        {!layoutReport.error&&<div>Utilisez « Recentrer » pour afficher toute la carte.</div>}
         {flowDisplayMode!=="static"&&<div>Les flux restent affichés au survol.</div>}
       </div>}
       <div ref={cvRef} style={{flex:1,overflow:"hidden",position:"relative",background:isDark?"#0B0B14":"#FFFFFF",cursor:pan?"grabbing":cMode?"crosshair":selMode?"default":"grab"}} onMouseDown={function(e){if(openMenu)setOpenMenu(null);const onBackground=!e.target.closest?.('[data-app]')&&!e.target.closest?.('.flow-layer');if(onBackground){setFocusApp(null);setSelFlow(null);setFlowSuppressed(true);}onCD(e);}} onMouseMove={function(e){if(!e.target.closest?.('[data-app]')&&!e.target.closest?.('[data-panel]')&&!e.target.closest?.('.flow-layer')){if(flowDisplayMode==='dynamic'){setFlowSuppressed(true);if(focusApp&&!panelOpen)setFocusApp(null);if(selFlow&&!panelOpen)setSelFlow(null);}}onCM(e);}} onMouseUp={onCU} onMouseLeave={function(e){onCU(e);const enteringPanel=e.relatedTarget?.closest?.('[data-panel]');if(!enteringPanel&&flowDisplayMode==='dynamic'){setFlowSuppressed(true);setFocusApp(null);setSelFlow(null);}}} onWheel={onWh} onContextMenu={e=>e.preventDefault()}>

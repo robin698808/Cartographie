@@ -109,11 +109,24 @@ dont les deux extrémités sont dans ce périmètre.
 ## Lisibilité des flux sur la cartographie
 
 L'optimisation de la disposition conserve les applications par domaine et
-catégorie et reste annulable. Jusqu'à 120 flux, elle évalue les conflits de
-tracé et d'étiquettes ; pour les cartes denses de 100 applications au plus,
-elle compare plusieurs dispositions. Au-delà de 120 flux, la disposition
-est calculée sans évaluation détaillée. Les croisements ne peuvent pas toujours
-être éliminés.
+catégorie et reste annulable. Elle privilégie les domaines et les applications
+très connectés près du centre de leur grille et agrandit les couloirs en
+fonction des connexions. Jusqu'à 120 flux, elle compare plusieurs espacements
+selon les conflits de tracé et d'étiquettes. Au-delà, elle utilise une
+disposition aérée sans évaluation détaillée. Les croisements ne peuvent pas
+toujours être éliminés.
+
+Dans **Affichage**, la police des applications et celle des domaines peuvent
+atteindre 360 %. Au-delà de 240 %, la taille des applications augmente avec
+leur police ; il peut être nécessaire de relancer l'optimisation pour éviter
+les chevauchements. Dans **Flux**, les libellés peuvent atteindre 64 points ;
+une grande police peut également nécessiter davantage d'espacement.
+
+Après optimisation, la vue conserve un zoom lisible et cadre l'application la
+plus connectée et ses voisins proches si la carte ne tient pas à l'écran. Utiliser
+« Recentrer » pour cadrer toute la carte ; l'annulation restaure également le
+zoom et la position précédents. Les modifications de positions suivent les
+règles habituelles de sauvegarde du projet.
 
 En affichage statique comme au survol, les flux restent individuels. Le routage
 privilégie les couloirs moins encombrés et pénalise les croisements. Les
