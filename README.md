@@ -121,6 +121,9 @@ atteindre 360 %. Au-delà de 240 %, la taille des applications augmente avec
 leur police ; il peut être nécessaire de relancer l'optimisation pour éviter
 les chevauchements. Dans **Flux**, les libellés peuvent atteindre 64 points ;
 une grande police peut également nécessiter davantage d'espacement.
+Les dimensions des applications peuvent atteindre 400 % et la marge des
+domaines 500 px. Après un agrandissement, relancer l'optimisation de la
+disposition si les éléments se chevauchent.
 
 Après optimisation, la vue conserve un zoom lisible et cadre l'application la
 plus connectée et ses voisins proches si la carte ne tient pas à l'écran. Utiliser

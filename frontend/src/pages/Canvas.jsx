@@ -266,8 +266,8 @@ export default function Canvas() {
             </span>
           ))}
           <div ref={setViewsSlot} style={{ display:'flex' }} />
-          <LangToggle />
           <ThemeToggle />
+          <LangToggle />
           <UserBubble onClick={() => setShowProfile(true)} />
         </div>
       </div>

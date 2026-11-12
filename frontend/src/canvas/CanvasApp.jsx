@@ -1279,7 +1279,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     }
     var colWidths=new Array(domainCols).fill(0),rowHeights=new Array(domainRows).fill(0);
     domainLayouts.forEach(function(item,index){var col=index%domainCols,row=Math.floor(index/domainCols);colWidths[col]=Math.max(colWidths[col],item.size.w);rowHeights[row]=Math.max(rowHeights[row],item.size.h);});
-    var domainGap=Math.max(70,domGap)+extraGap;
+    var domainGap=Math.max(70,domGap,2*domainPadding+Math.round(24*fontScale*domainFontScale)+20)+extraGap;
     // Couloirs proportionnels au nombre de flux qui traversent chaque fronti?re.
     var crossing=function(axis,boundary){var c=0;for(var i=0;i<domainLayouts.length;i++)for(var j=i+1;j<domainLayouts.length;j++){var w=pairFlows[[domainLayouts[i].domain,domainLayouts[j].domain].sort().join("\x00")]||0;if(!w)continue;var ai=axis===0?i%domainCols:Math.floor(i/domainCols),aj=axis===0?j%domainCols:Math.floor(j/domainCols);if(Math.min(ai,aj)<=boundary&&Math.max(ai,aj)>boundary)c+=w;}return c;};
     var colOffsets=[],rowOffsets=[],offset=0;
@@ -3809,10 +3809,11 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
           <div className="mapping-menu-subtitle" style={{padding:"0 6px 6px"}}>Les grandes polices agrandissent les applications et peuvent nécessiter une nouvelle optimisation de la disposition.</div>
           <div style={{height:1,background:T.border,margin:"5px 4px 8px"}}/>
           <div className="mapping-menu-section-title">Dimensions</div>
-          {[{label:"Applications",value:globalScale,min:0.5,max:2,step:0.1,set:setGlobalScale,format:function(v){return Math.round(v*100)+"%";}},{label:"Domaines · marge",value:domainPadding,min:20,max:100,step:5,set:setDomainPadding,format:function(v){return v+" px";}},{label:"Catégories · taille",value:categoryScale,min:0.6,max:1.8,step:0.1,set:setCategoryScale,format:function(v){return Math.round(v*100)+"%";}}].map(function(item){return <div key={item.label} style={{padding:"4px 6px"}}>
+          {[{label:"Applications",value:globalScale,min:0.5,max:4,step:0.1,set:setGlobalScale,format:function(v){return Math.round(v*100)+"%";}},{label:"Domaines · marge",value:domainPadding,min:20,max:500,step:5,set:setDomainPadding,format:function(v){return v+" px";}},{label:"Catégories · taille",value:categoryScale,min:0.6,max:1.8,step:0.1,set:setCategoryScale,format:function(v){return Math.round(v*100)+"%";}}].map(function(item){return <div key={item.label} style={{padding:"4px 6px"}}>
             <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:T.fgMuted,marginBottom:2}}><span>{item.label}</span><span style={{color:T.fg}}>{item.format(item.value)}</span></div>
             <input aria-label={"Taille "+item.label} type="range" min={item.min} max={item.max} step={item.step} value={item.value} onChange={function(e){item.set(parseFloat(e.target.value));}} style={{width:"100%",cursor:"pointer"}}/>
           </div>;})}
+          <div className="mapping-menu-subtitle" style={{padding:"0 6px 6px"}}>Après agrandissement, optimisez la disposition si les éléments se chevauchent.</div>
           <div style={{height:1,background:T.border,margin:"3px 4px 8px"}}/>
           <div className="mapping-menu-section-title">Mise en évidence</div>
           <div style={{display:"flex",gap:5,padding:"3px 4px 8px"}}>

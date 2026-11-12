@@ -1083,6 +1083,7 @@ export const EN = {
   'Criticité critique': 'Critical criticality',
   'Domaines · marge': 'Domains · margin',
   'Taille Domaines · marge': 'Size Domains · margin',
+  'Après agrandissement, optimisez la disposition si les éléments se chevauchent.': 'After enlarging, optimize the layout if elements overlap.',
   'Forte connectivité (# flux) : impact élevé en cas de migration ou d\'arrêt.': 'High connectivity (# flows): high impact in case of migration or shutdown.',
   'Coût mensuel': 'Monthly cost',
   'Budget & coûts': 'Budget & costs',
