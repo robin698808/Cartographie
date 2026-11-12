@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base, settings
@@ -14,6 +16,24 @@ def run_migrations(engine):
             conn.execute(text("ALTER TABLE projects ADD COLUMN project_type VARCHAR DEFAULT 'deal' NOT NULL"))
         if 'project_subtype' not in columns:
             conn.execute(text("ALTER TABLE projects ADD COLUMN project_subtype VARCHAR"))
+        duplicates = conn.execute(text(
+            "SELECT project_id FROM project_members WHERE role = 'owner' "
+            "GROUP BY project_id HAVING COUNT(*) > 1 LIMIT 1"
+        )).first()
+        if duplicates:
+            logging.getLogger(__name__).warning(
+                "Contrainte de propriétaire unique non installée : plusieurs propriétaires "
+                "existent pour un projet. Régularisez les rôles puis redémarrez."
+            )
+        elif engine.dialect.name in ("sqlite", "postgresql"):
+            conn.execute(text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_project_single_owner "
+                "ON project_members (project_id) WHERE role = 'owner'"
+            ))
+        else:
+            logging.getLogger(__name__).warning(
+                "Contrainte de propriétaire unique non installée : moteur de base non pris en charge."
+            )
         conn.commit()
 
 # Crée les tables au démarrage (dev — en prod, utiliser Alembic)

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from database import get_db
-import models, auth
+import models, auth, audit
 
 router = APIRouter(prefix="/settings")
 
@@ -39,7 +39,7 @@ def get_option_lists(db: Session = Depends(get_db), _: models.User = Depends(aut
 
 
 @router.put("/option-lists")
-def put_option_lists(body: OptionLists, db: Session = Depends(get_db), _: models.User = Depends(auth.require_admin)):
+def put_option_lists(body: OptionLists, db: Session = Depends(get_db), current_user: models.User = Depends(auth.require_admin)):
     data = {"statuts": [i.model_dump() for i in _dedupe(body.statuts)],
             "appTypes": [i.model_dump() for i in _dedupe(body.appTypes)]}
     row = db.get(models.AppSetting, KEY)
@@ -47,5 +47,6 @@ def put_option_lists(body: OptionLists, db: Session = Depends(get_db), _: models
         row.value = json.dumps(data, ensure_ascii=False)
     else:
         db.add(models.AppSetting(key=KEY, value=json.dumps(data, ensure_ascii=False)))
+    audit.record(db, current_user, "settings.updated", "settings", 0, details={"key": KEY})
     db.commit()
     return data

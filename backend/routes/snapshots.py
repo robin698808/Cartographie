@@ -2,7 +2,7 @@ import json
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 from database import get_db
-import models, schemas, auth
+import models, schemas, auth, audit
 from routes.projects import get_project_or_404, check_project_access
 
 router = APIRouter(prefix="/projects/{project_id}/snapshots")
@@ -65,6 +65,7 @@ def create_snapshot(
         created_by=current_user.id,
     )
     db.add(snap)
+    audit.record(db, current_user, "snapshot.created", "project", project_id, project_id)
 
     # Garder max 100 snapshots par projet (nettoyage auto)
     old_snaps = (

@@ -487,7 +487,7 @@ function UrbFlowArrow({ color = "#38bdf8", width = 28 }){
 // ═══ APP CONTEXT ═══
 var AppCtx=React.createContext(null);
 
-function App({ initialSnapshot, onSave, wsMessage, projectId, onThemeChange, topOffset = 0, projectType = "deal", viewsSlot = null, isAdmin = false }) {
+function App({ initialSnapshot, onSave, wsMessage, projectId, onThemeChange, topOffset = 0, projectType = "deal", viewsSlot = null, isAdmin = false, readOnly = false }) {
   var _stateKey = projectId ? "carto_state_" + projectId : "carto_state";
   var snapshotApplied = useRef(false);
   var [canvasReady, setCanvasReady] = useState(false);
@@ -518,9 +518,11 @@ function App({ initialSnapshot, onSave, wsMessage, projectId, onThemeChange, top
   const [rawHdr,setRawHdr]=useState([]);
   const [cMap,setCMap]=useState({});
   const [apps,setApps]=useState(function(){
+    if(readOnly)return[];
     try{var s=localStorage.getItem(_stateKey);if(s){var d=JSON.parse(s);if(d.apps&&d.apps.length)return d.apps;}}catch(e){}return[];
   });
   const [flows,setFlows]=useState(function(){
+    if(readOnly)return[];
     try{var s=localStorage.getItem(_stateKey);if(s){var d=JSON.parse(s);if(d.flows)return d.flows;}}catch(e){}return[];
   });
   const [selDom,setSelDom]=useState([]);
@@ -541,7 +543,7 @@ function App({ initialSnapshot, onSave, wsMessage, projectId, onThemeChange, top
   const [drag,setDrag]=useState(null); // {id,ox,oy} for app or {domain,ox,oy,appIds} for domain group
   const routeCacheRef=useRef({sig:"",paths:null});
   const dragRef=useRef(null); // mirror of drag for always-current access in event handlers
-  const startDrag=(val)=>{dragRef.current=val;setDrag(val);};
+  const startDrag=(val)=>{if(readOnly)return;dragRef.current=val;setDrag(val);};
   const stopDrag=()=>{dragRef.current=null;setDrag(null);};
   const [showAM,setShowAM]=useState(false);
   const [listsV,setListsV]=useState(0);
@@ -596,15 +598,15 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       snapshotApplied.current = true;
       // N'appliquer que si le snapshot serveur contient des données
       // (ne pas écraser les apps importées/localStorage avec un snapshot vide)
-      if(initialSnapshot.apps && initialSnapshot.apps.length > 0){
+      if(initialSnapshot.apps && (readOnly || initialSnapshot.apps.length > 0)){
         setApps(initialSnapshot.apps);
         if(initialSnapshot.flows) setFlows(initialSnapshot.flows);
         if(initialSnapshot.dom_colors) setDomColors(initialSnapshot.dom_colors);
-        setView("mapping");
+        if(initialSnapshot.apps.length || readOnly) setView("mapping");
       }
     }
     setCanvasReady(true);
-  }, [initialSnapshot]);
+  }, [initialSnapshot,readOnly]);
 
   // ── Recevoir les mises à jour WebSocket via props ──
   useEffect(function(){
@@ -644,13 +646,13 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   // ── Persist canvas state across view switches and page refreshes ──────
   // (MUST be after all const declarations to avoid TDZ ReferenceError)
   useEffect(()=>{
-    if(apps.length===0)return;
+    if(readOnly||apps.length===0)return;
     try{
       localStorage.setItem(_stateKey,JSON.stringify({
         apps,flows,off,zm,domColors,domPads,view,version:1
       }));
     }catch(e){}
-  },[apps,flows,off,zm,domColors,domPads,view]);
+  },[apps,flows,off,zm,domColors,domPads,view,readOnly]);
 
   useEffect(()=>{
     if(!toolbarRef.current)return;
@@ -773,14 +775,14 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       if(e.key==="Escape"&&presMode) setPresMode(false);
       if(e.key==="Escape"&&!presMode&&multiSel.length>0){setMultiSel([]);return;}
       if(e.key==="p"&&e.ctrlKey){e.preventDefault();setPresMode(p=>!p);}
-      if(multiSel.length>0&&["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.key)){
+      if(!readOnly&&multiSel.length>0&&["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.key)){
         e.preventDefault();
         const step=e.shiftKey?20:5;
         const dx=e.key==="ArrowLeft"?-step:e.key==="ArrowRight"?step:0;
         const dy=e.key==="ArrowUp"?-step:e.key==="ArrowDown"?step:0;
         setApps(p=>p.map(a=>multiSel.includes(a.id)?{...a,x:a.x+dx,y:a.y+dy}:a));
       }
-      if(multiSel.length>0&&(e.key==="Delete"||e.key==="Backspace")){
+      if(!readOnly&&multiSel.length>0&&(e.key==="Delete"||e.key==="Backspace")){
         if(confirm("Supprimer "+multiSel.length+" application(s) ?")){
           setApps(p=>p.filter(a=>!multiSel.includes(a.id)));
           setFlows(p=>p.filter(f=>!multiSel.includes(f.from)&&!multiSel.includes(f.to)));
@@ -788,7 +790,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         }
       }
       // Delete selected flow
-      if(selFlow&&(e.key==="Delete"||e.key==="Backspace")){
+      if(!readOnly&&selFlow&&(e.key==="Delete"||e.key==="Backspace")){
         if(confirm("Supprimer ce flux ?")){
           setFlows(p=>p.filter(f=>f.id!==selFlow));
           setSelFlow(null);
@@ -798,7 +800,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     };
     window.addEventListener("keydown",handleKey);
     return ()=>window.removeEventListener("keydown",handleKey);
-  },[presMode,multiSel,selFlow]);
+  },[presMode,multiSel,selFlow,readOnly]);
 
   const autoMap=(hds)=>{
     const m={};
@@ -1292,12 +1294,12 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   };
 
   useEffect(function(){
-    if(!initialSnapshot||!initialSnapshot.apps||!initialSnapshot.apps.length)return;
+    if(readOnly||!initialSnapshot||!initialSnapshot.apps||!initialSnapshot.apps.length)return;
     var migrationKey=_stateKey+"_dense_layout_v6";
     try{if(localStorage.getItem(migrationKey)==="done")return;}catch(e){}
     try{localStorage.setItem(migrationKey,"done");}catch(e){}
     applyStarLayout(initialSnapshot.apps);
-  },[apps,initialSnapshot]);
+  },[apps,initialSnapshot,readOnly]);
 
 
   const exportXLSX=async()=>{
@@ -1517,10 +1519,10 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     var appGlow=highlightApps?Math.round(highlightStrength*0.55):0;
     return <div style={{position:"absolute",left:app.x,top:app.y,width:aw,height:ah,background:cardBg,border:`${msel?"2.5px":"1.5px"} solid ${msel?"#4ECDC4":sel?T.accent:cardColor+"88"}`,borderRadius:10,cursor:cMode?"crosshair":selMode?"pointer":msel?"move":"grab",boxShadow:msel?"0 0 16px #4ECDC480":sel?`0 0 18px ${cardColor}80`:appGlow?`0 3px 10px ${cardColor}${Math.min(99,Math.round(appGlow*0.45)).toString(16).padStart(2,"0")}, 0 0 ${appGlow}px ${cardColor}${Math.min(99,Math.round(appGlow*0.25)).toString(16).padStart(2,"0")}`:isDark?"0 9px 22px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.045)":"0 7px 18px rgba(15,23,42,0.12)",userSelect:"none",zIndex:sel?10:1,overflow:"hidden",opacity:appOpacity,transform:"translateZ(0)",transition:"opacity 0.15s, box-shadow 0.2s, border-color 0.2s, transform 0.16s cubic-bezier(.2,.8,.2,1)"}}
       data-app="1" className="app-card"
-      onContextMenu={function(e){e.preventDefault();e.stopPropagation();setCtxMenu({x:e.clientX,y:e.clientY,type:"app",target:app.id});}}
+      onContextMenu={function(e){e.preventDefault();e.stopPropagation();if(!readOnly)setCtxMenu({x:e.clientX,y:e.clientY,type:"app",target:app.id});}}
       onMouseEnter={function(e){e.currentTarget.style.transform="translateY(-2px) scale(1.025)";e.currentTarget.style.zIndex="20";e.currentTarget.style.boxShadow="0 12px 28px "+cardColor+"55, 0 0 0 1px "+cardColor+"55";setFlowSuppressed(false);if(flowDisplayMode==="dynamic"&&!drag&&!cMode&&!selMode){setFocusApp(app.id);if(selFlow)setSelFlow(null);}}}
       onMouseLeave={function(e){e.currentTarget.style.transform="translateZ(0)";e.currentTarget.style.zIndex=sel?"10":"1";if(!sel&&!msel)e.currentTarget.style.boxShadow=isDark?"0 9px 22px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.045)":"0 7px 18px rgba(15,23,42,0.12)";if(flowDisplayMode==="dynamic"&&focusApp===app.id&&selApp?.id!==app.id)setFocusApp(null);}}
-      onMouseDown={e=>{e.stopPropagation();if(cMode){if(!fFrom)setFFrom(app.id);else if(fFrom!==app.id){const nf={id:uid(),from:fFrom,to:app.id,protocol:"API",label:"",description:"",frequency:""};setFlows(p=>[...p,nf]);setEFlow({...nf});setShowFM(true);setFFrom(null);setCMode(false);}return;}if(e.shiftKey||e.ctrlKey||e.metaKey){setMultiSel(p=>p.includes(app.id)?p.filter(x=>x!==app.id):[...p,app.id]);return;}
+      onMouseDown={e=>{e.stopPropagation();if(readOnly){setSelApp(app);setPanelOpen(true);setFocusApp(app.id);return;}if(cMode){if(!fFrom)setFFrom(app.id);else if(fFrom!==app.id){const nf={id:uid(),from:fFrom,to:app.id,protocol:"API",label:"",description:"",frequency:""};setFlows(p=>[...p,nf]);setEFlow({...nf});setShowFM(true);setFFrom(null);setCMode(false);}return;}if(e.shiftKey||e.ctrlKey||e.metaKey){setMultiSel(p=>p.includes(app.id)?p.filter(x=>x!==app.id):[...p,app.id]);return;}
         if(multiSel.length>1&&multiSel.includes(app.id)){setFlowSuppressed(false);startDrag({ids:multiSel.slice(),lx:e.clientX,ly:e.clientY});return;}
         setMultiSel([]);setSelApp(app);if(e.detail>=2){setPanelOpen(true);return;}setPanelOpen(false);setFocusApp(app.id);setSelFlow(null);setFlowSuppressed(false);const rect=e.currentTarget.getBoundingClientRect();startDrag({id:app.id,ox:e.clientX-rect.left,oy:e.clientY-rect.top});}}
       onDoubleClick={()=>{setSelApp(app);setPanelOpen(true);}}>
@@ -1620,12 +1622,12 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
           <defs><marker id={arrowId} markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto" fill={flowColor}><polygon points="0 0,10 3.5,0 7"/></marker></defs>
           <path d={pathD} stroke="transparent" strokeWidth={Math.max(16,flowThickness*4)} fill="none" style={{cursor:"pointer",pointerEvents:"stroke"}}
             onClick={function(e){e.stopPropagation();setFlowSuppressed(false);setSelFlow(selFlow===f.id?null:f.id);setFocusApp(f.from===focusApp?focusApp:f.to===focusApp?focusApp:selApp?.id||f.from);setFlowCtx(null);}}
-            onDoubleClick={function(e){e.stopPropagation();setEFlow(Object.assign({},f));setShowFM(true);setSelFlow(null);}}
-            onContextMenu={function(e){e.preventDefault();e.stopPropagation();setFlowCtx({flow:f,x:e.clientX,y:e.clientY});setSelFlow(f.id);}}/>
+            onDoubleClick={function(e){e.stopPropagation();if(!readOnly){setEFlow(Object.assign({},f));setShowFM(true);setSelFlow(null);}}}
+            onContextMenu={function(e){e.preventDefault();e.stopPropagation();if(!readOnly){setFlowCtx({flow:f,x:e.clientX,y:e.clientY});setSelFlow(f.id);}}}/>
           <path d={pathD} stroke={flowColor} strokeWidth={flowIsSelected?flowThickness+2:flowThickness} strokeOpacity={flowOpacity} strokeDasharray={dashVal} fill="none" markerEnd={"url(#"+arrowId+")"} style={{pointerEvents:"stroke",cursor:"pointer"}}
             onClick={function(e){e.stopPropagation();setFlowSuppressed(false);setSelFlow(selFlow===f.id?null:f.id);setFocusApp(f.from===focusApp?focusApp:f.to===focusApp?focusApp:selApp?.id||f.from);setFlowCtx(null);}}
-            onDoubleClick={function(e){e.stopPropagation();setEFlow(Object.assign({},f));setShowFM(true);setSelFlow(null);}}
-            onContextMenu={function(e){e.preventDefault();e.stopPropagation();setFlowCtx({flow:f,x:e.clientX,y:e.clientY});setSelFlow(f.id);}}/>
+            onDoubleClick={function(e){e.stopPropagation();if(!readOnly){setEFlow(Object.assign({},f));setShowFM(true);setSelFlow(null);}}}
+            onContextMenu={function(e){e.preventDefault();e.stopPropagation();if(!readOnly){setFlowCtx({flow:f,x:e.clientX,y:e.clientY});setSelFlow(f.id);}}}/>
           <circle cx={ep.x} cy={ep.y} r={Math.max(3,flowThickness+1)} fill={flowColor} fillOpacity={flowOpacity}/>
           {!staticMode&&flowIndex<16&&<circle r="3.2" fill={flowColor} opacity={flowOpacity} style={{filter:"drop-shadow(0 0 4px "+flowColor+")",pointerEvents:"none"}}><animateMotion path={pathD} dur={(1.5+(flowIndex%4)*0.22)+"s"} begin={(flowIndex%8)*0.13+"s"} repeatCount="indefinite"/></circle>}
           {txt&&<g opacity={flowLabelOpacity} transform={"translate("+labelX+" "+labelY+") scale("+lblScale+") translate("+(-labelX)+" "+(-labelY)+")"}>
@@ -1672,11 +1674,11 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       return <div key={cat} style={{position:"absolute",left:bx1-sidePad,top:by1-topPad-barH,width:bx2-bx1+sidePad*2,height:by2-by1+topPad+bottomPad+barH,border:`${categoryBorderW}px solid ${cc}${isDark?"B0":"88"}`,borderRadius:18,background:isDark?cc+"16":"linear-gradient(145deg,#F8FAFD,"+cc+"0D 78%)",boxShadow:catShadow?`${isDark?"0 12px 32px rgba(0,0,0,0.38)":"0 10px 24px rgba(51,65,85,0.08)"}, 0 0 ${catShadow}px ${cc}28, inset 0 0 0 1px ${cc}${isDark?"20":"12"}`:"none",pointerEvents:"none"}}>
         {/* Bandeau titre */}
         <div style={{position:"absolute",top:-1,left:-1,right:-1,height:barH,background:headerColor,borderRadius:"16px 16px 0 0",borderBottom:`1px solid ${cc}90`,boxShadow:"0 3px 10px "+cc+"30",display:"flex",alignItems:"center",padding:"0 12px",gap:6,pointerEvents:"auto",userSelect:"none"}}
-          onContextMenu={e=>{e.preventDefault();e.stopPropagation();setCtxMenu({x:e.clientX,y:e.clientY,type:"category",target:cat});}}>
+          onContextMenu={e=>{e.preventDefault();e.stopPropagation();if(!readOnly)setCtxMenu({x:e.clientX,y:e.clientY,type:"category",target:cat});}}>
           {/* Bouton déplacer (document-level drag) */}
-          <span title="Déplacer la catégorie" data-app="1"
+          {!readOnly&&<span title="Déplacer la catégorie" data-app="1"
             style={{fontSize:Math.max(12,Math.round(14/zm)),cursor:"grab",color:"#fff",opacity:0.9,flexShrink:0,lineHeight:1,padding:"0 2px"}}
-            onMouseDown={e=>startCatDrag(e,cat,b.ids)}>✥</span>
+            onMouseDown={e=>startCatDrag(e,cat,b.ids)}>✥</span>}
           <span style={{fontSize:fz,fontWeight:700,color:"#fff",letterSpacing:1.5,textTransform:"uppercase",flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{cat}</span>
           <span style={{fontSize:fzSub,color:"rgba(255,255,255,0.7)",flexShrink:0}}>{b.domains.size} dom · {b.ids.length} apps</span>
           <span title="Changer couleur" style={{fontSize:Math.max(10,Math.round(11/zm)),cursor:"pointer",flexShrink:0,opacity:0.85}}
@@ -1713,11 +1715,11 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
           return <div key={d} style={{position:"absolute",left:b.x1-p,top:b.y1-p-domainHeaderH,width:zw,height:zh,border:_domBrd,borderRadius:20,background:isDropTarget?c.ac+"20":isDark?"radial-gradient(ellipse at 12% 0%, "+c.ac+"24, transparent 62%), linear-gradient(145deg, "+c.ac+"17, rgba(15,23,42,.16))":"radial-gradient(ellipse at 12% 0%, "+c.ac+"14, transparent 62%), linear-gradient(145deg, "+c.ac+"0E, #F6F8FC 76%)",boxShadow:isDropTarget?"0 0 0 4px "+c.ac+"35, 0 12px 28px rgba(0,0,0,0.24)":domainShadow,pointerEvents:"none",transition:"border 0.2s, background 0.2s, box-shadow 0.2s"}}>
         <div style={{padding:"6px 13px",fontSize:Math.round(13*fontScale*domainFontScale),fontWeight:850,color:isDark?c.ac:accentTextForLight(c.ac),letterSpacing:1,textTransform:"uppercase",pointerEvents:"auto",cursor:"grab",userSelect:"none",display:"flex",alignItems:"center",gap:8,maxWidth:"100%",borderRadius:"10px 10px 0 0",background:isDark?c.ac+"20":c.ac+"24",border:"1px solid "+c.ac+(isDark?"35":"55"),boxShadow:isDark?"0 5px 14px rgba(0,0,0,.12)":"0 5px 14px rgba(30,41,59,.08)"}}
           data-app="1" onMouseDown={e=>{e.stopPropagation();startDrag({domain:d,appIds:b.ids,lastX:e.clientX,lastY:e.clientY});}}
-          onContextMenu={e=>{e.preventDefault();e.stopPropagation();setCtxMenu({x:e.clientX,y:e.clientY,type:"domain",target:d});}}>
+          onContextMenu={e=>{e.preventDefault();e.stopPropagation();if(!readOnly)setCtxMenu({x:e.clientX,y:e.clientY,type:"domain",target:d});}}>
           <span style={{width:8,height:8,flexShrink:0,borderRadius:99,background:c.ac,boxShadow:"0 0 10px "+c.ac+"88"}}/>
           <span style={{minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>{d}</span>
           <span style={{fontSize:Math.max(10,Math.round(10/zm)),opacity:0.65}}>⠿</span>
-          <span style={{cursor:"pointer",fontSize:Math.max(10,Math.round(10/zm)),flexShrink:0}} onMouseDown={e=>{e.stopPropagation();e.preventDefault();setShowDomEdit(d);}} title="Changer couleur">🎨</span></div>
+          {!readOnly&&<span style={{cursor:"pointer",fontSize:Math.max(10,Math.round(10/zm)),flexShrink:0}} onMouseDown={e=>{e.stopPropagation();e.preventDefault();setShowDomEdit(d);}} title="Changer couleur">🎨</span>}</div>
         {/* Resize handle (coin) */}
         <div style={{position:"absolute",bottom:0,right:0,width:16,height:16,cursor:"nwse-resize",pointerEvents:"auto",display:"flex",alignItems:"center",justifyContent:"center"}}
           data-app="1" onMouseDown={e=>{e.stopPropagation();e.preventDefault();startDrag({resize:d,lx:e.clientX,ly:e.clientY});}}>
@@ -2691,6 +2693,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     {loadStatus.step==="error"&&<button onClick={()=>{setLoadStatus(null);setView("home");}} style={{...B,background:T.border,marginTop:24}}>← Retour</button>}
   </div></div>;
 
+  if(view==="home" && readOnly) return <div style={{padding:32,color:T.fg}}>Ce projet ne contient pas encore de cartographie.</div>;
   if(view==="home") return <CanvasHome isDark={isDark} onToggleTheme={toggleTheme} projectType={projectType} onImportFile={handleFile} onScratch={function(){setApps([]);setFlows([]);setView("mapping");}} onLoadJson={loadJSON} onDownloadTemplate={function(){downloadTemplate(projectType);}}/>;
 
   if(showSP&&shts.length>0) return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{background:T.bgCard,borderRadius:8,padding:32,width:420,textAlign:"center"}}>
@@ -3623,9 +3626,9 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
         </div>;})}
       {activeFilters&&<button onMouseDown={e=>{e.stopPropagation();setSelDom([]);setSelCat([]);setSelCrit([]);setSelHost([]);setSelAType([]);setSelEos([]);setSelD1("");setSelD2("");setSelStatut("");setFlowDir("");}} style={{...B,padding:"4px 8px",fontSize:11,background:"#FF525220",color:"#FF5252",borderRadius:4}}>✕</button>}
       <div style={{flex:1}}/>
-      <button className="mapping-trigger mapping-trigger-primary" onMouseDown={e=>{e.stopPropagation();applyStarLayout();}} title="Regroupe les applications par catégorie, rapproche les domaines les plus connectés et cadre la carte. Les fonctions d’édition restent disponibles." style={{...B,padding:"7px 11px",fontSize:9.5,background:"linear-gradient(120deg,#4F46E5,#6366F1 58%,#0EA5E9)",color:"#fff",border:"1px solid rgba(165,180,252,.45)",borderRadius:11,display:"flex",alignItems:"center",gap:6,fontWeight:800,boxShadow:"0 6px 16px rgba(79,70,229,.28)"}}><span style={{fontSize:13}}>✦</span> Optimiser la disposition</button>
+      {!readOnly&&<button className="mapping-trigger mapping-trigger-primary" onMouseDown={e=>{e.stopPropagation();applyStarLayout();}} title="Regroupe les applications par catégorie, rapproche les domaines les plus connectés et cadre la carte. Les fonctions d’édition restent disponibles." style={{...B,padding:"7px 11px",fontSize:9.5,background:"linear-gradient(120deg,#4F46E5,#6366F1 58%,#0EA5E9)",color:"#fff",border:"1px solid rgba(165,180,252,.45)",borderRadius:11,display:"flex",alignItems:"center",gap:6,fontWeight:800,boxShadow:"0 6px 16px rgba(79,70,229,.28)"}}><span style={{fontSize:13}}>✦</span> Optimiser la disposition</button>}
       {/* ── Création menu ── */}
-      <div className="mapping-trigger-anchor" style={{position:"relative"}}>
+      {!readOnly&&<div className="mapping-trigger-anchor" style={{position:"relative"}}>
         <button className="mapping-trigger" aria-haspopup="true" aria-expanded={openMenu==="create"} onClick={function(){setOpenMenu(openMenu==="create"?null:"create");}} style={{...B,background:openMenu==="create"?"linear-gradient(135deg,#6366F126,#8B5CF618)":cMode?"linear-gradient(135deg,#EF44442E,#F9731618)":toolbarSurface,color:cMode?"#FB7185":T.fgMuted,border:"1px solid "+(cMode?"#EF444466":openMenu==="create"?"#8B5CF655":T.border),padding:"7px 11px",fontSize:10,borderRadius:10,display:"flex",alignItems:"center",gap:7,boxShadow:cMode?"0 4px 14px rgba(239,68,68,.14)":"0 3px 10px rgba(0,0,0,.12)"}}>
           <span style={{width:20,height:20,borderRadius:7,display:"grid",placeItems:"center",background:cMode?"rgba(239,68,68,.16)":"rgba(16,185,129,.16)",fontSize:14,fontWeight:800,color:cMode?"#FB7185":"#34D399"}}>+</span>
           <span style={{fontSize:10,fontWeight:600,color:cMode?"#FF5252":T.fg}}>Création</span>
@@ -3642,21 +3645,21 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
             <div><div style={{fontSize:11,fontWeight:600,color:cMode?"#FF5252":T.fg}}>Créer un flux</div><div style={{fontSize:11,color:T.fgMuted}}>Clic source → clic cible</div></div>
           </div>
         </div>}
-      </div>
-      {multiSel.length>0&&<div style={{display:"flex",gap:4,alignItems:"center"}}><span style={{fontSize:10,color:"#00BFA5"}}>{multiSel.length} sél.</span><button onMouseDown={e=>{e.stopPropagation();if(confirm("Supprimer "+multiSel.length+" app(s) ?")){setApps(p=>p.filter(a=>!multiSel.includes(a.id)));setFlows(p=>p.filter(f=>!multiSel.includes(f.from)&&!multiSel.includes(f.to)));setMultiSel([]);}}} style={{...B,padding:"3px 6px",fontSize:11,background:"#FF525220",color:"#FF5252",borderRadius:3}}>🗑</button><button onMouseDown={e=>{e.stopPropagation();setMultiSel([]);}} style={{...B,padding:"3px 6px",fontSize:11,background:T.border,borderRadius:3}}>✕</button></div>}
+      </div>}
+      {!readOnly&&multiSel.length>0&&<div style={{display:"flex",gap:4,alignItems:"center"}}><span style={{fontSize:10,color:"#00BFA5"}}>{multiSel.length} sél.</span><button onMouseDown={e=>{e.stopPropagation();if(confirm("Supprimer "+multiSel.length+" app(s) ?")){setApps(p=>p.filter(a=>!multiSel.includes(a.id)));setFlows(p=>p.filter(f=>!multiSel.includes(f.from)&&!multiSel.includes(f.to)));setMultiSel([]);}}} style={{...B,padding:"3px 6px",fontSize:11,background:"#FF525220",color:"#FF5252",borderRadius:3}}>🗑</button><button onMouseDown={e=>{e.stopPropagation();setMultiSel([]);}} style={{...B,padding:"3px 6px",fontSize:11,background:T.border,borderRadius:3}}>✕</button></div>}
       {/* ── MENU: Fichier ── */}
       <div className="mapping-trigger-anchor" style={{position:"relative"}}>
         <button className="mapping-trigger" aria-haspopup="true" aria-expanded={openMenu==="file"} onClick={function(){setOpenMenu(openMenu==="file"?null:"file");}} style={{...B,background:openMenu==="file"?"linear-gradient(135deg,#F59E0B22,#F9731612)":toolbarSurface,color:openMenu==="file"?"#FBBF24":T.fgMuted,border:"1px solid "+(openMenu==="file"?"#F59E0B55":T.border),padding:"7px 11px",fontSize:10,letterSpacing:0.1,borderRadius:10,boxShadow:"0 3px 10px rgba(0,0,0,.12)"}}><span style={{width:20,height:20,borderRadius:7,display:"grid",placeItems:"center",background:"rgba(245,158,11,.14)",fontSize:12,marginRight:1}}>&#128193;</span>Fichier ▾</button>
         {openMenu==="file"&&<div className="mapping-menu" style={{position:"absolute",top:"100%",right:0,marginTop:6,background:T.bgCard,border:"1px solid "+T.border,borderRadius:12,padding:8,minWidth:220,boxShadow:"0 16px 38px rgba(0,0,0,.32)",zIndex:300}}>
           <div className="mapping-menu-heading">Données & exports</div>
-          <label className="mapping-menu-item" style={{display:"flex",alignItems:"center",gap:10,padding:"6px 10px",borderRadius:4,cursor:"pointer",fontSize:11,color:T.fg}} onMouseEnter={function(e){e.currentTarget.style.background=T.bgHover;}} onMouseLeave={function(e){e.currentTarget.style.background="transparent";}}><span className="mapping-menu-icon" style={{color:"#38BDF8"}}>↑</span><span>Charger un fichier JSON</span><input type="file" accept=".json" style={{display:"none"}} onChange={function(e){if(e.target.files[0])loadJSON(e.target.files[0]);setOpenMenu(null);}}/></label>
+          {!readOnly&&<label className="mapping-menu-item" style={{display:"flex",alignItems:"center",gap:10,padding:"6px 10px",borderRadius:4,cursor:"pointer",fontSize:11,color:T.fg}} onMouseEnter={function(e){e.currentTarget.style.background=T.bgHover;}} onMouseLeave={function(e){e.currentTarget.style.background="transparent";}}><span className="mapping-menu-icon" style={{color:"#38BDF8"}}>↑</span><span>Charger un fichier JSON</span><input type="file" accept=".json" style={{display:"none"}} onChange={function(e){if(e.target.files[0])loadJSON(e.target.files[0]);setOpenMenu(null);}}/></label>}
           <div className="mapping-menu-item" onClick={function(){saveJSON();setOpenMenu(null);}} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 10px",borderRadius:4,cursor:"pointer",fontSize:11,color:T.fg}} onMouseEnter={function(e){e.currentTarget.style.background=T.bgHover;}} onMouseLeave={function(e){e.currentTarget.style.background="transparent";}}><span className="mapping-menu-icon" style={{color:"#34D399"}}>↓</span><span>Sauvegarder en JSON</span></div>
           <div className="mapping-menu-separator" style={{height:1,background:T.border,margin:"4px 0"}}/>
           <div className="mapping-menu-item" onClick={function(){exportCSV();setOpenMenu(null);}} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 10px",borderRadius:4,cursor:"pointer",fontSize:11,color:T.fg}} onMouseEnter={function(e){e.currentTarget.style.background=T.bgHover;}} onMouseLeave={function(e){e.currentTarget.style.background="transparent";}}><span className="mapping-menu-icon" style={{color:"#38BDF8"}}>⇩</span><span>Exporter CSV</span></div>
           <div className="mapping-menu-item" onClick={function(){exportXLSX();setOpenMenu(null);}} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 10px",borderRadius:4,cursor:"pointer",fontSize:11,color:T.fg}} onMouseEnter={function(e){e.currentTarget.style.background=T.bgHover;}} onMouseLeave={function(e){e.currentTarget.style.background="transparent";}}><span className="mapping-menu-icon" style={{color:"#34D399"}}>▦</span><span>Exporter XLSX <small style={{display:"block",fontSize:9,color:T.fgMuted,marginTop:2}}>Applications · flux · dashboard</small></span></div>
           <div className="mapping-menu-item" onClick={function(){setShowExportModal(true);setOpenMenu(null);}} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 10px",borderRadius:4,cursor:"pointer",fontSize:11,color:T.fg}} onMouseEnter={function(e){e.currentTarget.style.background=T.bgHover;}} onMouseLeave={function(e){e.currentTarget.style.background="transparent";}}><span className="mapping-menu-icon" style={{color:"#FB923C"}}>▤</span><span>Exporter PowerPoint</span></div>
           <div className="mapping-menu-separator" style={{height:1,background:T.border,margin:"4px 0"}}/>
-          <div className="mapping-menu-item" onClick={function(){setView("home");setOpenMenu(null);}} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 10px",borderRadius:4,cursor:"pointer",fontSize:11,color:T.fgMuted}} onMouseEnter={function(e){e.currentTarget.style.background=T.bgHover;}} onMouseLeave={function(e){e.currentTarget.style.background="transparent";}}><span className="mapping-menu-icon" style={{color:T.fgMuted}}>↻</span><span>Réimporter un fichier</span></div>
+          {!readOnly&&<div className="mapping-menu-item" onClick={function(){setView("home");setOpenMenu(null);}} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 10px",borderRadius:4,cursor:"pointer",fontSize:11,color:T.fgMuted}} onMouseEnter={function(e){e.currentTarget.style.background=T.bgHover;}} onMouseLeave={function(e){e.currentTarget.style.background="transparent";}}><span className="mapping-menu-icon" style={{color:T.fgMuted}}>↻</span><span>Réimporter un fichier</span></div>}
         </div>}
       </div>
       {/* ── MENU: Édition de la cartographie ── */}
@@ -3725,10 +3728,10 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
           {[{label:"Domaines",value:domBorderW,set:setDomBorderW},{label:"Catégories",value:categoryBorderW,set:setCategoryBorderW}].map(function(item){return <div key={item.label} style={{display:"flex",alignItems:"center",gap:7,padding:"4px 6px"}}>
             <span style={{fontSize:10,color:T.fgMuted,minWidth:62}}>{item.label}</span><input aria-label={"Bordure "+item.label} type="range" min="0.5" max="6" step="0.5" value={item.value} onChange={function(e){item.set(parseFloat(e.target.value));}} style={{flex:1,cursor:"pointer"}}/><span style={{fontSize:10,color:T.fg,minWidth:28,textAlign:"right"}}>{item.value}px</span>
           </div>;})}
-          <button onClick={function(){setOpenMenu(null);applyStarLayout();}} style={{...B,width:"100%",marginTop:8,padding:"7px 10px",fontSize:10,background:"#6366F1",color:"#fff"}}>⟳ Appliquer le réagencement auto</button>
+          {!readOnly&&<button onClick={function(){setOpenMenu(null);applyStarLayout();}} style={{...B,width:"100%",marginTop:8,padding:"7px 10px",fontSize:10,background:"#6366F1",color:"#fff"}}>⟳ Appliquer le réagencement auto</button>}
         </div>}
       </div>
-      {projectId&&viewsSlot&&createPortal(<ViewsMenu projectId={projectId} T={T} B={B} toolbarSurface={toolbarSurface} open={openMenu==="views"} onToggle={function(){setOpenMenu(openMenu==="views"?null:"views");}} getViewState={getViewState} applyViewState={applyViewState}/>,viewsSlot)}
+      {projectId&&viewsSlot&&createPortal(<ViewsMenu projectId={projectId} T={T} B={B} toolbarSurface={toolbarSurface} open={openMenu==="views"} onToggle={function(){setOpenMenu(openMenu==="views"?null:"views");}} getViewState={getViewState} applyViewState={applyViewState} readOnly={readOnly}/>,viewsSlot)}
       {/* ── MENU: Flux & Domaines ── */}
       <div className="mapping-trigger-anchor" style={{position:"relative"}}>
         <button className="mapping-trigger" aria-haspopup="true" aria-expanded={openMenu==="flux"} onClick={function(){setOpenMenu(openMenu==="flux"?null:"flux");}} style={{...B,background:openMenu==="flux"?"linear-gradient(135deg,#38BDF826,#06B6D416)":toolbarSurface,color:openMenu==="flux"?"#7DD3FC":T.fgMuted,border:"1px solid "+(openMenu==="flux"?"#38BDF855":T.border),padding:"7px 11px",fontSize:10,letterSpacing:0.1,borderRadius:10,boxShadow:"0 3px 10px rgba(0,0,0,.12)"}}><span style={{width:20,height:20,borderRadius:7,display:"grid",placeItems:"center",background:"rgba(56,189,248,.15)",fontSize:12,marginRight:1}}>&#8644;</span>Flux ▾</button>
@@ -3755,7 +3758,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
             <span style={{fontSize:10,color:T.fg}}>{flowColorCustom||"Auto"}</span>
             {flowColorCustom&&<button onClick={function(){setFlowColorCustom("");}} style={{...B,padding:"2px 8px",fontSize:11,background:T.border}}>Reset</button>}
           </div>
-          <div onClick={function(){setShowCatModal(true);setOpenMenu(null);}} style={{padding:"6px 8px",borderRadius:4,cursor:"pointer",fontSize:11,color:T.fg,marginTop:4}} onMouseEnter={function(e){e.currentTarget.style.background=T.bgHover;}} onMouseLeave={function(e){e.currentTarget.style.background="transparent";}}>◫ Catégories</div>
+          {!readOnly&&<div onClick={function(){setShowCatModal(true);setOpenMenu(null);}} style={{padding:"6px 8px",borderRadius:4,cursor:"pointer",fontSize:11,color:T.fg,marginTop:4}} onMouseEnter={function(e){e.currentTarget.style.background=T.bgHover;}} onMouseLeave={function(e){e.currentTarget.style.background="transparent";}}>◫ Catégories</div>}
         </div>}
       </div>
     </div>
@@ -3871,10 +3874,10 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
             </button>;
           })}
         </div>
-        <div style={{display:"flex",gap:8,marginTop:20}}>
+        {!readOnly&&<div style={{display:"flex",gap:8,marginTop:20}}>
           <button onClick={()=>{setEApp({...selApp});setShowAM(true);}} style={{...B,background:"#548CA8",flex:1,padding:8}}>Éditer</button>
           <button onClick={()=>{if(confirm("Supprimer "+selApp.name+" ?")){setApps(p=>p.filter(a=>a.id!==selApp.id));setFlows(p=>p.filter(f=>f.from!==selApp.id&&f.to!==selApp.id));setSelApp(null);}}} style={{...B,background:"#E06C75",flex:1,padding:8}}>Supprimer</button>
-        </div>
+        </div>}
       </div>
     </div>}
     </div>
@@ -3919,7 +3922,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
       </div>
     </div>}
     {listsEditor&&isAdmin&&<OptionListsEditor T={T} I={I} B={B} apps={apps} lists={currentLists()} initialTab={listsEditor} onSave={saveOptionLists} onClose={function(){setListsEditor(null);}}/>}
-      {showAM&&eApp&&<div className="moverlay" style={{position:"fixed",inset:0,background:T.overlay,display:"flex",alignItems:"center",justifyContent:"center",zIndex:200}} onClick={()=>setShowAM(false)}><div style={{background:T.bgCard,borderRadius:8,padding:24,width:420,maxHeight:"80vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+      {!readOnly&&showAM&&eApp&&<div className="moverlay" style={{position:"fixed",inset:0,background:T.overlay,display:"flex",alignItems:"center",justifyContent:"center",zIndex:200}} onClick={()=>setShowAM(false)}><div style={{background:T.bgCard,borderRadius:8,padding:24,width:420,maxHeight:"80vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
       <h3 style={{fontSize:16,fontWeight:700,marginBottom:16}}>{eApp.id&&apps.find(a=>a.id===eApp.id)?"Modifier":"Nouvelle"} application</h3>
       {[{k:"name",l:"Nom *",t:"text"},{k:"description",l:"Description",t:"text"},{k:"vendor",l:"Éditeur",t:"text"},{k:"version",l:"Version",t:"text"},{k:"owner",l:"Responsable",t:"text"},{k:"users",l:"Nb utilisateurs",t:"number"}].map(({k,l,t})=><div key={k} style={{marginBottom:10}}><label style={{fontSize:11,color:T.fgMuted,display:"block",marginBottom:3}}>{l}</label><input type={t} value={eApp[k]||""} onChange={e=>setEApp(p=>({...p,[k]:t==="number"?parseInt(e.target.value)||0:e.target.value}))} style={I}/></div>)}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:10}}>
@@ -3962,7 +3965,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
     </div></div>}
     {/* Domain color editor */}
     {showExportModal&&<ExportModal T={T} apps={apps} flows={flows} doms={doms} projectType={projectType} initialOpts={exportOpts} onClose={function(){setShowExportModal(false);}} onExport={exportPPTX}/>}
-    {showDomEdit!=null&&showDomEdit!==false&&<div className="moverlay" style={{position:"fixed",inset:0,background:T.overlay,display:"flex",alignItems:"center",justifyContent:"center",zIndex:350}} onMouseDown={e=>{if(e.target===e.currentTarget)setShowDomEdit(null);}}><div style={{background:T.bgCard,borderRadius:8,padding:24,width:380}} onMouseDown={e=>e.stopPropagation()}>
+    {!readOnly&&showDomEdit!=null&&showDomEdit!==false&&<div className="moverlay" style={{position:"fixed",inset:0,background:T.overlay,display:"flex",alignItems:"center",justifyContent:"center",zIndex:350}} onMouseDown={e=>{if(e.target===e.currentTarget)setShowDomEdit(null);}}><div style={{background:T.bgCard,borderRadius:8,padding:24,width:380}} onMouseDown={e=>e.stopPropagation()}>
       <h3 style={{fontSize:16,fontWeight:700,marginBottom:16}}>Couleur du domaine</h3>
       <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20,padding:"12px 16px",background:T.bg,borderRadius:8}}>
         <div style={{width:44,height:44,borderRadius:8,background:(domColors[showDomEdit]||{bg:"#3D3D3D"}).bg,border:"2px solid "+((domColors[showDomEdit]||{ac:"#9E9E9E"}).ac),display:"flex",alignItems:"center",justifyContent:"center"}}>
@@ -4023,7 +4026,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
       </div>
     </div>}
     {/* Category grouping modal */}
-    {showCatModal&&<div className="moverlay" style={{position:"fixed",inset:0,background:T.overlay,display:"flex",alignItems:"center",justifyContent:"center",zIndex:250}} onClick={()=>setShowCatModal(false)}><div style={{background:T.bgCard,borderRadius:8,padding:24,width:440,maxHeight:"80vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+    {!readOnly&&showCatModal&&<div className="moverlay" style={{position:"fixed",inset:0,background:T.overlay,display:"flex",alignItems:"center",justifyContent:"center",zIndex:250}} onClick={()=>setShowCatModal(false)}><div style={{background:T.bgCard,borderRadius:8,padding:24,width:440,maxHeight:"80vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
       <h3 style={{fontSize:16,fontWeight:700,marginBottom:16}}>Gérer les catégories</h3>
       <div style={{marginBottom:16}}>
         <div style={{display:"flex",gap:8,marginBottom:12}}>
@@ -4059,7 +4062,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
       <div style={{display:"flex",justifyContent:"flex-end"}}><button onClick={()=>setShowCatModal(false)} style={{...B,background:T.border}}>Fermer</button></div>
     </div></div>}
     {/* Context menu */}
-    {ctxMenu&&<div style={{position:"fixed",inset:0,zIndex:400}} onMouseDown={()=>setCtxMenu(null)}>
+    {!readOnly&&ctxMenu&&<div style={{position:"fixed",inset:0,zIndex:400}} onMouseDown={()=>setCtxMenu(null)}>
       <div style={{position:"absolute",left:ctxMenu.x,top:ctxMenu.y,background:T.bgCard,border:"1px solid "+T.border,borderRadius:8,padding:4,minWidth:220,boxShadow:"0 8px 32px #00000070"}} onMouseDown={e=>e.stopPropagation()}>
         {ctxMenu.type==="category"&&<>
           <div style={{padding:"6px 12px",fontSize:11,color:T.fgMuted,fontWeight:700}}>{ctxMenu.target}</div>
@@ -4123,7 +4126,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
         </>}
       </div>
     </div>}
-    {showFM&&eFlow&&<div className="moverlay" style={{position:"fixed",inset:0,background:T.overlay,display:"flex",alignItems:"center",justifyContent:"center",zIndex:300}} onClick={()=>setShowFM(false)}><div style={{background:T.bgCard,borderRadius:8,padding:24,width:420,maxHeight:"80vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+    {!readOnly&&showFM&&eFlow&&<div className="moverlay" style={{position:"fixed",inset:0,background:T.overlay,display:"flex",alignItems:"center",justifyContent:"center",zIndex:300}} onClick={()=>setShowFM(false)}><div style={{background:T.bgCard,borderRadius:8,padding:24,width:420,maxHeight:"80vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
       <h3 style={{fontSize:16,fontWeight:700,marginBottom:16}}>Éditer le flux</h3>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,padding:"10px 14px",background:T.bg,borderRadius:6}}>
         <div><div style={{fontSize:10,color:T.fgMuted,marginBottom:2}}>Source</div><div style={{fontSize:13,fontWeight:600}}>{apps.find(a=>a.id===eFlow.from)?.name||"?"}</div></div>
@@ -4140,7 +4143,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
       </div>
     </div></div>}
     {/* Flow context menu (right-click) */}
-    {flowCtx&&<div style={{position:"fixed",left:flowCtx.x,top:flowCtx.y,background:T.bgCard,border:"1px solid "+T.border,borderRadius:8,padding:5,minWidth:160,boxShadow:"0 4px 20px #00000050",zIndex:500}} onMouseLeave={function(){setFlowCtx(null);}}>
+    {!readOnly&&flowCtx&&<div style={{position:"fixed",left:flowCtx.x,top:flowCtx.y,background:T.bgCard,border:"1px solid "+T.border,borderRadius:8,padding:5,minWidth:160,boxShadow:"0 4px 20px #00000050",zIndex:500}} onMouseLeave={function(){setFlowCtx(null);}}>
       <div style={{padding:"4px 10px 6px",fontSize:11,fontWeight:600,color:T.fgDim,textTransform:"uppercase",letterSpacing:1}}>
         {apps.find(function(a){return a.id===flowCtx.flow.from;})?.name||"?"} → {apps.find(function(a){return a.id===flowCtx.flow.to;})?.name||"?"}
       </div>

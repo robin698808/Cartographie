@@ -1,9 +1,11 @@
 import json
+import asyncio
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query
 from sqlalchemy.orm import Session
 from jose import JWTError, jwt
-from database import get_db, settings
+from database import get_db, settings, SessionLocal
 import models
+from routes.projects import effective_project_role
 
 router = APIRouter()
 
@@ -57,12 +59,9 @@ async def websocket_endpoint(
         await websocket.close(code=4001, reason="Token invalide")
         return
 
-    # Vérifier accès au projet
-    member = db.query(models.ProjectMember).filter(
-        models.ProjectMember.project_id == project_id,
-        models.ProjectMember.user_id == user_id,
-    ).first()
-    if not member and user.role != models.UserRole.admin:
+    project = db.query(models.Project).filter(models.Project.id == project_id).first()
+    initial_role = effective_project_role(project, user) if project else None
+    if not initial_role:
         await websocket.close(code=4003, reason="Accès refusé")
         return
 
@@ -90,7 +89,24 @@ async def websocket_endpoint(
 
     try:
         while True:
-            raw = await websocket.receive_text()
+            with SessionLocal() as fresh_db:
+                fresh_user = fresh_db.get(models.User, user_id)
+                fresh_project = fresh_db.get(models.Project, project_id)
+                role = effective_project_role(fresh_project, fresh_user) if fresh_user and fresh_project else None
+            if role != initial_role:
+                await websocket.close(code=4003, reason="Droits du projet modifiés")
+                break
+            try:
+                raw = await asyncio.wait_for(websocket.receive_text(), timeout=2)
+            except asyncio.TimeoutError:
+                continue
+            with SessionLocal() as fresh_db:
+                fresh_user = fresh_db.get(models.User, user_id)
+                fresh_project = fresh_db.get(models.Project, project_id)
+                role = effective_project_role(fresh_project, fresh_user) if fresh_user and fresh_project else None
+            if role != initial_role:
+                await websocket.close(code=4003, reason="Droits du projet modifiés")
+                break
             try:
                 msg = json.loads(raw)
             except json.JSONDecodeError:
@@ -99,6 +115,9 @@ async def websocket_endpoint(
             msg_type = msg.get("type", "")
 
             # Broadcasts acceptés : modifications canvas
+            if msg_type in ("apps_update", "flows_update", "dom_colors_update") and role == "viewer":
+                await websocket.send_json({"type": "error", "message": "Droits insuffisants (lecture seule)"})
+                continue
             if msg_type in ("apps_update", "flows_update", "dom_colors_update", "cursor_move"):
                 await broadcast_to_project(project_id, {
                     "type": msg_type,

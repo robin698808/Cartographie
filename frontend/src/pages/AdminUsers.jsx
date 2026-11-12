@@ -5,6 +5,8 @@ import { useAuth } from '../api/AuthContext';
 import { LogoMark } from '../components/Logo';
 import UserBubble from '../components/UserBubble';
 import ProfileModal from '../components/ProfileModal';
+import LangToggle from '../components/LangToggle';
+import ThemeToggle from '../components/ThemeToggle';
 import {
   Users, ShieldCheck, UserCheck, Search, ChevronLeft,
   Crown, UserCog, Trash2, Calendar, Mail, ArrowUpDown,
@@ -86,7 +88,7 @@ export default function AdminUsers() {
     <div className="page va" style={{ background: 'var(--bg)' }}>
 
       {/* ── Header ── */}
-      <header className="header">
+      <header className="header admin-header">
         <div className="row g3">
           <button
             onClick={() => navigate('/')}
@@ -106,6 +108,8 @@ export default function AdminUsers() {
           </span>
         </div>
         <div className="row g3">
+          <LangToggle />
+          <ThemeToggle />
           <UserBubble onClick={() => setShowProfile(true)} />
           <button onClick={logout} className="btn btn-s btn-sm">Déconnexion</button>
         </div>

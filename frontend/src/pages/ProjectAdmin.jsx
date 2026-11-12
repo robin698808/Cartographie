@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getMembers, inviteMember, removeMember, updateMemberRole, getProjects, updateProject } from '../api/client';
+import { getMembers, inviteMember, removeMember, updateMemberRole, getProjects, updateProject, transferOwnership } from '../api/client';
 import { useAuth } from '../api/AuthContext';
 import { LogoMark } from '../components/Logo';
 import UserBubble from '../components/UserBubble';
 import ProfileModal from '../components/ProfileModal';
+import LangToggle from '../components/LangToggle';
+import ThemeToggle from '../components/ThemeToggle';
 
 function initials(nom) {
   if (!nom) return '?';
@@ -110,6 +112,17 @@ export default function ProjectAdmin() {
     }
   };
 
+  const handleTransfer = async (m) => {
+    if (!confirm(`Transférer la propriété du projet à ${m.user.nom} ?`)) return;
+    try {
+      await transferOwnership(projectId, m.user.id);
+      notify('Propriété du projet transférée');
+      await load();
+    } catch (err) {
+      notify(err.response?.data?.detail || 'Erreur lors du transfert', 'error');
+    }
+  };
+
   /* ── Modifier projet ── */
   const handleEditSave = async (e) => {
     e.preventDefault();
@@ -127,14 +140,13 @@ export default function ProjectAdmin() {
   };
 
   /* Droits : owner ou admin */
-  const myMembership = members.find(m => m.user?.id === me?.id);
-  const canManage    = me?.role === 'admin' || myMembership?.role === 'owner';
+  const canManage    = project?.effective_role === 'admin' || project?.effective_role === 'owner';
 
   return (
     <div className="page va">
 
       {/* ── Header ── */}
-      <header className="header">
+      <header className="header admin-header">
         <div className="row g3">
           <button onClick={() => navigate('/')} className="btn btn-s btn-sm row g2">
             <span>Projets</span>
@@ -155,6 +167,8 @@ export default function ProjectAdmin() {
               🛡️ Utilisateurs
             </button>
           )}
+          <LangToggle />
+          <ThemeToggle />
           <UserBubble onClick={() => setShowProfile(true)} />
           <button onClick={logout} className="btn btn-s btn-sm">Déconnexion</button>
         </div>
@@ -279,10 +293,12 @@ export default function ProjectAdmin() {
                     key={m.id}
                     member={m}
                     isMe={m.user?.id === me?.id}
+                    isOwner={m.user?.id === project?.owner_id}
                     canManage={canManage}
                     isLast={idx === members.length - 1}
                     onRoleChange={(role) => handleRoleChange(m, role)}
                     onRemove={() => handleRemove(m)}
+                    onTransfer={() => handleTransfer(m)}
                   />
                 ))
               )}
@@ -382,8 +398,8 @@ export default function ProjectAdmin() {
 }
 
 /* ── Ligne membre ─────────────────────────────────────────────────── */
-function MemberRow({ member, isMe, canManage, isLast, onRoleChange, onRemove }) {
-  const isOwner = member.role === 'owner';
+function MemberRow({ member, isMe, isOwner, canManage, isLast, onRoleChange, onRemove, onTransfer }) {
+  const displayRole = isOwner ? 'owner' : member.role === 'owner' ? (member.user?.role === 'viewer' ? 'viewer' : 'editor') : member.role;
 
   return (
     <div style={{
@@ -415,17 +431,17 @@ function MemberRow({ member, isMe, canManage, isLast, onRoleChange, onRemove }) 
         {canManage && !isOwner && !isMe ? (
           <select
             className="inp"
-            value={member.role}
+            value={displayRole}
             onChange={e => onRoleChange(e.target.value)}
             style={{ fontSize:12, padding:'4px 28px 4px 10px', width:'auto', minWidth:110, height:26 }}
           >
-            <option value="editor">Éditeur</option>
+            <option value="editor" disabled={member.user?.role === 'viewer'}>Éditeur</option>
             <option value="viewer">Lecteur</option>
           </select>
         ) : (
-          <span className={`badge ${ROLE_BADGE[member.role]}`} style={{ gap:5 }}>
-            {member.role === 'owner' && <span style={{ fontSize:11, lineHeight:1 }}>👑</span>}
-            {ROLE_LABELS[member.role]}
+          <span className={`badge ${ROLE_BADGE[displayRole]}`} style={{ gap:5 }}>
+            {isOwner && <span style={{ fontSize:11, lineHeight:1 }}>👑</span>}
+            {ROLE_LABELS[displayRole]}
           </span>
         )}
       </div>
@@ -438,7 +454,10 @@ function MemberRow({ member, isMe, canManage, isLast, onRoleChange, onRemove }) 
       {/* Action */}
       <div style={{ display:'flex', alignItems:'center' }}>
         {canManage && !isOwner && !isMe ? (
-          <button onClick={onRemove} className="btn-d" title="Retirer du projet" style={{ fontSize:14, lineHeight:1 }}>🗑</button>
+          <div className="row g2">
+            {member.user?.role !== 'viewer' && <button onClick={onTransfer} className="btn btn-s btn-xs" title="Transférer la propriété">👑</button>}
+            <button onClick={onRemove} className="btn-d" title="Retirer du projet" style={{ fontSize:14, lineHeight:1 }}>🗑</button>
+          </div>
         ) : (
           <span className="f11 t4">—</span>
         )}

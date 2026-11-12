@@ -63,6 +63,7 @@ export const getMembers       = (projectId)              => API.get(`/projects/$
 export const inviteMember     = (projectId, email, role) => API.post(`/projects/${projectId}/members`, { email, role });
 export const updateMemberRole = (projectId, userId, role)=> API.patch(`/projects/${projectId}/members/${userId}`, { role });
 export const removeMember     = (projectId, userId)      => API.delete(`/projects/${projectId}/members/${userId}`);
+export const transferOwnership = (projectId, userId) => API.post(`/projects/${projectId}/transfer-ownership`, { user_id: userId });
 
 // ─── Admin — Utilisateurs ────────────────────────────────
 export const getUsers       = ()         => API.get('/users');

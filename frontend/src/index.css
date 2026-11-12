@@ -120,6 +120,9 @@ body {
   box-shadow: var(--s1);
 }
 
+.admin-header { flex-wrap: wrap; gap: 12px; }
+.admin-header > .row { flex-wrap: wrap; }
+
 .container {
   max-width: 1120px;
   margin: 0 auto;
@@ -627,6 +630,27 @@ select.inp   { cursor:pointer; background-image:url("data:image/svg+xml,%3Csvg x
 }
 .mapping-toolbar .mapping-trigger-anchor {
   flex: 0 0 auto;
+}
+.views-trigger-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 21px;
+  height: 21px;
+  border-radius: 6px;
+  color: #818cf8;
+  background: rgba(99,102,241,.14);
+  transition: transform .18s ease, background .18s ease;
+}
+.views-trigger:hover .views-trigger-icon,
+.views-trigger[aria-expanded="true"] .views-trigger-icon {
+  background: rgba(99,102,241,.25);
+  transform: translateY(-1px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .views-trigger-icon { transition: none; }
+  .views-trigger:hover .views-trigger-icon,
+  .views-trigger[aria-expanded="true"] .views-trigger-icon { transform: none; }
 }
 .mapping-toolbar .mapping-trigger:not(.mapping-trigger-primary):hover:not(:disabled) {
   box-shadow: 0 7px 18px rgba(0,0,0,.16), 0 0 0 1px rgba(129,140,248,.18) !important;

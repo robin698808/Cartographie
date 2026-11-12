@@ -3,8 +3,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from database import get_db
-import models, schemas, auth
-from routes.projects import get_project_or_404, check_project_access
+import models, schemas, auth, audit
+from routes.projects import get_project_or_404, check_project_access, effective_project_role
 
 router = APIRouter(prefix="/projects/{project_id}/views")
 
@@ -12,10 +12,16 @@ MAX_VIEW_BYTES = 2_000_000
 
 
 def _is_viewer(project: models.Project, user: models.User) -> bool:
-    if user.role == models.UserRole.admin:
-        return False
-    member = next((m for m in project.members if m.user_id == user.id), None)
-    return bool(member and member.role == models.MemberRole.viewer)
+    return effective_project_role(project, user) == "viewer"
+
+
+def _check_view_access(v, project, user):
+    if not v.shared and v.owner_id != user.id:
+        raise HTTPException(status_code=403, detail="Cette vue est privée")
+    if v.owner_id != user.id and user.role != models.UserRole.admin:
+        raise HTTPException(status_code=403, detail="Seul le créateur peut modifier cette vue")
+    if v.shared and _is_viewer(project, user):
+        raise HTTPException(status_code=403, detail="Droits insuffisants pour modifier une vue partagée")
 
 
 def _out(v: models.MapView, user: models.User) -> schemas.MapViewOut:
@@ -93,6 +99,8 @@ def create_view(
         data=_dump(body.data),
     )
     db.add(v)
+    db.flush()
+    audit.record(db, current_user, "view.created", "view", v.id, project_id, {"shared": v.shared})
     db.commit()
     db.refresh(v)
     return _out(v, current_user)
@@ -109,8 +117,7 @@ def update_view(
     project = get_project_or_404(project_id, db)
     check_project_access(project, current_user)
     v = _get_view(project_id, view_id, db)
-    if v.owner_id != current_user.id and current_user.role != models.UserRole.admin:
-        raise HTTPException(status_code=403, detail="Seul le créateur peut modifier cette vue")
+    _check_view_access(v, project, current_user)
     if body.name is not None:
         name = body.name.strip()
         if not name:
@@ -122,6 +129,7 @@ def update_view(
         v.shared = body.shared
     if body.data is not None:
         v.data = _dump(body.data)
+    audit.record(db, current_user, "view.updated", "view", v.id, project_id, {"shared": v.shared})
     db.commit()
     db.refresh(v)
     return _out(v, current_user)
@@ -137,7 +145,7 @@ def delete_view(
     project = get_project_or_404(project_id, db)
     check_project_access(project, current_user)
     v = _get_view(project_id, view_id, db)
-    if v.owner_id != current_user.id and current_user.role != models.UserRole.admin:
-        raise HTTPException(status_code=403, detail="Seul le créateur peut supprimer cette vue")
+    _check_view_access(v, project, current_user)
+    audit.record(db, current_user, "view.deleted", "view", v.id, project_id, {"shared": v.shared})
     db.delete(v)
     db.commit()

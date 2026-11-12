@@ -126,3 +126,16 @@ class AppSetting(Base):
     key = Column(String, primary_key=True)
     value = Column(Text, default="{}")
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+
+class AuditEvent(Base):
+    __tablename__ = "audit_events"
+
+    id = Column(Integer, primary_key=True)
+    actor_id = Column(Integer, nullable=False)
+    action = Column(String, nullable=False)
+    target_type = Column(String, nullable=False)
+    target_id = Column(Integer, nullable=False)
+    project_id = Column(Integer, nullable=True)
+    details = Column(Text, nullable=False, default="{}")
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)

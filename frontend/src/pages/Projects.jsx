@@ -101,12 +101,12 @@ export default function Projects() {
       const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
       if (!typing && !e.ctrlKey && !e.metaKey && !e.altKey) {
         if (e.key === '/') { e.preventDefault(); searchRef.current?.focus(); }
-        if (e.key === 'n') { e.preventDefault(); setShowCreate(true); }
+        if (e.key === 'n' && user?.role !== 'viewer') { e.preventDefault(); setShowCreate(true); }
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [user?.role]);
 
   useEffect(() => {
     if (!statBarMenu) return;
@@ -215,7 +215,7 @@ export default function Projects() {
 
   const renderProjects = (list) => {
     const cardProps = (p) => {
-      const canDelete = user?.role === 'admin' || p.owner_id === user?.id;
+      const canDelete = p.effective_role === 'admin' || p.effective_role === 'owner';
       return {
         project: p,
         pinned: pins.includes(p.id),
@@ -263,13 +263,13 @@ export default function Projects() {
             <h1 className="pj-title">{greeting()}{displayName ? `, ${displayName}` : ''} 👋</h1>
             <p className="pj-sub">
               {loading ? 'Chargement de vos projets…'
-                : projects.length === 0 ? 'Créez votre premier projet pour démarrer une cartographie.'
+                : projects.length === 0 ? (user?.role === 'viewer' ? 'Aucun projet ne vous a encore été partagé.' : 'Créez votre premier projet pour démarrer une cartographie.')
                 : `${projects.length} projet${projects.length > 1 ? 's' : ''} dans votre espace${counts.team ? ` · ${counts.team} partagé${counts.team > 1 ? 's' : ''} avec l'équipe` : ''}.`}
             </p>
             <div className="pj-hero-actions">
-              <button onClick={() => setShowCreate(true)} className="pj-hero-btn">
+              {user?.role !== 'viewer' && <button onClick={() => setShowCreate(true)} className="pj-hero-btn">
                 <Plus size={16} /> Nouveau projet <kbd>N</kbd>
-              </button>
+              </button>}
               {lastProject && (
                 <button onClick={() => navigate(`/canvas/${lastProject.id}`)} className="pj-hero-btn pj-hero-btn-ghost">
                   <Clock size={15} /> Reprendre : <strong className="trunc" style={{ maxWidth: 180 }}>{lastProject.nom}</strong>
@@ -378,7 +378,7 @@ export default function Projects() {
 
         {/* ── Contenu ── */}
         {loading ? <SkeletonGrid /> : projects.length === 0 ? (
-          <EmptyState onCreate={() => setShowCreate(true)} />
+          <EmptyState onCreate={user?.role === 'viewer' ? null : () => setShowCreate(true)} />
         ) : filtered.length === 0 ? (
           <div className="pj-noresult">
             <Search size={34} strokeWidth={1.2} />
@@ -399,7 +399,7 @@ export default function Projects() {
                 {renderProjects(others)}
               </>
             )}
-            {view === 'grid' && !hasFilters && (
+            {user?.role !== 'viewer' && view === 'grid' && !hasFilters && (
               <button className="pj-newtile" onClick={() => setShowCreate(true)}>
                 <span><Plus size={20} /></span>
                 Ajouter un nouveau projet
@@ -719,8 +719,8 @@ function EmptyState({ onCreate }) {
     <div className="empty">
       <span className="empty-ico">🗺️</span>
       <p className="f16 w7 t1" style={{ marginBottom: 8 }}>Aucun projet pour l'instant</p>
-      <p className="f13 t3" style={{ marginBottom: 24 }}>Créez votre premier projet de cartographie applicative IT</p>
-      <button onClick={onCreate} className="btn btn-p btn-lg">+ Créer un projet</button>
+      <p className="f13 t3" style={{ marginBottom: 24 }}>{onCreate ? 'Créez votre premier projet de cartographie applicative IT' : 'Un propriétaire de projet peut vous inviter.'}</p>
+      {onCreate && <button onClick={onCreate} className="btn btn-p btn-lg">+ Créer un projet</button>}
     </div>
   );
 }

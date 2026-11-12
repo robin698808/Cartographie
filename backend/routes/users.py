@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 import uuid, smtplib, logging
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-import models, schemas, auth
+import models, schemas, auth, audit
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -123,6 +123,16 @@ def update_user_role(
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Utilisateur introuvable")
+    if payload.role == models.UserRole.viewer:
+        if db.query(models.Project).filter(models.Project.owner_id == user_id).first():
+            raise HTTPException(status_code=409, detail="Transférez d'abord les projets dont cet utilisateur est propriétaire")
+        for membership in user.memberships:
+            if membership.role != models.MemberRole.viewer:
+                audit.record(db, current_user, "member.role_changed", "user", user_id, membership.project_id,
+                             {"old_role": membership.role.value, "new_role": "viewer"})
+                membership.role = models.MemberRole.viewer
+    audit.record(db, current_user, "user.role_changed", "user", user_id,
+                 details={"old_role": user.role.value, "new_role": payload.role.value})
     user.role = payload.role
     db.commit()
     db.refresh(user)
@@ -209,5 +219,8 @@ def delete_user(
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Utilisateur introuvable")
+    if db.query(models.Project).filter(models.Project.owner_id == user_id).first():
+        raise HTTPException(status_code=409, detail="Transférez d'abord les projets dont cet utilisateur est propriétaire")
+    audit.record(db, current_user, "user.deleted", "user", user_id)
     db.delete(user)
     db.commit()

@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Eye } from 'lucide-react';
 import { getViews, createView, updateView, deleteView } from '../api/client';
 
 const ico = { background: 'transparent', border: 'none', cursor: 'pointer', padding: '3px 5px', borderRadius: 6, fontSize: 12, lineHeight: 1 };
 
-export default function ViewsMenu({ projectId, T, B, open, onToggle, toolbarSurface, getViewState, applyViewState }) {
+export default function ViewsMenu({ projectId, T, B, open, onToggle, toolbarSurface, getViewState, applyViewState, readOnly = false }) {
   const [views, setViews] = useState([]);
   const [loading, setLoading] = useState(false);
   const [name, setName] = useState('');
@@ -25,6 +26,7 @@ export default function ViewsMenu({ projectId, T, B, open, onToggle, toolbarSurf
   }, [projectId]);
 
   useEffect(() => { if (open) load(); }, [open, load]);
+  useEffect(() => { if (readOnly) setShared(false); }, [readOnly]);
 
   const save = async () => {
     const n = name.trim();
@@ -84,10 +86,10 @@ export default function ViewsMenu({ projectId, T, B, open, onToggle, toolbarSurf
           {!v.mine && <span style={{ fontSize: 9, color: T.fgMuted }}>par {v.owner_name || 'un collègue'}</span>}
         </div>
       </div>
-      {v.mine ? (
+      {v.mine && !(readOnly && v.shared) ? (
         <div style={{ display: 'flex', gap: 0 }}>
           <button style={{ ...ico, color: T.fgMuted }} title="Remplacer par la disposition actuelle" onClick={() => overwrite(v)}>💾</button>
-          <button style={{ ...ico, color: T.fgMuted }} title={v.shared ? 'Rendre privée' : 'Partager avec l’équipe'} onClick={() => toggleShare(v)}>{v.shared ? '🔒' : '👥'}</button>
+          {!readOnly && <button style={{ ...ico, color: T.fgMuted }} title={v.shared ? 'Rendre privée' : 'Partager avec l’équipe'} onClick={() => toggleShare(v)}>{v.shared ? '🔒' : '👥'}</button>}
           <button style={{ ...ico, color: T.fgMuted }} title="Renommer" onClick={() => { setEditId(v.id); setEditName(v.name); }}>✏️</button>
           <button style={{ ...ico, color: '#EF4444' }} title="Supprimer" onClick={() => remove(v)}>🗑</button>
         </div>
@@ -102,10 +104,10 @@ export default function ViewsMenu({ projectId, T, B, open, onToggle, toolbarSurf
 
   return (
     <div className="mapping-trigger-anchor" style={{ position: 'relative' }}>
-      <button className="mapping-trigger" aria-haspopup="true" aria-expanded={open} onClick={onToggle}
+      <button className="mapping-trigger views-trigger" aria-haspopup="true" aria-expanded={open} onClick={onToggle}
         style={{ ...B, background: open ? 'linear-gradient(135deg,#A78BFA26,#6366F116)' : toolbarSurface, color: open ? '#C4B5FD' : T.fgMuted,
           border: '1px solid ' + (open ? '#A78BFA55' : T.border), padding: '4px 10px', fontSize: 12, fontWeight: 600, letterSpacing: 0, borderRadius: 6, height: 28, display: 'flex', alignItems: 'center', gap: 5 }}>
-        <span style={{ fontSize: 13, display: 'grid', placeItems: 'center', background: 'rgba(167,139,250,.16)', fontSize: 12, marginRight: 1 }}>👁</span>Vues ▾
+        <span className="views-trigger-icon" aria-hidden="true"><Eye size={15} strokeWidth={2} /></span>Vues ▾
       </button>
       {open && (
         <div className="mapping-menu" style={{ position: 'absolute', top: '100%', right: 0, marginTop: 6, background: T.bgCard, border: '1px solid ' + T.border,
@@ -118,7 +120,7 @@ export default function ViewsMenu({ projectId, T, B, open, onToggle, toolbarSurf
           </div>
           <div style={{ display: 'flex', gap: 6, padding: '8px 4px 4px' }}>
             {[{ v: false, l: '🔒 Privée' }, { v: true, l: '👥 Partagée' }].map((o) => (
-              <button key={String(o.v)} onClick={() => setShared(o.v)}
+              <button key={String(o.v)} disabled={readOnly && o.v} onClick={() => setShared(o.v)}
                 style={{ flex: 1, padding: '5px 6px', fontSize: 10, fontWeight: 700, borderRadius: 8, cursor: 'pointer',
                   border: '1px solid ' + (shared === o.v ? '#A78BFA' : T.border), background: shared === o.v ? 'rgba(167,139,250,.16)' : T.bgAlt,
                   color: shared === o.v ? '#A78BFA' : T.fgMuted }}>{o.l}</button>

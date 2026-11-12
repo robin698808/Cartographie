@@ -16,10 +16,10 @@ import ProjectAdmin from './pages/ProjectAdmin';
 import AdminUsers from './pages/AdminUsers';
 import ResetPassword from './pages/ResetPassword';
 
-// Le toggle est int?gr? aux en-t?tes de Projets et du canvas ; flottant ailleurs
+// Les contrôles sont intégrés aux en-têtes des pages authentifiées.
 function FloatingToggle() {
   const { pathname } = useLocation();
-  if (pathname === '/' || pathname.startsWith('/canvas/')) return null;
+  if (pathname === '/' || pathname.startsWith('/canvas/') || /^\/projects\/[^/]+\/admin\/?$/.test(pathname) || pathname === '/admin/users') return null;
   return <><LangToggle floating /><ThemeToggle floating /></>;
 }
 

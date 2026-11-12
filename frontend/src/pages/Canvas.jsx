@@ -39,6 +39,8 @@ export default function Canvas() {
   // Suit le thème du canvas pour adapter la barre de contexte
   const [canvasDark,      setCanvasDark]      = useState(true);
   const [showProfile,     setShowProfile]     = useState(false);
+  const [rightsChanged,   setRightsChanged]   = useState(false);
+  const [loadError,       setLoadError]       = useState('');
   const [topOffset,       setTopOffset]       = useState(0);
   const ctxBarRef = useRef(null);
 
@@ -63,13 +65,20 @@ export default function Canvas() {
       setSaveFailed(false);
       setSnapshotLoaded(false);
       setInitialSnapshot(null);
-      const res  = await getProjects();
-      const proj = res.data.find((p) => p.id === parseInt(projectId));
-      setProject(proj);
+      setProject(null);
+      setLoadError('');
       try {
+        const res = await getProjects();
+        const proj = res.data.find((p) => p.id === parseInt(projectId));
+        if (!proj) throw new Error('Projet introuvable ou accès refusé.');
+        setProject(proj);
         const snap = await getLatestSnapshot(projectId);
         setInitialSnapshot(snap.data);
-      } catch { /* canvas vierge */ }
+      } catch (err) {
+        if (err.response?.status !== 404) {
+          setLoadError(err.response?.data?.detail || err.message || 'Erreur lors du chargement du projet.');
+        }
+      }
       finally { setSnapshotLoaded(true); }
     };
     load();
@@ -90,10 +99,18 @@ export default function Canvas() {
       if (['apps_update','flows_update','dom_colors_update'].includes(msg.type)) setWsMessage(msg);
     };
     ws.onerror = () => {};
+    ws.onclose = (event) => {
+      if (event.code === 4003) {
+        if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = null;
+        setRightsChanged(true);
+      }
+    };
     return () => ws.close();
   }, [projectId]);
 
   const handleSave = useCallback(async (label = 'Sauvegarde manuelle') => {
+    if (!project || project.effective_role === 'viewer' || rightsChanged) return;
     const state = canvasStateRef.current;
     if (!state || savingRef.current) return;
     if (autoSaveTimerRef.current) {
@@ -120,10 +137,11 @@ export default function Canvas() {
       savingRef.current = false;
       setSaving(false);
     }
-  }, [projectId]);
+  }, [projectId, project, rightsChanged]);
 
   const handleCanvasSave = useCallback((state) => {
     canvasStateRef.current = state;
+    if (!project || project.effective_role === 'viewer' || rightsChanged) return;
     const signature = JSON.stringify(state);
     if (!canvasInitializedRef.current) {
       canvasInitializedRef.current = true;
@@ -144,7 +162,7 @@ export default function Canvas() {
       void handleSave('Sauvegarde automatique');
     };
     autoSaveTimerRef.current = setTimeout(runAutoSave, 2000);
-  }, [handleSave]);
+  }, [handleSave, project, rightsChanged]);
 
   useEffect(() => {
     return () => {
@@ -163,8 +181,17 @@ export default function Canvas() {
     ? { background:'#1A1A35', color:'#C8C8F0', border:'1px solid #2A2A50' }
     : { background:'#fff',    color:'#3D3A6E', border:'1px solid #E0E7FF' };
 
+  if (loadError) return <div role="alert" style={{ padding: 24 }}>
+    <p>{loadError}</p>
+    <button className="btn btn-s" onClick={() => navigate('/')}>Retour aux projets</button>
+  </div>;
+
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100vh' }}>
+      {rightsChanged && <div role="alert" style={{ padding: 10, background: '#7f1d1d', color: '#fff', textAlign: 'center' }}>
+        Vos droits ont changé. Rechargez la page pour actualiser votre accès.
+        <button onClick={() => window.location.reload()} style={{ marginLeft: 12 }}>Recharger</button>
+      </div>}
 
       {/* ── Context bar — s'adapte au thème sombre/clair du canvas ── */}
       <div ref={ctxBarRef} style={{
@@ -213,10 +240,10 @@ export default function Canvas() {
         )}
 
         <div style={{ display:'flex', alignItems:'center', gap:10, marginLeft:'auto' }}>
-          <button onClick={() => handleSave()} disabled={saving} style={{ background:'linear-gradient(135deg,#6366F1,#8B5CF6)', color:'#fff', border:'none', padding:'6px 14px', borderRadius:6, fontSize:12, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:6, fontFamily:'inherit', opacity: saving ? 0.5 : 1 }}>
+          {project?.effective_role === 'viewer' ? <span style={{ color: ctxMuted, fontSize: 12 }}>Lecture seule</span> : <button onClick={() => handleSave()} disabled={saving || rightsChanged || !project} style={{ background:'linear-gradient(135deg,#6366F1,#8B5CF6)', color:'#fff', border:'none', padding:'6px 14px', borderRadius:6, fontSize:12, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:6, fontFamily:'inherit', opacity: saving ? 0.5 : 1 }}>
             {saving ? <span style={{ width:12, height:12, border:'2px solid rgba(255,255,255,0.3)', borderTopColor:'#fff', borderRadius:'50%', display:'inline-block', animation:'_spin 0.6s linear infinite' }} /> : '💾'} Sauvegarder
-          </button>
-          {saving ? (
+          </button>}
+          {project?.effective_role !== 'viewer' && (saving ? (
             <span style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, color:ctxMuted }}>
               <span style={{ width:6, height:6, borderRadius:'50%', background:'currentColor', display:'inline-block' }} /> Sauvegarde…
             </span>
@@ -237,7 +264,7 @@ export default function Canvas() {
             <span style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, color:ctxMuted }}>
               <span style={{ width:6, height:6, borderRadius:'50%', background:'currentColor', display:'inline-block' }} /> Non sauvegardé
             </span>
-          )}
+          ))}
           <div ref={setViewsSlot} style={{ display:'flex' }} />
           <LangToggle />
           <ThemeToggle />
@@ -272,6 +299,7 @@ export default function Canvas() {
             onThemeChange={setCanvasDark}
             topOffset={topOffset}
             isAdmin={user?.role === 'admin'}
+            readOnly={project?.effective_role === 'viewer' || rightsChanged}
             projectType={project?.project_type || 'deal'}
             viewsSlot={viewsSlot}
           />

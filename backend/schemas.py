@@ -98,6 +98,7 @@ class ProjectOut(BaseModel):
     snapshot_count: Optional[int] = 0
     app_count: Optional[int] = 0
     flow_count: Optional[int] = 0
+    effective_role: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -111,6 +112,9 @@ class MemberInvite(BaseModel):
 
 class MemberRoleUpdate(BaseModel):
     role: MemberRole
+
+class TransferOwnership(BaseModel):
+    user_id: int
 
 class MemberOut(BaseModel):
     id: int
