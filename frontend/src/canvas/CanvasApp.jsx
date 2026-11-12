@@ -11,7 +11,7 @@ import './Sidebar.css';
 import WidgetHeader from './WidgetHeader';
 import DashboardInsights, { healthScore } from './DashboardInsights';
 import { routeFlows, pathToD, curvedFlowPath, placeLabels, straightFlowPath, flowLabelSpec, evaluateFlowLayout } from './flowRouting';
-import { placeMostConnectedFirst, gridOffsets, optimizedFontSizes, fitBounds } from './layoutDensity';
+import { placeMostConnectedFirst, gridOffsets, optimizedAppScale, optimizedSpacing, fitBounds } from './layoutDensity';
 import ViewsMenu from './ViewsMenu';
 import ExportModal from './ExportModal';
 import OptionListsEditor from './OptionListsEditor';
@@ -1186,15 +1186,42 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   const applyStarLayout=(sourceApps,interactive=false)=>{
     var layoutApps=sourceApps||apps;
     if(layoutApps.length===0)return;
-    const sizes=interactive?optimizedFontSizes(fontScale,categoryScale,0.6):{app:appFontScale,domain:domainFontScale,category:categoryFontScale,flow:flowFontSize};
+    const sizes={app:appFontScale,domain:domainFontScale,category:categoryFontScale,flow:flowFontSize};
     const baseWidth=220*Math.max(1,sizes.app/2.4),baseHeight=84*Math.max(1,sizes.app/2.4);
-    const layoutCard=a=>({id:a.id,x:a.x,y:a.y,w:baseWidth*globalScale*(domScales[a.domain]||1)*Math.max(0.7,fontScale),h:baseHeight*globalScale*(domScales[a.domain]||1)*Math.max(0.7,fontScale)});
+    const measureContext=interactive?document.createElement("canvas").getContext("2d"):null;
+    if(interactive&&!measureContext){console.error("Impossible de mesurer les textes pour optimiser la disposition");setLayoutReport({error:true});return;}
+    const fontFamily=interactive?getComputedStyle(cvRef.current).fontFamily:"sans-serif";
+    const measure=(text,size,weight)=>{measureContext.font=weight+" "+Math.round(size)+"px "+fontFamily;return measureContext.measureText(text||"").width;};
+    const requirements=interactive?layoutApps.map(a=>{
+      const ds=domScales[a.domain]||1,fsD=fontScale*ds,scale=ds*Math.max(0.7,fontScale);
+      const criticality=a.criticality==="Standalone temporaire"?"Stand.":a.criticality||"";
+      const criticalWidth=Math.max(measure(criticality,9*fsD*sizes.app,850),15*fsD*sizes.app);
+      const secondary=a.vendor||a.category||"";
+      const d2=projectType==="deal"&&a.statusD2?"D2 · "+(a.statusD2==="Clone & Clean"?"Clone":a.statusD2):"";
+      const textWidth=Math.max(measure(a.name,15*fsD*sizes.app,900),measure(secondary,11*fsD*sizes.app,600),d2?measure(d2,8*fsD*sizes.app,800)+12:0);
+      const status=projectType==="deal"?a.statusD1:a.statut;
+      const statusHeight=status?(sizes.app>2.4?Math.max(10,Math.round(7.5*fsD*sizes.app)):Math.max(10,Math.round(9*fsD))):0;
+      return {baseWidth:baseWidth*scale,baseHeight:baseHeight*scale,width:textWidth+criticalWidth+32,height:15*fsD*sizes.app*1.12+11*fsD*sizes.app*1.2+(d2?8*fsD*sizes.app*1.35+6:0)+statusHeight+10};
+    }):[];
+    const layoutScale=interactive?optimizedAppScale(globalScale,requirements):globalScale;
+    const sizeLimited=requirements.some(item=>item.width>item.baseWidth*layoutScale||item.height>item.baseHeight*layoutScale);
+    const layoutCard=a=>({id:a.id,x:a.x,y:a.y,w:baseWidth*layoutScale*(domScales[a.domain]||1)*Math.max(0.7,fontScale),h:baseHeight*layoutScale*(domScales[a.domain]||1)*Math.max(0.7,fontScale)});
     const makeLayout=(extraGap,orderByConnections=false)=>{
     const central=orderByConnections==="central";
-    const cW=Math.round(baseWidth*globalScale*Math.max(0.7,fontScale));
-    const cH=Math.round(baseHeight*globalScale*Math.max(0.7,fontScale));
+    const cW=Math.round(baseWidth*layoutScale*Math.max(0.7,fontScale));
+    const cH=Math.round(baseHeight*layoutScale*Math.max(0.7,fontScale));
     const hasFlowsToRoute=flows.length>0;
-    const cGx=Math.max(18+appSpacing,hasFlowsToRoute?46:0,interactive?sizes.flow*2:0)+extraGap,cGy=Math.max(14+appSpacing,hasFlowsToRoute?40:0,interactive?sizes.flow*2:0)+extraGap,domPad=44,domSide=22,domGap=domainSpacing;
+    const domPad=44,domSide=22,domGap=domainSpacing;
+    const spacingFor=(width,height)=>optimizedSpacing({
+      cardWidth:width,cardHeight:height,flowFontSize:sizes.flow,hasFlows:hasFlowsToRoute,
+      appSpacing,domainSpacing,categorySpacing,domainPadding,
+      domainHeader:Math.round(24*fontScale*sizes.domain),
+      categorySide:Math.round(30*categoryScale),
+      categoryTop:Math.max(Math.round(30*categoryScale),38+Math.round(28*fontScale)+24,domainPadding+Math.round(24*fontScale*sizes.domain)+14),
+      categoryBottom:Math.round(32*categoryScale),
+      categoryBar:Math.max(Math.round(38*fontScale*categoryScale*sizes.category),Math.ceil(34/0.35)),
+      domainInsetX:2*domSide,domainInsetY:domPad+26,
+    });
     // 1. Compter les flux inter-domaines
     const domFlows={};
     const pairFlows={};
@@ -1218,13 +1245,13 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     var getDomSize=function(dom){
       var scale=domScales[dom]||1;
       var appW=Math.round(cW*scale),appH=Math.round(cH*scale);
+      var spacing=interactive?spacingFor(appW,appH):null;
+      var cGx=(interactive?spacing.appX:Math.max(18+appSpacing,hasFlowsToRoute?46:0))+extraGap;
+      var cGy=(interactive?spacing.appY:Math.max(14+appSpacing,hasFlowsToRoute?40:0))+extraGap;
       var groups={};
       layoutApps.filter(function(a){return a.domain===dom;}).forEach(function(a){var cat=a.category||"";(groups[cat]=groups[cat]||[]).push(a);});
-      var categoryGapX=categorySpacing+appSpacing+extraGap,categoryGapY=categorySpacing+28+appSpacing+extraGap;
-      if(interactive){
-        categoryGapX=Math.max(categoryGapX,60*categoryScale+20);
-        categoryGapY=Math.max(categoryGapY,38*fontScale*categoryScale*sizes.category+Math.max(30*categoryScale,38+28*fontScale+24,domainPadding+24*fontScale*sizes.domain+14)+32*categoryScale+20);
-      }
+      var categoryGapX=(interactive?spacing.categoryX:categorySpacing+appSpacing)+extraGap;
+      var categoryGapY=(interactive?spacing.categoryY:categorySpacing+28+appSpacing)+extraGap;
       var layouts=Object.keys(groups).map(function(category){
         var targetOrder=function(app){
           var targets=flows.flatMap(function(f){
@@ -1252,7 +1279,9 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       rowHeights.forEach(function(height,i){yOffsets[i]=cursor;cursor+=height+(i<rowHeights.length-1?categoryGapY:0);});
       var contentH=cursor;
       layouts.forEach(function(layout,i){layout.x=xOffsets[i%categoryCols];layout.y=yOffsets[Math.floor(i/categoryCols)];});
-      return{w:contentW+domSide*2,h:contentH+domPad+26,layouts:layouts,appW:appW,appH:appH};
+      const headerWidth=interactive?measure(dom.toUpperCase(),13*fontScale*sizes.domain,850)+dom.length+72:0;
+      const extraWidth=Math.max(0,headerWidth-(contentW+2*domainPadding));
+      return{w:contentW+domSide*2+extraWidth,h:contentH+domPad+26,layouts:layouts,appW:appW,appH:appH,extraWidth:extraWidth};
     };
     // 4. Ordonner les domaines par proximité réelle des flux, puis les placer en grille compacte.
     var pendingDomains=doms.slice();
@@ -1287,13 +1316,16 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     }
     var colWidths=new Array(domainCols).fill(0),rowHeights=new Array(domainRows).fill(0);
     domainLayouts.forEach(function(item,index){var col=index%domainCols,row=Math.floor(index/domainCols);colWidths[col]=Math.max(colWidths[col],item.size.w);rowHeights[row]=Math.max(rowHeights[row],item.size.h);});
-    var domainGap=Math.max(70,domGap,2*domainPadding+Math.round(24*fontScale*sizes.domain)+20)+extraGap;
+    const maxDomainScale=Math.max(...doms.map(dom=>domScales[dom]||1));
+    const domainSpacingResult=interactive?spacingFor(cW*maxDomainScale,cH*maxDomainScale):null;
+    var domainGapX=(interactive?domainSpacingResult.domainX:Math.max(70,domGap,2*domainPadding+Math.round(24*fontScale*sizes.domain)+20))+extraGap;
+    var domainGapY=(interactive?domainSpacingResult.domainY:Math.max(70,domGap,2*domainPadding+Math.round(24*fontScale*sizes.domain)+20))+extraGap;
     // Couloirs proportionnels au nombre de flux qui traversent chaque fronti?re.
     var crossing=function(axis,boundary){var c=0;for(var i=0;i<domainLayouts.length;i++)for(var j=i+1;j<domainLayouts.length;j++){var w=pairFlows[[domainLayouts[i].domain,domainLayouts[j].domain].sort().join("\x00")]||0;if(!w)continue;var ai=axis===0?i%domainCols:Math.floor(i/domainCols),aj=axis===0?j%domainCols:Math.floor(j/domainCols);if(Math.min(ai,aj)<=boundary&&Math.max(ai,aj)>boundary)c+=w;}return c;};
     var colOffsets=[],rowOffsets=[],offset=0;
-    colWidths.forEach(function(width,index){colOffsets[index]=offset;offset+=width+(index<colWidths.length-1?domainGap+crossing(0,index)*8:0);});
+    colWidths.forEach(function(width,index){colOffsets[index]=offset;offset+=width+(index<colWidths.length-1?domainGapX+crossing(0,index)*8:0);});
     offset=0;
-    rowHeights.forEach(function(height,index){rowOffsets[index]=offset;offset+=height+(index<rowHeights.length-1?domainGap+crossing(1,index)*8:0);});
+    rowHeights.forEach(function(height,index){rowOffsets[index]=offset;offset+=height+(index<rowHeights.length-1?domainGapY+crossing(1,index)*8:0);});
     // 5. Positionner les applications par domaine, puis par catégorie.
     var na=layoutApps.map(function(a){return Object.assign({},a);});
     domainLayouts.forEach(function(item,index){
@@ -1306,7 +1338,8 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       });});
     });
     // Compute category bounds from their own applications so groups stay distinct.
-    var newCatBounds={};
+    var newCatBounds={},newDomPads={};
+    domainLayouts.forEach(function(item){if(item.size.extraWidth>0)newDomPads[item.domain]={w:item.size.extraWidth,h:0};});
     na.forEach(function(a){
       var cat=a.category;if(!cat)return;
       if(!newCatBounds[cat])newCatBounds[cat]={x1:Infinity,y1:Infinity,x2:-Infinity,y2:-Infinity};
@@ -1317,7 +1350,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       newCatBounds[cat].x2=Math.max(newCatBounds[cat].x2,a.x+appW);
       newCatBounds[cat].y2=Math.max(newCatBounds[cat].y2,a.y+appH);
     });
-    return {apps:na,catBounds:newCatBounds};
+    return {apps:na,catBounds:newCatBounds,domPads:newDomPads};
     };
     let best=makeLayout(interactive&&flows.length>120?250:0,interactive&&flows.length>120?"central":false),bestReport=null;
     if(interactive&&flows.length&&flows.length<=120){
@@ -1326,7 +1359,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       try{
         attempts.forEach(function([gap,orderByConnections],index){
           const candidate=makeLayout(gap,orderByConnections);
-          const geometry=getOptimizedFrame(candidate.apps,layoutCard,{sizes,categoryBounds:candidate.catBounds,domainPads:{}});
+          const geometry=getOptimizedFrame(candidate.apps,layoutCard,{sizes,categoryBounds:candidate.catBounds,domainPads:candidate.domPads});
           const report=evaluateFlowLayout(candidate.apps.map(layoutCard),flows,sizes.flow,geometry.zoom,flowShape);
           const score=report.unrouted*100000+(report.labelOverlaps+report.cardOverlaps)*1000+report.flowOverlaps*10+report.flowCrossings*5+report.straightFallbacks;
           if(score<bestScore){bestScore=score;best=candidate;bestReport={...report,smallLabels:sizes.flow*geometry.zoom*Math.min(1/Math.max(0.08,geometry.zoom),1.6)<10};}
@@ -1336,18 +1369,18 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         setLayoutReport({error:true});
         return;
       }
-      setLayoutReport({...bestReport,attempts:attempts.length});
+      setLayoutReport({...bestReport,attempts:attempts.length,sizeLimited});
     }else if(interactive){
-      setLayoutReport(flows.length?{skipped:true}:{empty:true});
+      setLayoutReport(flows.length?{skipped:true,sizeLimited}:{empty:true,sizeLimited});
     }
     if(interactive){
-      setLayoutUndo({positions:Object.fromEntries(apps.map(a=>[a.id,[a.x,a.y]])),catBounds,domPads,zoom:zm,offset:off,fonts:{app:appFontScale,domain:domainFontScale,category:categoryFontScale,flow:flowFontSize}});
-      setAppFontScale(sizes.app);setDomainFontScale(sizes.domain);setCategoryFontScale(sizes.category);setFlowFontSize(sizes.flow);
+      setLayoutUndo({positions:Object.fromEntries(apps.map(a=>[a.id,[a.x,a.y]])),catBounds,domPads,zoom:zm,offset:off,globalScale});
+      setGlobalScale(layoutScale);
       pendingOptimizedFrame.current=true;
     }
     setApps(best.apps);
     setCatBounds(best.catBounds);
-    setDomPads({});
+    setDomPads(best.domPads);
     if(!interactive)setTimeout(function(){fitCanvas(best.apps);},50);
   };
 
@@ -1673,7 +1706,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
 
 
       {/* Content */}
-      <div style={{display:"flex",alignItems:"center",gap:6,padding:"0 8px 0 12px",height:appFontScale>2.4&&(projectType==='deal'?app.statusD1:app.statut)?"calc(100% - "+statusHeight+"px)":"100%",position:"relative",zIndex:1}}>
+      <div style={{display:"flex",alignItems:"center",gap:6,padding:"0 8px 0 12px",height:(projectType==='deal'?app.statusD1:app.statut)?"calc(100% - "+statusHeight+"px)":"100%",position:"relative",zIndex:1}}>
         <div style={{overflow:"hidden",flex:1,minWidth:0}}>
           <div style={{color:cardFg,fontSize:Math.round(15*fsD*appFontScale),fontWeight:900,lineHeight:1.12,letterSpacing:"-0.025em",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textDecoration:isNeg?"line-through":"none"}}>{app.name}</div>
           <div style={{color:cardFgSub,fontSize:Math.round(11*fsD*appFontScale),fontWeight:600,lineHeight:1.2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{app.vendor||app.category||""}</div>
@@ -3778,7 +3811,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
       {activeFilters&&<button onMouseDown={e=>{e.stopPropagation();setSelDom([]);setSelCat([]);setSelCrit([]);setSelHost([]);setSelAType([]);setSelEos([]);setSelD1("");setSelD2("");setSelStatut("");setFlowDir("");}} style={{...B,padding:"4px 8px",fontSize:11,background:"#FF525220",color:"#FF5252",borderRadius:4}}>✕</button>}
       <div style={{flex:1}}/>
       {!readOnly&&<button className="mapping-trigger mapping-trigger-primary" onMouseDown={e=>{e.stopPropagation();applyStarLayout(undefined,true);}} title="Rapproche les applications et domaines connectés et adapte les espacements. La carte peut dépasser l'écran ; utilisez Recentrer pour la vue d'ensemble." style={{...B,padding:"7px 11px",fontSize:9.5,background:"linear-gradient(120deg,#4F46E5,#6366F1 58%,#0EA5E9)",color:"#fff",border:"1px solid rgba(165,180,252,.45)",borderRadius:11,display:"flex",alignItems:"center",gap:6,fontWeight:800,boxShadow:"0 6px 16px rgba(79,70,229,.28)"}}><span style={{fontSize:13}}>✦</span> Optimiser la disposition</button>}
-      {!readOnly&&layoutUndo&&<button type="button" className="mapping-trigger" onClick={function(){pendingOptimizedFrame.current=false;setApps(current=>current.map(a=>layoutUndo.positions[a.id]?{...a,x:layoutUndo.positions[a.id][0],y:layoutUndo.positions[a.id][1]}:a));setCatBounds(layoutUndo.catBounds);setDomPads(layoutUndo.domPads);setAppFontScale(layoutUndo.fonts.app);setDomainFontScale(layoutUndo.fonts.domain);setCategoryFontScale(layoutUndo.fonts.category);setFlowFontSize(layoutUndo.fonts.flow);setZm(layoutUndo.zoom);setOff(layoutUndo.offset);setLayoutUndo(null);setLayoutReport(null);}} style={{...B,padding:"7px 10px",fontSize:10,background:toolbarSurface,color:T.fg,border:"1px solid "+T.border}}>Annuler l'optimisation</button>}
+      {!readOnly&&layoutUndo&&<button type="button" className="mapping-trigger" onClick={function(){pendingOptimizedFrame.current=false;setApps(current=>current.map(a=>layoutUndo.positions[a.id]?{...a,x:layoutUndo.positions[a.id][0],y:layoutUndo.positions[a.id][1]}:a));setCatBounds(layoutUndo.catBounds);setDomPads(layoutUndo.domPads);setGlobalScale(layoutUndo.globalScale);setZm(layoutUndo.zoom);setOff(layoutUndo.offset);setLayoutUndo(null);setLayoutReport(null);}} style={{...B,padding:"7px 10px",fontSize:10,background:toolbarSurface,color:T.fg,border:"1px solid "+T.border}}>Annuler l'optimisation</button>}
       {/* ── Création menu ── */}
       {!readOnly&&<div className="mapping-trigger-anchor" style={{position:"relative"}}>
         <button className="mapping-trigger" aria-haspopup="true" aria-expanded={openMenu==="create"} onClick={function(){setOpenMenu(openMenu==="create"?null:"create");}} style={{...B,background:openMenu==="create"?"linear-gradient(135deg,#6366F126,#8B5CF618)":cMode?"linear-gradient(135deg,#EF44442E,#F9731618)":toolbarSurface,color:cMode?"#FB7185":T.fgMuted,border:"1px solid "+(cMode?"#EF444466":openMenu==="create"?"#8B5CF655":T.border),padding:"7px 11px",fontSize:10,borderRadius:10,display:"flex",alignItems:"center",gap:7,boxShadow:cMode?"0 4px 14px rgba(239,68,68,.14)":"0 3px 10px rgba(0,0,0,.12)"}}>
@@ -3947,6 +3980,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
         </>}
         {(appFiltered.length!==apps.length||flowFilterActive||search)&&<div>Des filtres ou une recherche masquent des éléments ; le bilan porte sur tous les flux.</div>}
         {!layoutReport.error&&<div>Utilisez « Recentrer » pour afficher toute la carte.</div>}
+        {layoutReport.sizeLimited&&<div>Certains textes restent trop longs pour la taille maximale des applications.</div>}
         {flowDisplayMode!=="static"&&<div>Les flux restent affichés au survol.</div>}
       </div>}
       <div style={{flex:1,minHeight:0,minWidth:0,display:"flex",overflow:"hidden"}}>

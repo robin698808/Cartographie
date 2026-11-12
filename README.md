@@ -116,11 +116,14 @@ selon les conflits de tracé et d'étiquettes. Au-delà, elle utilise une
 disposition aérée sans évaluation détaillée. Les croisements ne peuvent pas
 toujours être éliminés.
 
-L'optimisation ajuste également les polices des applications, domaines,
-catégories et flux pour viser une lecture confortable à un zoom de référence
-de 60 %. Les valeurs restent réglables et l'annulation les restaure. Selon le
-zoom et la densité, cette cible ne garantit pas la lisibilité de tous les
-éléments simultanément.
+L'optimisation conserve les polices choisies pour les applications, domaines,
+catégories et flux. Elle agrandit si nécessaire les applications pour leurs
+textes, dans la limite de 800 %, et adapte la largeur des domaines à leurs
+en-têtes. Elle adapte aussi les espaces entre applications, catégories et
+domaines aux dimensions des éléments, aux en-têtes et aux étiquettes de flux.
+Un avertissement signale les textes qui dépassent la limite de taille.
+Selon le zoom et la densité, la lisibilité de tous les éléments simultanément
+ne peut pas être garantie.
 
 Dans **Affichage**, la police générale peut atteindre 400 %, les polices des
 applications, domaines et catégories 600 %, les applications 800 %, la marge
@@ -131,7 +134,8 @@ une nouvelle optimisation pour limiter les chevauchements.
 Après optimisation, la vue conserve un zoom lisible et cadre l'application la
 plus connectée et ses voisins proches si la carte ne tient pas à l'écran. Utiliser
 « Recentrer » pour cadrer toute la carte ; l'annulation restaure également le
-zoom, la position et les polices précédents. Le bilan d'optimisation est affiché
+zoom, la position et la taille des applications précédents, sans modifier les
+polices. Le bilan d'optimisation est affiché
 au-dessus de la zone de dessin ; « Recentrer » tient compte des bordures et
 en-têtes des domaines et catégories. Les modifications de positions suivent les
 règles habituelles de sauvegarde du projet.

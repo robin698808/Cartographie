@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { centralSlots, placeMostConnectedFirst, gridOffsets, optimizedFontSizes, fitBounds } from './layoutDensity.js';
+import { centralSlots, placeMostConnectedFirst, gridOffsets, optimizedAppScale, optimizedSpacing, fitBounds } from './layoutDensity.js';
 
 test('most connected applications occupy central slots deterministically', () => {
   const apps=Array.from({length:9},(_,i)=>({id:String(i)}));
@@ -31,14 +31,36 @@ test('incomplete grids place every application once', () => {
   assert.deepEqual(new Set(placed.map(app=>app.id)),new Set(apps.map(app=>app.id)));
 });
 
-test('automatic font sizes target readable screen sizes and respect slider limits', () => {
-  const sizes=optimizedFontSizes(1.35,1,0.6);
-  assert.ok(Math.abs(15*1.35*sizes.app*0.6-16)<1);
-  assert.ok(Math.abs(13*1.35*sizes.domain*0.6-16)<1);
-  assert.ok(sizes.flow*0.6*1.6>=14);
-  const extreme=optimizedFontSizes(0.8,0.6,0.01);
-  assert.equal(extreme.app,6);
-  assert.equal(extreme.flow,96);
+test('application scale fits measured text without reducing existing size', () => {
+  const requirements=[
+    {width:375,height:90,baseWidth:220,baseHeight:84},
+    {width:150,height:160,baseWidth:220,baseHeight:84},
+  ];
+  assert.equal(optimizedAppScale(1,requirements),2);
+  assert.equal(optimizedAppScale(3,requirements),3);
+  assert.equal(optimizedAppScale(1,[{width:2000,height:10,baseWidth:220,baseHeight:84}]),8);
+  assert.equal(optimizedAppScale(1,[]),1);
+});
+
+test('optimized spacing reserves corridors around scaled cards and zone headers', () => {
+  const options={cardWidth:200,cardHeight:100,flowFontSize:20,hasFlows:true,appSpacing:0,domainSpacing:0,categorySpacing:0,domainPadding:80,domainHeader:180,categorySide:45,categoryTop:274,categoryBottom:48,categoryBar:120,domainInsetX:44,domainInsetY:70};
+  const spacing=optimizedSpacing(options);
+  assert.ok(spacing.appX>=40);
+  assert.ok(spacing.appY>=40);
+  assert.ok(spacing.categoryX-2*options.categorySide>=40);
+  assert.ok(spacing.categoryY-options.categoryTop-options.categoryBar-options.categoryBottom>=40);
+  assert.ok(spacing.domainX+options.domainInsetX-2*options.domainPadding>=40);
+  assert.ok(spacing.domainY+options.domainInsetY-2*options.domainPadding-options.domainHeader>=40);
+  assert.ok(spacing.domainY+options.domainInsetY-options.categoryTop-options.categoryBar-options.categoryBottom>=40);
+  const larger=optimizedSpacing({...options,cardWidth:2000,cardHeight:1000,flowFontSize:8});
+  assert.ok(larger.appX>=300);
+  assert.ok(larger.appY>=300);
+  assert.ok(larger.domainX>spacing.domainX);
+  assert.ok(larger.domainY>spacing.domainY);
+  const userSpacing=optimizedSpacing({...options,appSpacing:500,domainSpacing:900,categorySpacing:600});
+  assert.ok(userSpacing.appX>=518);
+  assert.ok(userSpacing.domainX>=900);
+  assert.ok(userSpacing.categoryX>=1100);
 });
 
 test('fitBounds keeps all bounds within the usable viewport', () => {

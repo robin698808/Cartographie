@@ -30,14 +30,21 @@ export function gridOffsets(items, columns, width, height, gapX, gapY, connectio
   return {x,y,w:x[columns-1]+width,h:y[rows-1]+height};
 }
 
-export function optimizedFontSizes(fontScale, categoryScale, zoom) {
-  const clamp=(value,min,max)=>Math.round(Math.max(min,Math.min(max,value))*10)/10;
-  const scale=Math.max(0.01,zoom);
+export function optimizedAppScale(currentScale, requirements) {
+  const required=requirements.reduce((scale,item)=>Math.max(scale,item.width/item.baseWidth,item.height/item.baseHeight),currentScale);
+  return Math.min(8,Math.ceil(required*10-1e-9)/10);
+}
+
+export function optimizedSpacing({cardWidth,cardHeight,flowFontSize,hasFlows,appSpacing,domainSpacing,categorySpacing,domainPadding,domainHeader,categorySide,categoryTop,categoryBottom,categoryBar,domainInsetX,domainInsetY}) {
+  const corridorX=Math.max(40,cardWidth*0.15,hasFlows?flowFontSize*2:0);
+  const corridorY=Math.max(40,cardHeight*0.3,hasFlows?flowFontSize*2:0);
   return {
-    app:clamp(16/(15*fontScale*scale),0.8,6),
-    domain:clamp(16/(13*fontScale*scale),0.8,6),
-    category:clamp(16/(13*fontScale*categoryScale*scale),0.8,6),
-    flow:Math.max(8,Math.min(96,Math.ceil(14/(scale*Math.min(1/scale,1.6))))),
+    appX:Math.ceil(Math.max(18+appSpacing,corridorX)),
+    appY:Math.ceil(Math.max(14+appSpacing,corridorY)),
+    categoryX:Math.ceil(Math.max(categorySpacing+appSpacing,2*categorySide+corridorX)),
+    categoryY:Math.ceil(Math.max(categorySpacing+28+appSpacing,categoryTop+categoryBar+categoryBottom+corridorY)),
+    domainX:Math.ceil(Math.max(70,domainSpacing,2*domainPadding+corridorX-domainInsetX,2*categorySide+corridorX-domainInsetX)),
+    domainY:Math.ceil(Math.max(70,domainSpacing,2*domainPadding+domainHeader+corridorY-domainInsetY,categoryTop+categoryBar+categoryBottom+corridorY-domainInsetY)),
   };
 }
 
