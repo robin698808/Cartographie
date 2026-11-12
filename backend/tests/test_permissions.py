@@ -4,6 +4,8 @@ import tempfile
 import unittest
 import gc
 import threading
+import io
+import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from unittest.mock import patch
@@ -13,6 +15,10 @@ from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import inspect, text
 from starlette.websockets import WebSocketDisconnect
+from pptx import Presentation
+from pptx.util import Inches
+from pptx.chart.data import ChartData
+from pptx.enum.chart import XL_CHART_TYPE
 
 BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
@@ -67,6 +73,69 @@ class PermissionTests(unittest.TestCase):
         r = self.request("owner", "post", f"/api/projects/{self.project}/members",
                          json={"email": name + "@example.com", "role": role})
         self.assertEqual(r.status_code, 201, r.text)
+
+    def test_project_pptx_template_permissions_and_export(self):
+        path = f"/api/export/pptx/template/{self.project}"
+        presentation = Presentation()
+        presentation.slide_width = Inches(10)
+        presentation.slide_height = Inches(7.5)
+        slide = presentation.slides.add_slide(presentation.slide_layouts[0])
+        chart_data = ChartData()
+        chart_data.categories = ["A", "B"]
+        chart_data.add_series("Valeurs", [1, 2])
+        slide.shapes.add_chart(XL_CHART_TYPE.COLUMN_CLUSTERED, Inches(1), Inches(1), Inches(4), Inches(3), chart_data)
+        buf = io.BytesIO()
+        presentation.save(buf)
+        content = buf.getvalue()
+        with zipfile.ZipFile(io.BytesIO(content)) as archive:
+            self.assertTrue(any(name.startswith("ppt/embeddings/") for name in archive.namelist()))
+        upload = lambda name, data: {"file": (name, data, "application/vnd.openxmlformats-officedocument.presentationml.presentation")}
+
+        self.assertEqual(self.request("reader", "put", path, files=upload("modele.pptx", content)).status_code, 403)
+        self.assertEqual(self.request("other", "get", path).status_code, 403)
+        response = self.request("editor", "put", path, files=upload("modele.pptx", content))
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(self.request("reader", "get", path).json()["filename"], "modele.pptx")
+        self.assertEqual(self.request("editor", "put", path, files=upload("invalide.pptx", b"non pptx")).status_code, 400)
+        with_macro = io.BytesIO()
+        with zipfile.ZipFile(io.BytesIO(content)) as source, zipfile.ZipFile(with_macro, "w") as target:
+            for item in source.infolist():
+                target.writestr(item, source.read(item.filename))
+            target.writestr("ppt/vbaProject.bin", b"macro")
+        self.assertEqual(self.request("editor", "put", path, files=upload("macro.pptx", with_macro.getvalue())).status_code, 400)
+        self.assertEqual(self.request("reader", "get", path).json()["filename"], "modele.pptx")
+
+        data = {"project_id": self.project, "apps": [{"id": "a", "name": "App", "domain": "IT"}],
+                "flows": [], "opts": {"sections": ["cover", "recap_apps"], "clientName": "Client"}}
+        self.assertEqual(self.request("other", "post", "/api/export/pptx/plan", json=data).status_code, 403)
+        plan = self.request("reader", "post", "/api/export/pptx/plan", json=data)
+        self.assertEqual(plan.status_code, 200, plan.text)
+        response = self.request("reader", "post", "/api/export/pptx", json=data)
+        self.assertEqual(response.status_code, 200, response.text[:500])
+        result = Presentation(io.BytesIO(response.content))
+        self.assertEqual(len(result.slides), plan.json()["count"])
+        self.assertEqual(result.slide_width, Inches(10))
+        self.assertEqual(result.slide_height, Inches(7.5))
+        cover = [shape.text for shape in result.slides[0].shapes if shape.has_text_frame]
+        self.assertIn("Cartographie Applicative", cover)
+        self.assertIn("Client", cover)
+        for slide in result.slides:
+            for shape in slide.shapes:
+                if not shape.is_placeholder:
+                    self.assertLessEqual(shape.left + shape.width, result.slide_width + 100)
+                    self.assertLessEqual(shape.top + shape.height, result.slide_height + 100)
+        self.assertEqual(self.request("reader", "delete", path).status_code, 403)
+        self.assertEqual(self.request("editor", "delete", path).status_code, 204)
+        self.assertIsNone(self.request("reader", "get", path).json()["filename"])
+
+    def test_project_template_removed_with_project(self):
+        path = f"/api/export/pptx/template/{self.project}"
+        buf = io.BytesIO()
+        Presentation().save(buf)
+        self.assertEqual(self.request("owner", "put", path, files={"file": ("template.pptx", buf.getvalue())}).status_code, 200)
+        self.assertEqual(self.request("owner", "delete", f"/api/projects/{self.project}").status_code, 204)
+        with SessionLocal() as db:
+            self.assertIsNone(db.get(models.ProjectPptxTemplate, self.project))
 
     def test_project_roles_and_global_ceiling(self):
         project = f"/api/projects/{self.project}"

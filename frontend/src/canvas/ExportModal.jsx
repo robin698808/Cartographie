@@ -5,12 +5,13 @@ import API from '../api/client';
 const CATALOG = [
   { group: 'Introduction', items: [
     { id: 'cover', label: 'Page de garde' },
-    { id: 'synthese', label: 'Synthèse & messages clés', hint: 'Flux dominants, domaines, hubs' },
-    { id: 'executive', label: 'Synthèse exécutive', hint: 'Chiffres clés du périmètre' },
+    { id: 'synthese', label: 'Messages clés', hint: 'Dépendances et points d’attention' },
+    { id: 'executive', label: 'Synthèse exécutive', hint: 'Chiffres clés et état du portefeuille' },
   ] },
   { group: 'Cartographie', requires: 'apps', items: [
-    { id: 'carto_globale', label: 'Cartographie globale', hint: 'Applications par domaine + tous les flux' },
-    { id: 'domain_view', label: 'Vue par domaine', hint: '1 diapositive par domaine : applications et flux' },
+    { id: 'carto_globale', label: 'Cartographie globale', hint: 'Applications regroupées par domaine' },
+    { id: 'domain_view', label: 'Vue consolidée par domaine', hint: 'Une diapositive par domaine, avec tous ses flux et les applications liées' },
+    { id: 'domain_detail', label: 'Détail des flux par domaine', hint: 'Lignes lisibles et pagination pour les domaines denses' },
   ] },
   { group: 'Flux', requires: 'flows', items: [
     { id: 'flux_matrix', label: 'Matrice des flux inter-domaines' },
@@ -30,19 +31,16 @@ const CATALOG = [
   { group: 'Conclusion', items: [{ id: 'end', label: 'Diapositive de fin' }] },
 ];
 
-const PRESETS = {
-  synthese: { label: 'Synthèse (comité)', ids: ['cover', 'synthese', 'executive', 'carto_globale', 'domain_view', 'flux_matrix', 'hubs', 'paysage', 'end'] },
-  complet: { label: 'Complet', ids: null },
-  decision: { label: 'Décision (Day 1/2)', ids: ['cover', 'synthese', 'executive', 'domain_status', 'env_d1', 'env_d2', 'paysage', 'end'] },
-};
+const MAIN_IDS = ['cover', 'synthese', 'executive', 'carto_globale', 'domain_view'];
 
 const COLORS = ['0B2545', '1B3A5C', '2979FF', '10B981', '6366F1', 'EF6C00', 'E06C75', '2D6A4F'];
 
-export default function ExportModal({ T, apps, flows, doms, projectType, initialOpts, onClose, onExport }) {
+export default function ExportModal({ T, apps, flows, doms, projectType, projectId, readOnly, initialOpts, onClose, onExport }) {
   const isDeal = projectType === 'deal';
   const available = (g, it) => !((g.requires === 'flows' && !flows.length) || (g.requires === 'deal' && !isDeal) || (it.requires === 'flows' && !flows.length));
   const allIds = useMemo(() => CATALOG.flatMap((g) => g.items.filter((it) => available(g, it)).map((it) => it.id)), [flows.length, isDeal]); // eslint-disable-line
-  const [selected, setSelected] = useState(() => new Set(allIds));
+  const [selected, setSelected] = useState(() => new Set(['cover', 'carto_globale', 'domain_view', 'domain_detail', 'flux_table'].filter((id) => allIds.includes(id))));
+  const [showGlobalFlows, setShowGlobalFlows] = useState(true);
   const [domains, setDomains] = useState(() => new Set(doms));
   const [primary, setPrimary] = useState(initialOpts.clientPrimary || '2979FF');
   const [clientName, setClientName] = useState(initialOpts.clientName || '');
@@ -52,6 +50,42 @@ export default function ExportModal({ T, apps, flows, doms, projectType, initial
   const [planErr, setPlanErr] = useState(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [template, setTemplate] = useState(null);
+  const [templateLoading, setTemplateLoading] = useState(true);
+  const [templateError, setTemplateError] = useState(null);
+  const [templateReady, setTemplateReady] = useState(false);
+  const [templateVersion, setTemplateVersion] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    setTemplateLoading(true);
+    API.get(`/export/pptx/template/${projectId}`)
+      .then((r) => { if (active) { setTemplate(r.data.filename); setTemplateError(null); setTemplateReady(true); } })
+      .catch((e) => { if (active) setTemplateError(e?.response?.data?.detail || e.message); })
+      .finally(() => { if (active) setTemplateLoading(false); });
+    return () => { active = false; };
+  }, [projectId]);
+
+  const updateTemplate = async (file) => {
+    setTemplateLoading(true);
+    setTemplateError(null);
+    try {
+      if (file) {
+        const form = new FormData();
+        form.append('file', file);
+        const response = await API.put(`/export/pptx/template/${projectId}`, form);
+        setTemplate(response.data.filename);
+      } else {
+        await API.delete(`/export/pptx/template/${projectId}`);
+        setTemplate(null);
+      }
+      setTemplateVersion((version) => version + 1);
+    } catch (e) {
+      setTemplateError(e?.response?.data?.detail || e.message);
+    } finally {
+      setTemplateLoading(false);
+    }
+  };
 
   const scoped = useMemo(() => {
     const a = apps.filter((x) => domains.has(x.domain));
@@ -65,23 +99,28 @@ export default function ExportModal({ T, apps, flows, doms, projectType, initial
     clientName,
     hubLimit,
     inclDomainStatus: isDeal,
-  }), [allIds, selected, primary, clientName, hubLimit, isDeal]);
+    projectType,
+    showGlobalFlows,
+    contextApps: apps,
+    contextFlows: flows,
+  }), [allIds, selected, primary, clientName, hubLimit, isDeal, projectType, showGlobalFlows, apps, flows]);
 
   const reqRef = useRef(0);
   useEffect(() => {
-    const id = ++reqRef.current;
+    if (templateLoading || !templateReady) return undefined;
+    const request = reqRef;
+    const id = ++request.current;
     setLoading(true);
     const t = setTimeout(() => {
-      API.post('/export/pptx/plan', { apps: scoped.apps, flows: scoped.flows, opts })
-        .then((r) => { if (id === reqRef.current) { setPlan(r.data); setPlanErr(null); } })
-        .catch((e) => { if (id === reqRef.current) setPlanErr(e?.response?.data?.detail || e.message); })
-        .finally(() => { if (id === reqRef.current) setLoading(false); });
+      API.post('/export/pptx/plan', { apps: scoped.apps, flows: scoped.flows, opts, project_id: Number(projectId) })
+        .then((r) => { if (id === request.current) { setPlan(r.data); setPlanErr(null); } })
+        .catch((e) => { if (id === request.current) setPlanErr(e?.response?.data?.detail || e.message); })
+        .finally(() => { if (id === request.current) setLoading(false); });
     }, 500);
-    return () => clearTimeout(t);
-  }, [scoped, opts]);
+    return () => { clearTimeout(t); if (request.current === id) request.current++; };
+  }, [scoped, opts, projectId, templateLoading, templateReady, templateVersion]);
 
   const toggle = (ids, on) => setSelected((p) => { const n = new Set(p); ids.forEach((i) => (on ? n.add(i) : n.delete(i))); return n; });
-  const applyPreset = (p) => setSelected(new Set((p.ids || allIds).filter((i) => allIds.includes(i))));
   const toggleDomain = (d) => setDomains((p) => { const n = new Set(p); if (n.has(d)) n.delete(d); else n.add(d); return n; });
 
   const lbl = { fontSize: 10, fontWeight: 700, color: T.fgMuted, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 };
@@ -97,10 +136,14 @@ export default function ExportModal({ T, apps, flows, doms, projectType, initial
   const generate = async () => {
     setBusy(true);
     try {
-      await onExport({ apps: scoped.apps, flows: scoped.flows, opts: { ...opts, clientLogo: logo } }, { primary, clientName, hubLimit, logo });
+      await onExport({ apps: scoped.apps, flows: scoped.flows, opts: { ...opts, clientLogo: logo }, project_id: Number(projectId) }, { primary, clientName, hubLimit, logo });
       onClose();
     } catch (err) {
-      alert('Erreur export PPTX :\n' + (err?.response?.data?.detail || err?.message || String(err)));
+      let detail = err?.response?.data?.detail;
+      if (err?.response?.data instanceof Blob) {
+        try { detail = JSON.parse(await err.response.data.text()).detail; } catch { detail = err.message; }
+      }
+      alert('Erreur export PPTX :\n' + (detail || err?.message || String(err)));
     } finally { setBusy(false); }
   };
 
@@ -115,17 +158,50 @@ export default function ExportModal({ T, apps, flows, doms, projectType, initial
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 18, color: T.fgMuted, cursor: 'pointer' }}>✕</button>
         </div>
 
-        <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', minHeight: 0 }}>
+        <div style={{ flex: 1, display: 'flex', flexWrap: 'wrap', overflowY: 'auto', minHeight: 0 }}>
           {/* Colonne gauche : contenu */}
-          <div style={{ padding: '16px 22px', overflowY: 'auto', borderRight: '1px solid ' + T.border }}>
-            <div style={lbl}>Modèles</div>
-            <div style={{ display: 'flex', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
-              {Object.values(PRESETS).map((p) => <span key={p.label} style={chip(false)} onClick={() => applyPreset(p)}>{p.label}</span>)}
-              <span style={chip(false)} onClick={() => setSelected(new Set())}>Tout décocher</span>
+          <div style={{ padding: '16px 22px', flex: '1 1 420px', minWidth: 0, borderRight: '1px solid ' + T.border }}>
+            <div style={lbl}>Modèle PowerPoint du projet</div>
+            <div style={{ fontSize: 11, color: T.fg, marginBottom: 8 }}>
+              {templateLoading ? 'Chargement du modèle…' : !templateReady ? 'Chargement du modèle impossible' : template ? `Modèle utilisé : ${template}` : 'Modèle par défaut'}
             </div>
-
+            {!readOnly && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
+              <label style={{ ...chip(false), display: 'inline-block' }}>
+                {template ? 'Remplacer le modèle' : 'Joindre un modèle PPTX'}
+                <input type="file" accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation" disabled={templateLoading || busy || !templateReady} style={{ display: 'block', marginTop: 4, maxWidth: '100%', fontSize: 10, color: T.fg }} onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ''; if (file) updateTemplate(file); }} />
+              </label>
+              {template && <button type="button" disabled={templateLoading || busy} style={{ ...chip(false), background: 'transparent' }} onClick={() => { if (window.confirm('Supprimer le modèle du projet et revenir au modèle par défaut ?')) updateTemplate(null); }}>Utiliser le modèle par défaut</button>}
+            </div>}
+            <div style={{ fontSize: 10, color: T.fgMuted, marginBottom: 8 }}>PPTX jusqu’à 25 Mo, partagé avec les membres du projet. Les diapositives du fichier servent de modèle et ne sont pas conservées.</div>
+            {templateError && <div role="alert" style={{ color: '#EF4444', fontSize: 11, marginBottom: 8 }}>Modèle : {String(templateError)}</div>}
+            <div style={{ ...lbl, marginTop: 16 }}>Diapositives à inclure</div>
+            <div style={{ fontSize: 10, color: T.fgMuted, marginBottom: 8 }}>
+              {isDeal ? 'Projet Deal : trajectoire Day 1 / Day 2, criticité et dépendances.' : 'Projet hors Deal : statut, hébergement, criticité et dépendances.'}
+            </div>
+            {CATALOG.slice(0, 2).map((group) => (
+              <div key={group.group} style={{ marginTop: 12 }}>
+                <div style={lbl}>{group.group === 'Introduction' ? 'Synthèse' : 'Cartographie'}</div>
+                {group.items.filter((item) => MAIN_IDS.includes(item.id) && available(group, item)).map((item) => (
+                  <div key={item.id} style={{ padding: '6px 8px', borderRadius: 6, background: selected.has(item.id) ? '#2979FF0D' : 'transparent' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12, color: T.fg }}>
+                      <input type="checkbox" checked={selected.has(item.id)} onChange={(e) => toggle([item.id], e.target.checked)} style={{ accentColor: '#2979FF' }} />
+                      <span style={{ flex: 1 }}>{item.label}</span>
+                      {selected.has(item.id) && planBySection[item.id] > 0 && <span style={{ fontSize: 10, color: '#2979FF' }}>{planBySection[item.id]} diap.</span>}
+                    </label>
+                    {item.id === 'carto_globale' && selected.has(item.id) && (
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '8px 0 2px 24px', fontSize: 11, color: T.fgMuted }}>
+                        <input type="checkbox" checked={showGlobalFlows} onChange={(e) => setShowGlobalFlows(e.target.checked)} disabled={!scoped.flows.length} style={{ accentColor: '#2979FF' }} />
+                        Afficher les flux sur la cartographie globale
+                      </label>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ))}
+            <details style={{ marginTop: 16 }}>
+              <summary style={{ color: T.fg, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>Autres diapositives</summary>
             {CATALOG.map((g) => {
-              const items = g.items.filter((it) => available(g, it));
+              const items = g.items.filter((it) => !MAIN_IDS.includes(it.id) && available(g, it));
               if (!items.length) return null;
               const ids = items.map((i) => i.id);
               const nOn = ids.filter((i) => selected.has(i)).length;
@@ -159,10 +235,13 @@ export default function ExportModal({ T, apps, flows, doms, projectType, initial
                 </div>
               );
             })}
-
+            </details>
+            <details style={{ marginTop: 16 }}>
+              <summary style={{ color: T.fg, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>Périmètre et identité</summary>
             <div style={{ ...lbl, marginTop: 18 }}>Domaines inclus</div>
+            <div style={{ fontSize: 10, color: T.fgMuted, marginBottom: 6 }}>Les vues par domaine incluent aussi les applications externes directement liées.</div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {doms.map((d) => <span key={d} style={chip(domains.has(d))} onClick={() => toggleDomain(d)}>{d}</span>)}
+              {doms.map((d) => <button type="button" key={d} style={chip(domains.has(d))} aria-pressed={domains.has(d)} onClick={() => toggleDomain(d)}>{d}</button>)}
             </div>
 
             <div style={{ ...lbl, marginTop: 18 }}>Identité</div>
@@ -173,10 +252,11 @@ export default function ExportModal({ T, apps, flows, doms, projectType, initial
               <input type="file" accept="image/png,image/jpeg" style={{ fontSize: 10, color: T.fg }} onChange={(e) => { const f = e.target.files?.[0]; if (!f) return; const r = new FileReader(); r.onload = (ev) => setLogo(ev.target.result); r.readAsDataURL(f); }} />
               {logo && <><img src={logo} alt="logo" style={{ height: 24, maxWidth: 70, objectFit: 'contain' }} /><span style={{ cursor: 'pointer', color: T.fgMuted }} onClick={() => setLogo(null)}>✕</span></>}
             </div>
+            </details>
           </div>
 
           {/* Colonne droite : aperçu du plan */}
-          <div style={{ padding: '16px 22px', overflowY: 'auto', background: T.bgAlt }}>
+          <div style={{ padding: '16px 22px', flex: '1 1 280px', minWidth: 0, background: T.bgAlt }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
               <div style={{ fontSize: 30, fontWeight: 800, color: '#EF6C00', lineHeight: 1 }}>{count}</div>
               <div style={{ fontSize: 11, color: T.fgMuted }}>diapositives {loading && '· calcul…'}</div>
@@ -188,7 +268,10 @@ export default function ExportModal({ T, apps, flows, doms, projectType, initial
                 <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '5px 8px', marginBottom: 3, borderRadius: 6, background: T.bgCard, border: '1px solid ' + T.border }}>
                   <span style={{ width: 20, fontSize: 10, fontWeight: 700, color: T.fgMuted, textAlign: 'right' }}>{i + 1}</span>
                   <span style={{ width: 4, alignSelf: 'stretch', borderRadius: 2, background: '#' + primary }} />
-                  <span style={{ fontSize: 11, color: T.fg, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.title}</span>
+                  <span style={{ fontSize: 11, color: T.fg }}>
+                    {s.title}
+                    {s.warnings?.length > 0 && <span style={{ display: 'block', fontSize: 10, color: '#D97706' }}>Attention : {s.warnings.join(' · ')}</span>}
+                  </span>
                 </div>
               ))}
             </div>
@@ -199,7 +282,7 @@ export default function ExportModal({ T, apps, flows, doms, projectType, initial
           <div style={{ fontSize: 10, color: T.fgMuted }}>Objets natifs PowerPoint, modifiables après export.</div>
           <div style={{ display: 'flex', gap: 10 }}>
             <button onClick={onClose} style={{ ...btn, background: T.border, padding: '9px 20px', fontSize: 12 }}>Annuler</button>
-            <button disabled={busy || count === 0} onClick={generate} style={{ ...btn, background: '#EF6C00', padding: '9px 28px', fontWeight: 800, fontSize: 13, opacity: busy || count === 0 ? 0.5 : 1 }}>{busy ? 'Génération…' : '⬇ Générer le PPTX'}</button>
+            <button disabled={busy || loading || templateLoading || !templateReady || !!planErr || count === 0} onClick={generate} style={{ ...btn, background: '#EF6C00', padding: '9px 28px', fontWeight: 800, fontSize: 13, opacity: busy || loading || templateLoading || !templateReady || planErr || count === 0 ? 0.5 : 1 }}>{busy ? 'Génération…' : '⬇ Générer le PPTX'}</button>
           </div>
         </div>
       </div>

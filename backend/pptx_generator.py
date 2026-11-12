@@ -5,14 +5,17 @@ Generates slides for the cartographie applicative app.
 import io
 import math
 import datetime
+import textwrap
 from typing import List, Dict, Any, Optional
 
 from pptx import Presentation
 from pptx.util import Inches, Pt, Emu
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN
+from pptx.enum.shapes import PP_PLACEHOLDER
 from pptx.chart.data import ChartData
 from pptx.enum.chart import XL_CHART_TYPE
+from pptx_layout import layout_map, to_inches, rect_inches
 
 try:
     from pptx.enum.shapes import MSO_AUTO_SHAPE_TYPE
@@ -130,11 +133,18 @@ def add_text(slide, text, x, y, w, h, font_size=11, bold=False, color_hex="1E293
 def set_placeholders(slide, title=None, breadcrumb=None, subtitle=None):
     """Fill title (idx 0), subtitle (idx 14) and breadcrumb (idx 17) placeholders of the content layouts."""
     by_idx = {0: title, 14: subtitle, 17: breadcrumb}
+    custom = getattr(slide.part.package.presentation_part.presentation, '_carto_custom_template', False)
+    has_title = False
     for ph in slide.placeholders:
         idx = ph.placeholder_format.idx
         name = ph.name.lower()
         value = by_idx.get(idx)
-        if idx not in by_idx:
+        if custom:
+            kind = ph.placeholder_format.type
+            has_title = has_title or kind in (PP_PLACEHOLDER.TITLE, PP_PLACEHOLDER.CENTER_TITLE)
+            value = title if kind in (PP_PLACEHOLDER.TITLE, PP_PLACEHOLDER.CENTER_TITLE) else (
+                subtitle if kind == PP_PLACEHOLDER.SUBTITLE else None)
+        if not custom and idx not in by_idx:
             if title and ('titre' in name or ('title' in name and 'sous' not in name)):
                 value = title
             elif breadcrumb and ('ariane' in name or 'texte 3' in name or 'fil' in name):
@@ -151,6 +161,8 @@ def set_placeholders(slide, title=None, breadcrumb=None, subtitle=None):
                     r.font.color.rgb = hex_color('64748B')
         except Exception:
             pass
+    if custom and title and not has_title:
+        add_text(slide, title, 0.55, 0.55, 11.8, 0.5, font_size=22, bold=True)
 
 
 def _cleanup_placeholders(prs):
@@ -181,6 +193,57 @@ def _cleanup_placeholders(prs):
 
 
 # ─── SLIDE MANAGEMENT ────────────────────────────────────────────────────────
+def _layout(prs, index):
+    if not getattr(prs, '_carto_custom_template', False):
+        return prs.slide_layouts[index]
+    layouts = list(prs.slide_layouts)
+    if index in (0, 14):
+        for layout in layouts:
+            if any(ph.placeholder_format.type == PP_PLACEHOLDER.CENTER_TITLE for ph in layout.placeholders):
+                return layout
+    for layout in layouts:
+        kinds = {ph.placeholder_format.type for ph in layout.placeholders}
+        if PP_PLACEHOLDER.TITLE in kinds and PP_PLACEHOLDER.BODY not in kinds:
+            return layout
+    for layout in layouts:
+        if any(ph.placeholder_format.type in (PP_PLACEHOLDER.TITLE, PP_PLACEHOLDER.CENTER_TITLE)
+               for ph in layout.placeholders):
+            return layout
+    return layouts[0]
+
+
+def _scale_custom_content(prs):
+    """Fit generated content to the template's slide, leaving its placeholders untouched."""
+    scale = min(prs.slide_width / Inches(SLIDE_W), prs.slide_height / Inches(SLIDE_H))
+    dx = (prs.slide_width - Inches(SLIDE_W) * scale) / 2
+    dy = (prs.slide_height - Inches(SLIDE_H) * scale) / 2
+
+    def scale_text(frame):
+        for paragraph in frame.paragraphs:
+            for run in paragraph.runs:
+                if run.font.size is not None:
+                    run.font.size = Emu(int(run.font.size * scale))
+
+    for slide in prs.slides:
+        for shape in slide.shapes:
+            if shape.is_placeholder:
+                continue
+            shape.left = Emu(int(shape.left * scale + dx))
+            shape.top = Emu(int(shape.top * scale + dy))
+            if shape.has_table:
+                for column in shape.table.columns:
+                    column.width = Emu(int(column.width * scale))
+                for row in shape.table.rows:
+                    row.height = Emu(int(row.height * scale))
+                    for cell in row.cells:
+                        scale_text(cell.text_frame)
+            else:
+                shape.width = Emu(int(shape.width * scale))
+                shape.height = Emu(int(shape.height * scale))
+                if shape.has_text_frame:
+                    scale_text(shape.text_frame)
+
+
 def _clear_slides(prs: Presentation):
     """Remove all example slides while preserving layouts and masters."""
     r_ns = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
@@ -360,13 +423,17 @@ def pv_build_layout(apps: List[Dict], w: float, h: float) -> List[Dict]:
 
 def add_cover_slide(prs: Presentation, apps: List[Dict], flows: List[Dict], opts: Dict):
     """Slide 1: Cover / Page de garde."""
-    layout = prs.slide_layouts[0]  # 1_Page de garde_Light
+    layout = _layout(prs, 0)  # 1_Page de garde_Light
     slide = prs.slides.add_slide(layout)
 
     # Try to set placeholders
     today = datetime.date.today().strftime("%d/%m/%Y")
     client_name = opts.get('clientName', '')
 
+    if getattr(prs, '_carto_custom_template', False):
+        set_placeholders(slide, title="Cartographie Applicative",
+                         subtitle=client_name or "Analyse du Système d'Information")
+        return
     for ph in slide.placeholders:
         name = ph.name.lower()
         try:
@@ -382,7 +449,7 @@ def add_cover_slide(prs: Presentation, apps: List[Dict], flows: List[Dict], opts
 
 def add_synthese_messages_slide(prs: Presentation, apps: List[Dict], flows: List[Dict], opts: Dict):
     """Slide 2: Synthèse & Messages clés."""
-    layout = prs.slide_layouts[8]  # 4_Contenu par défaut
+    layout = _layout(prs, 8)  # 4_Contenu par défaut
     slide = prs.slides.add_slide(layout)
     set_placeholders(slide,
         title="SYNTHÈSE — MESSAGES CLÉS",
@@ -437,7 +504,9 @@ def add_synthese_messages_slide(prs: Presentation, apps: List[Dict], flows: List
     cards = [
         {'title': 'CONCENTRATION DES FLUX', 'accent': '6366F1', 'type': 'pairs'},
         {'title': 'DOMAINES PAR VOLUME DE FLUX', 'accent': '0EA5E9', 'type': 'domflow'},
-        {'title': "HUBS DU SYSTÈME D'INFORMATION", 'accent': 'F59E0B', 'type': 'hubs'},
+        {'title': 'TRAJECTOIRE ET CRITICITÉ' if opts.get('projectType') == 'deal' else
+                  "HUBS DU SYSTÈME D'INFORMATION", 'accent': 'F59E0B',
+         'type': 'trajectory' if opts.get('projectType') == 'deal' else 'hubs'},
     ]
 
     for ci, card in enumerate(cards):
@@ -495,6 +564,22 @@ def add_synthese_messages_slide(prs: Presentation, apps: List[Dict], flows: List
                     add_text(slide, f"{dv} flux", cx+0.18+bw, dy+0.24, card_w-0.36-bw, 0.16,
                              font_size=7.5, bold=True, color_hex=acc)
 
+        elif card['type'] == 'trajectory':
+            metrics = [
+                ('Day 1 renseigné', sum(bool(a.get('statusD1')) for a in apps)),
+                ('Day 2 renseigné', sum(bool(a.get('statusD2')) for a in apps)),
+                ('Criticité haute / critique', sum(
+                    str(a.get('criticality') or '').strip().casefold() in ('haute', 'critique', 'high', 'critical')
+                    for a in apps)),
+                ('Criticité non renseignée', sum(not a.get('criticality') for a in apps)),
+            ]
+            for mi, (label, value) in enumerate(metrics):
+                my = cy + 0.50 + mi * 0.75
+                add_text(slide, str(value), cx + 0.12, my, 0.48, 0.35,
+                         font_size=20, bold=True, color_hex=acc)
+                add_text(slide, label, cx + 0.65, my + 0.08, card_w - 0.80, 0.30,
+                         font_size=9, color_hex='334155')
+
         elif card['type'] == 'hubs':
             if not top_hubs:
                 add_text(slide, "Aucun flux défini", cx+0.12, cy+0.50, card_w-0.24, 0.30,
@@ -537,7 +622,7 @@ def add_synthese_messages_slide(prs: Presentation, apps: List[Dict], flows: List
 
 def add_executive_slide(prs: Presentation, apps: List[Dict], opts: Dict):
     """Slide 3: Synthèse exécutive — KPI + D1/D2 donuts + owners."""
-    layout = prs.slide_layouts[8]
+    layout = _layout(prs, 8)
     slide = prs.slides.add_slide(layout)
     set_placeholders(slide,
         title="SYNTHÈSE EXÉCUTIVE",
@@ -551,6 +636,10 @@ def add_executive_slide(prs: Presentation, apps: List[Dict], opts: Dict):
     kpis = [
         {'l': 'Applications', 'v': str(len(apps)), 'c': '6366F1'},
         {'l': 'Domaines', 'v': str(len(doms)), 'c': '8B5CF6'},
+        {'l': 'Criticité haute / critique', 'v': str(sum(
+            str(a.get('criticality') or '').strip().casefold() in ('haute', 'critique', 'high', 'critical')
+            for a in apps)), 'c': 'EF4444'},
+        {'l': 'Criticité non renseignée', 'v': str(sum(not a.get('criticality') for a in apps)), 'c': '64748B'},
     ]
     kpi_w = 2.0
     kpi_h = 0.90
@@ -579,6 +668,20 @@ def add_executive_slide(prs: Presentation, apps: List[Dict], opts: Dict):
         {'l': 'Abandon', 'v': sum(1 for a in apps if a.get('statusD2') == 'Abandon'), 'c': 'EF4444'},
         {'l': 'Non défini', 'v': sum(1 for a in apps if not a.get('statusD2')), 'c': '94A3B8'},
     ]
+    is_deal = opts.get('projectType', 'deal') == 'deal'
+    if not is_deal:
+        def portfolio_stats(field):
+            counts = {}
+            for app in apps:
+                value = str(app.get(field) or '').strip() or 'Non renseigné'
+                counts[value] = counts.get(value, 0) + 1
+            entries = sorted(counts.items(), key=lambda item: (-item[1], item[0].casefold()))
+            if len(entries) > 5:
+                entries = entries[:4] + [('Autres', sum(count for _, count in entries[4:]))]
+            palette = ['3B82F6', '10B981', 'F59E0B', '8B5CF6', '94A3B8']
+            return [{'l': label, 'v': count, 'c': palette[i]} for i, (label, count) in enumerate(entries)]
+        d1_stats = portfolio_stats('statut')
+        d2_stats = portfolio_stats('hosting')
 
     donut_y = kpi_y + kpi_h + 0.20
     donut_h = 2.60
@@ -630,9 +733,9 @@ def add_executive_slide(prs: Presentation, apps: List[Dict], opts: Dict):
             leg_y += row_h
 
     draw_donut_block(CONTENT_X, donut_y, donut_w, donut_h,
-                     "VISION CLOSING — DAY 1", "D97706", d1_stats)
+                     "VISION CLOSING — DAY 1" if is_deal else "STATUT DU PORTEFEUILLE", "D97706", d1_stats)
     draw_donut_block(CONTENT_X + donut_w + 0.25, donut_y, donut_w, donut_h,
-                     "VISION CIBLE — DAY 2", "7C3AED", d2_stats)
+                     "VISION CIBLE — DAY 2" if is_deal else "HÉBERGEMENT", "7C3AED", d2_stats)
 
     # Owner bar chart
     owners = {}
@@ -693,7 +796,7 @@ def add_domain_status_slides(prs: Presentation, apps: List[Dict], opts: Dict):
         chips_per_row = max(1, int((chips_area_w + chip_gap_h) / (chip_w + chip_gap_h)))
 
         def make_slide():
-            layout = prs.slide_layouts[8]
+            layout = _layout(prs, 8)
             sl = prs.slides.add_slide(layout)
             set_placeholders(sl, title=cfg['title'], breadcrumb="Cartographie Applicative")
             # Legend
@@ -751,7 +854,7 @@ def add_domain_status_slides(prs: Presentation, apps: List[Dict], opts: Dict):
 
 def add_paysage_slide(prs: Presentation, apps: List[Dict]):
     """Paysage applicatif treemap slide."""
-    layout = prs.slide_layouts[9]  # 4_Contenu_pour illustration
+    layout = _layout(prs, 9)  # 4_Contenu_pour illustration
     slide = prs.slides.add_slide(layout)
     set_placeholders(slide,
         title="PAYSAGE APPLICATIF",
@@ -915,7 +1018,7 @@ def add_recap_apps_slides(prs: Presentation, apps: List[Dict], opts: Dict):
     pages = max(1, math.ceil(len(sorted_apps) / rows_per_slide))
     for pg in range(pages):
         chunk = sorted_apps[pg * rows_per_slide:(pg + 1) * rows_per_slide]
-        sl = prs.slides.add_slide(prs.slide_layouts[8])
+        sl = prs.slides.add_slide(_layout(prs, 8))
         suffix = f" ({pg + 1}/{pages})" if pages > 1 else ""
         set_placeholders(sl, title="RÉCAPITULATIF DES APPLICATIONS" + suffix, breadcrumb="Cartographie Applicative")
         add_native_table(sl, headers, [cell(a) for a in chunk], col_widths, primary,
@@ -943,7 +1046,7 @@ def add_flux_table_slides(prs: Presentation, apps: List[Dict], flows: List[Dict]
     for pg in range(pages):
         start = pg * rows_per_slide
         chunk = sorted_flows[start:start + rows_per_slide]
-        sl = prs.slides.add_slide(prs.slide_layouts[8])
+        sl = prs.slides.add_slide(_layout(prs, 8))
         suffix = f" ({pg + 1}/{pages})" if pages > 1 else ""
         set_placeholders(sl, title="CARTOGRAPHIE DES FLUX" + suffix, breadcrumb="Cartographie Applicative")
         rows = []
@@ -961,7 +1064,7 @@ def add_flux_matrix_slide(prs: Presentation, apps: List[Dict], flows: List[Dict]
     if not flows:
         return
     primary = opts.get('clientPrimary', '2979FF')
-    layout = prs.slide_layouts[8]
+    layout = _layout(prs, 8)
     slide = prs.slides.add_slide(layout)
     set_placeholders(slide, title="FLUX — VUE AGRÉGÉE PAR DOMAINE",
                      breadcrumb="Cartographie Applicative",
@@ -1045,7 +1148,7 @@ def add_hubs_slide(prs: Presentation, apps: List[Dict], flows: List[Dict], opts:
     if not flows:
         return
     primary = opts.get('clientPrimary', '2979FF')
-    layout = prs.slide_layouts[8]
+    layout = _layout(prs, 8)
     slide = prs.slides.add_slide(layout)
 
     # Connectivity per app
@@ -1147,7 +1250,7 @@ def add_env_applicatif_slides(prs: Presentation, apps: List[Dict], opts: Dict, f
     dom_gap = 0.08
 
     def make_slide():
-        layout = prs.slide_layouts[8]
+        layout = _layout(prs, 8)
         sl = prs.slides.add_slide(layout)
         set_placeholders(sl, title=title, breadcrumb="Cartographie Applicative")
         # Legend
@@ -1241,7 +1344,7 @@ def add_hub_detail_slides(prs: Presentation, apps: List[Dict], flows: List[Dict]
                 if sat:
                     incoming.append({'app': sat, 'flow': f})
 
-        layout = prs.slide_layouts[8]
+        layout = _layout(prs, 8)
         slide = prs.slides.add_slide(layout)
         hub_name = hub.get('name', '')
         set_placeholders(
@@ -1386,7 +1489,7 @@ def add_hub_detail_slides(prs: Presentation, apps: List[Dict], flows: List[Dict]
 
 def add_fin_slide(prs: Presentation):
     """Final slide."""
-    layout = prs.slide_layouts[14]  # 6_Slide de fin
+    layout = _layout(prs, 14)  # 6_Slide de fin
     slide = prs.slides.add_slide(layout)
     today = datetime.date.today().strftime("%d/%m/%Y")
     for ph in slide.placeholders:
@@ -1495,49 +1598,6 @@ def _draw_group_box(slide, x, y, w, h, color, label):
              font_size=9, bold=True, color_hex='FFFFFF')
 
 
-def _layout_global(apps: List[Dict], region):
-    """Grid of domain boxes; pills (named when few apps, dots otherwise). Returns None if nothing fits."""
-    X, Y, W, H = region
-    groups: Dict[str, List[Dict]] = {}
-    for a in apps:
-        groups.setdefault(_dom_of(a), []).append(a)
-    doms = sorted(groups, key=lambda d: (-len(groups[d]), d))
-    nd = len(doms)
-    GUT, PAD = 0.34, 0.10
-    modes = []
-    if len(apps) <= 60:
-        modes.append((1.15, 0.27, 0.08, False))
-        modes.append((1.05, 0.21, 0.05, False))
-    modes += [(0.17, 0.17, 0.07, True), (0.12, 0.12, 0.04, True)]
-    col_opts = [c for c in (3, 2, 4, 1, 5, 6) if c <= nd] or [1]
-    for pw, ph, gap, dot in modes:
-        for cols in col_opts:
-            rows = math.ceil(nd / cols)
-            cw = (W - (cols - 1) * GUT) / cols
-            per_row = int(((cw - 2 * PAD) + gap) // (pw + gap))
-            if per_row < 1:
-                continue
-            need = {d: _G_HDR + 2 * PAD + math.ceil(len(groups[d]) / per_row) * (ph + gap) - gap for d in doms}
-            row_h = [max(need[d] for d in doms[r * cols:(r + 1) * cols]) for r in range(rows)]
-            total = sum(row_h) + (rows - 1) * GUT
-            if total > H:
-                continue
-            extra = min((H - total) / rows, 0.5)
-            row_h = [h + extra for h in row_h]
-            cells, pills = {}, {}
-            y = Y
-            for r in range(rows):
-                for c, d in enumerate(doms[r * cols:(r + 1) * cols]):
-                    x = X + c * (cw + GUT)
-                    cells[d] = (x, y, cw, row_h[r])
-                    for i, a in enumerate(groups[d]):
-                        pills[a['id']] = (x + PAD + (i % per_row) * (pw + gap),
-                                          y + _G_HDR + PAD + (i // per_row) * (ph + gap), pw, ph)
-                y += row_h[r] + GUT
-            return {'cells': cells, 'pills': pills, 'dot': dot, 'groups': groups, 'doms': doms}
-    return None
-
-
 def add_ortho(slide, pts, color, width=1.0):
     """Native right-angle polyline with an arrow head on the last point."""
     from pptx.oxml.ns import qn
@@ -1559,303 +1619,197 @@ def add_ortho(slide, pts, color, width=1.0):
     return shp
 
 
-def add_flow_label(slide, text, x, y, color, align_right=False, font=7, max_w=1.35):
-    """Small white tag centred vertically on y; anchored left (or right) at x."""
-    from pptx.enum.shapes import MSO_AUTO_SHAPE_TYPE
-    from pptx.enum.text import MSO_ANCHOR
-    w = min(max_w, max(0.35, 0.058 * len(text) + 0.12))
-    left = x - w if align_right else x
-    shp = slide.shapes.add_shape(MSO_AUTO_SHAPE_TYPE.RECTANGLE, Inches(left), Inches(y - 0.07), Inches(w), Inches(0.14))
-    shp.fill.solid()
-    shp.fill.fore_color.rgb = hex_color('FFFFFF')
-    shp.line.color.rgb = hex_color(color)
-    shp.line.width = Pt(0.5)
-    try:
-        shp.shadow.inherit = False
-    except Exception:
-        pass
-    tf = shp.text_frame
-    tf.word_wrap = False
-    tf.vertical_anchor = MSO_ANCHOR.MIDDLE
-    tf.margin_left = tf.margin_right = Inches(0.03)
-    tf.margin_top = tf.margin_bottom = 0
-    para = tf.paragraphs[0]
-    para.alignment = PP_ALIGN.CENTER
-    r = para.add_run()
-    r.text = text
-    r.font.size = Pt(font)
-    r.font.name = "Poppins"
-    r.font.color.rgb = hex_color('0F172A')
-    return shp
-
-
-def _assign_lanes(items):
-    """items: list of (key, lo, hi). Interval colouring: overlapping spans get distinct lanes."""
-    lanes: List[float] = []
-    out = {}
-    for key, lo, hi in sorted(items, key=lambda t: (t[1], t[2])):
-        for i, end in enumerate(lanes):
-            if end < lo - 0.03:
-                lanes[i] = hi
-                out[key] = i
-                break
-        else:
-            lanes.append(hi)
-            out[key] = len(lanes) - 1
-    return out, len(lanes)
+def _add_consolidated_map(prs, apps, flows, title, breadcrumb):
+    from pptx.enum.text import MSO_AUTO_SIZE, MSO_ANCHOR
+    sl = prs.slides.add_slide(_layout(prs, 8))
+    set_placeholders(sl, title=title, breadcrumb=breadcrumb)
+    colors = _dom_colors(apps)
+    by_id = {a["id"]: a for a in apps}
+    layout = layout_map(apps, flows)
+    for domain, rect in layout["boxes"].items():
+        x, y, w, h = rect_inches(rect)
+        add_rect(sl, x, y, w, h, fill_hex=lighten(colors[domain], .95),
+                 line_hex=lighten(colors[domain], .55))
+        add_text(sl, domain, x + .03, y + .02, w - .06, min(.22, h * .18),
+                 font_size=8, bold=True, color_hex=colors[domain])
+    for route in layout["routes"]:
+        color = colors[_dom_of(by_id[route["flow"]["from"]])]
+        path = [to_inches(p) for p in route["points"]]
+        shape = add_ortho(sl, path, color, .9)
+        shape.name = f"Flux {route['index'] + 1}"
+    for app in apps:
+        rect = rect_inches(layout["nodes"][app["id"]])
+        shape = add_pill(sl, rect, str(app.get("name") or "Application sans nom"),
+                         colors[_dom_of(app)], font=8, name=app.get("name", ""))
+        shape.text_frame.word_wrap = True
+        shape.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+    for route in layout["routes"]:
+        if "label" not in route:
+            continue
+        text, rect = route["label"]
+        x, y, w, h = rect_inches(rect)
+        color = colors[_dom_of(by_id[route["flow"]["from"]])]
+        box = add_rect(sl, x, y, w, h, fill_hex='FFFFFF', line_hex=lighten(color, .5))
+        box.name = f"Libellé du flux {route['index'] + 1}"
+        tf = box.text_frame
+        tf.word_wrap = True
+        tf.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+        tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+        tf.margin_left = tf.margin_right = Inches(.02)
+        tf.margin_top = tf.margin_bottom = 0
+        p = tf.paragraphs[0]
+        p.alignment = PP_ALIGN.CENTER
+        run = p.add_run()
+        run.text = text
+        run.font.size = Pt(7)
+        run.font.color.rgb = hex_color('0F172A')
+    warnings = []
+    if layout["crossings"]:
+        warnings.append(f"{layout['crossings']} points de chevauchement de flux")
+    if layout["labels"]:
+        warnings.append(f"{layout['labels']} conflits de libellés")
+    if layout["fallback"]:
+        warnings.append(f"{layout['fallback']} tracés non optimisés")
+    if layout["missing"]:
+        warnings.append(f"{layout['missing']} flux sans application visible")
+    if layout["dense"]:
+        warnings.append("vue dense, lisibilité à vérifier")
+    message = " · ".join(warnings) if warnings else "Aucun conflit détecté par l'analyse géométrique approximative"
+    add_text(sl, message + " · Voir les tableaux de détail si nécessaire",
+             .55, 6.85, 11.7, .27, font_size=7.5,
+             color_hex='B45309' if warnings else '64748B')
+    if not hasattr(prs, "_carto_warnings"):
+        prs._carto_warnings = {}
+    prs._carto_warnings[len(prs.slides) - 1] = warnings
 
 
 def add_carto_globale_slide(prs: Presentation, apps: List[Dict], flows: List[Dict], opts: Dict):
-    """All applications grouped by domain; inter-domain flows as labelled right-angle corridors."""
-    colors = _dom_colors(apps)
-    sl = prs.slides.add_slide(prs.slide_layouts[8])
-    set_placeholders(sl, title="CARTOGRAPHIE GLOBALE", breadcrumb="Cartographie Applicative")
-    lay = _layout_global(apps, (0.55, 2.55, 11.65, 4.30))
-    if not lay:
-        add_text(sl, "Périmètre trop volumineux pour une vue unique : voir les vues par domaine.",
-                 1.25, 3.5, 10.0, 0.4, font_size=14, color_hex='64748B')
-        return
-    dom_of_id = {a['id']: _dom_of(a) for a in apps}
-    corr: Dict = {}
-    internal: Dict[str, int] = {}
-    for f in flows:
-        a, b = f.get('from'), f.get('to')
-        if a in dom_of_id and b in dom_of_id and a != b:
-            da, db = dom_of_id[a], dom_of_id[b]
-            if da == db:
-                internal[da] = internal.get(da, 0) + 1
-            else:
-                corr[(da, db)] = corr.get((da, db), 0) + 1
-    for d in lay['doms']:
-        x, y, w, h = lay['cells'][d]
-        extra = f"  ·  {internal[d]} flux int." if internal.get(d) else ''
-        _draw_group_box(sl, x, y, w, h, colors[d], f"{d.upper()}  ·  {len(lay['groups'][d])}{extra}")
+    shown_flows = flows if opts.get('showGlobalFlows', True) else []
+    _add_consolidated_map(prs, apps, shown_flows, "CARTOGRAPHIE GLOBALE", "Cartographie Applicative")
 
-    cells = lay['cells']
-    row_ys = sorted({round(c[1], 3) for c in cells.values()})
-    gutters: Dict[tuple, List] = {}
-    plan = []
-    shown = 0
-    for (da, db), n in sorted(corr.items(), key=lambda kv: -kv[1]):
-        if len(plan) >= 24:
-            break
-        ca, cb = cells[da], cells[db]
-        ra, rb = row_ys.index(round(ca[1], 3)), row_ys.index(round(cb[1], 3))
-        down = rb > ra
-        side = 'bottom' if down else 'top'
-        gkey = (ra, side)
-        xa, xb = ca[0] + ca[2] / 2, cb[0] + cb[2] / 2
-        items = gutters.setdefault(gkey, [])
-        _, nl = _assign_lanes([(i[0], i[1], i[2]) for i in items] + [((da, db), min(xa, xb), max(xa, xb))])
-        if nl > 3:
+
+DOMAIN_ROWS_PER_SLIDE = 6
+DOMAIN_LABEL_LINE_LENGTH = 46
+DOMAIN_LABEL_LINES = 2
+
+
+def _domain_rows(dom, dom_apps, by_id, flows):
+    """Give each flow its own lane, repeating endpoints instead of crossing connectors."""
+    ids = {a['id'] for a in dom_apps}
+    relevant = [f for f in flows if (f.get('from') in ids or f.get('to') in ids)
+                and f.get('from') in by_id and f.get('to') in by_id]
+    relevant.sort(key=lambda f: (
+        by_id[f['from'] if f['from'] in ids else f['to']].get('name', '').casefold(),
+        by_id[f['to'] if f['from'] in ids else f['from']].get('name', '').casefold(),
+        str(f.get('label') or f.get('name') or '').casefold(),
+    ))
+    rows = []
+    linked = set()
+    for flow in relevant:
+        source, target = flow['from'], flow['to']
+        linked.update((source, target))
+        left, right = (source, target) if source in ids else (target, source)
+        label = str(flow.get('label') or flow.get('name') or 'Flux sans libellé')
+        lines = textwrap.wrap(label, width=DOMAIN_LABEL_LINE_LENGTH, replace_whitespace=False,
+                              drop_whitespace=True) or ['Flux sans libellé']
+        parts = [lines[i:i + DOMAIN_LABEL_LINES] for i in range(0, len(lines), DOMAIN_LABEL_LINES)]
+        for index, part in enumerate(parts):
+            rows.append({'left': left, 'right': right, 'source': source, 'target': target,
+                         'label': '\n'.join(part), 'part': index + 1, 'parts': len(parts)})
+    for app in sorted(dom_apps, key=lambda a: a.get('name', '').casefold()):
+        if app['id'] not in linked:
+            rows.append({'left': app['id'], 'right': None})
+    return rows
+
+
+def _domain_card(slide, app, dom, x, y, color):
+    from pptx.enum.text import MSO_AUTO_SIZE
+    name = str(app.get('name') or 'Application sans nom')
+    if _dom_of(app) != dom:
+        name += '\n' + _dom_of(app)
+    shape = add_pill(slide, (x, y, 2.65, 0.48), name, color, font=9, name=app.get('name', ''))
+    shape.text_frame.word_wrap = True
+    shape.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+
+
+def _domain_slide(prs, dom, rows, page, pages, total_apps, by_id, colors):
+    from pptx.enum.text import MSO_AUTO_SIZE, MSO_ANCHOR
+    sl = prs.slides.add_slide(_layout(prs, 8))
+    title = f"DOMAINE — {dom.upper()}" + (f" ({page + 1}/{pages})" if pages > 1 else "")
+    set_placeholders(sl, title=title, breadcrumb="Cartographie Applicative > Vue par domaine",
+                     subtitle=f"{total_apps} application(s) dans le domaine")
+    add_text(sl, "APPLICATION DU DOMAINE", 0.55, 2.13, 2.65, 0.23,
+             font_size=9, bold=True, color_hex=colors[dom])
+    add_text(sl, "APPLICATION LIÉE", 9.60, 2.13, 2.65, 0.23,
+             font_size=9, bold=True, color_hex='64748B')
+    for i, row in enumerate(rows):
+        y = 2.48 + i * 0.70
+        left = by_id[row['left']]
+        _domain_card(sl, left, dom, 0.55, y, colors[_dom_of(left)])
+        if row['right'] is None:
+            add_text(sl, "Aucun flux renseigné", 4.25, y + 0.12, 4.0, 0.24,
+                     font_size=9, color_hex='64748B', align='center')
             continue
-        items.append(((da, db), min(xa, xb), max(xa, xb)))
-        plan.append(((da, db), n, gkey, down))
-    lane_of: Dict = {}
-    for gkey, items in gutters.items():
-        res, _ = _assign_lanes(items)
-        lane_of.update({(gkey, k): v for k, v in res.items()})
-
-    ports: Dict = {}
-    for (da, db), n, gkey, down in plan:
-        ports.setdefault((da, 'out', gkey[1]), []).append((cells[db][0], (da, db)))
-        ports.setdefault((db, 'in', 'top' if down else 'bottom'), []).append((cells[da][0], (da, db)))
-    px: Dict = {}
-    for (dom, _, side), lst in ports.items():
-        lst.sort()
-        c = cells[dom]
-        for k, (_, key) in enumerate(lst):
-            px[(dom, side, key)] = c[0] + 0.30 + (c[2] - 0.60) * (k + 0.5) / len(lst)
-
-    for (da, db), n, gkey, down in plan:
-        ca, cb = cells[da], cells[db]
-        ra = gkey[0]
-        side = gkey[1]
-        gy = (ca[1] + ca[3] + (row_ys[ra + 1] - (ca[1] + ca[3])) / 2) if down else (ca[1] - 0.15)
-        if down and ra + 1 >= len(row_ys):
-            gy = ca[1] + ca[3] + 0.17
-        gy += (lane_of[(gkey, (da, db))] - 1) * 0.085
-        x1 = px[(da, side, (da, db))]
-        x2 = px[(db, 'top' if down else 'bottom', (da, db))]
-        y1 = ca[1] + ca[3] if down else ca[1]
-        y2 = cb[1] if down else cb[1] + cb[3]
-        wdt = min(3.5, 1.0 + 0.12 * n)
-        add_ortho(sl, [(x1, y1), (x1, gy), (x2, gy), (x2, y2)], colors[da], wdt)
-        add_flow_label(sl, f"{n} flux", (x1 + x2) / 2, gy, colors[da], font=7)
-        shown += 1
-    for a in apps:
-        add_pill(sl, lay['pills'][a['id']], _short(a.get('name', ''), 17), colors[dom_of_id[a['id']]],
-                 font=8, dot=lay['dot'], name=a.get('name', ''))
-    hidden = len(corr) - shown
-    note = "Flèches : flux regroupés entre domaines (couleur = domaine émetteur)"
-    if hidden > 0:
-        note += f" · {hidden} liaison(s) secondaire(s) non tracée(s)"
-    note += " · détail flux par flux dans les vues par domaine"
-    add_text(sl, note, 0.55, 6.92, 11.6, 0.2, font_size=8, color_hex='64748B')
+        right = by_id[row['right']]
+        _domain_card(sl, right, dom, 9.60, y, colors[_dom_of(right)])
+        line_color = colors[_dom_of(by_id[row['source']])]
+        lp = (0.55, y, 2.65, 0.48)
+        rp = (9.60, y, 2.65, 0.48)
+        add_flow_line(sl, lp if row['source'] == row['left'] else rp,
+                      rp if row['source'] == row['left'] else lp, line_color, width=1.2)
+        label = row['label']
+        if row['parts'] > 1:
+            label = f"{row['part']}/{row['parts']} · {label}"
+        box = add_rect(sl, 3.40, y + 0.02, 6.00, 0.44, fill_hex='FFFFFF',
+                       line_hex=lighten(line_color, 0.5), line_w=0.5)
+        box.name = "Libellé du flux"
+        tf = box.text_frame
+        tf.word_wrap = True
+        tf.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+        tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+        tf.margin_left = tf.margin_right = Inches(0.06)
+        tf.margin_top = tf.margin_bottom = 0
+        p = tf.paragraphs[0]
+        p.alignment = PP_ALIGN.CENTER
+        run = p.add_run()
+        run.text = label
+        run.font.size = Pt(9)
+        run.font.color.rgb = hex_color('0F172A')
+    add_text(sl, "Une ligne par flux · flèche dirigée de l'émetteur vers le récepteur",
+             0.55, 6.92, 11.6, 0.2, font_size=8, color_hex='64748B')
 
 
-PORT_SP = 0.16
-ROW_MIN = 0.30
-COL_AVAIL = 4.10
-
-
-def _flows_for(ids, by_id, flows):
-    return [f for f in flows if (f.get('from') in ids or f.get('to') in ids)
-            and f.get('from') in by_id and f.get('to') in by_id and f.get('from') != f.get('to')]
-
-
-def _counts(rel):
-    cnt: Dict[str, int] = {}
-    for f in rel:
-        for e in (f['from'], f['to']):
-            cnt[e] = cnt.get(e, 0) + 1
-    return cnt
-
-
-def _col_h(members, cnt, k=1.0):
-    return sum(max(ROW_MIN, PORT_SP * cnt.get(m, 0) * k + 0.04) + 0.06 for m in members)
-
-
-def _chunk_domain(dom_apps, by_id, flows):
-    chunks, cur = [], []
-    for a in dom_apps:
-        trial = cur + [a]
-        ids = {x['id'] for x in trial}
-        rel = _flows_for(ids, by_id, flows)
-        cnt = _counts(rel)
-        ext = [e for e in cnt if e not in ids]
-        if cur and max(_col_h([x['id'] for x in trial], cnt, 0.75), _col_h(ext, cnt, 0.75)) > COL_AVAIL:
-            chunks.append(cur)
-            cur = [a]
-        else:
-            cur = trial
-    if cur:
-        chunks.append(cur)
-    return chunks
-
-
-def _domain_slide(prs, dom, chunk, ci, nchunks, dom_total, by_id, flows, colors):
-    col = colors[dom]
-    ids = {a['id'] for a in chunk}
-    rel = _flows_for(ids, by_id, flows)
-    cnt = _counts(rel)
-    ext_ids = [e for e in cnt if e not in ids]
-    internal = sum(1 for f in rel if f['from'] in ids and f['to'] in ids)
-    out_ext = sum(1 for f in rel if f['from'] in ids and f['to'] not in ids)
-    in_ext = sum(1 for f in rel if f['to'] in ids and f['from'] not in ids)
-
-    sl = prs.slides.add_slide(prs.slide_layouts[8])
-    title = f"DOMAINE — {dom.upper()}" + (f" ({ci + 1}/{nchunks})" if nchunks > 1 else "")
-    sub = f"{len(chunk)} application(s) · {internal} flux internes · {out_ext} sortants · {in_ext} entrants"
-    set_placeholders(sl, title=title, breadcrumb="Cartographie Applicative > Vue par domaine", subtitle=sub)
-
-    LY = 2.25
-    k = 1.0
-    while max(_col_h(list(ids), cnt, k), _col_h(ext_ids, cnt, k)) > COL_AVAIL and k > 0.3:
-        k -= 0.05
-    sp = PORT_SP * k
-    show_labels = sp >= 0.105
-
-    def rows(members, y0):
-        pos, y = {}, y0
-        for m in members:
-            rh = max(ROW_MIN, PORT_SP * cnt.get(m, 0) * k + 0.04)
-            pos[m] = (y, rh)
-            y += rh + 0.06
-        return pos, y
-
-    left_ids = [a['id'] for a in sorted(chunk, key=lambda a: a.get('name', ''))]
-    lpos, lend = rows(left_ids, LY + _G_HDR + 0.08)
-    ly_center = {m: p[0] + p[1] / 2 for m, p in lpos.items()}
-    nbr: Dict[str, List[float]] = {}
-    for f in rel:
-        a, b = f['from'], f['to']
-        if a in ids and b not in ids:
-            nbr.setdefault(b, []).append(ly_center[a])
-        elif b in ids and a not in ids:
-            nbr.setdefault(a, []).append(ly_center[b])
-    ext_ids.sort(key=lambda e: (sum(nbr[e]) / len(nbr[e]), by_id[e].get('name', '')))
-    epos, eend = rows(ext_ids, LY + _G_HDR + 0.08)
-
-    LXP, LW = 0.55, 2.30
-    EXP, EW = 9.90, 2.30
-    _draw_group_box(sl, LXP, LY, LW, lend - LY + 0.02, col, f"{dom.upper()} · {len(chunk)}")
-    if ext_ids:
-        add_rect(sl, EXP, LY, EW, eend - LY + 0.02, fill_hex='F1F5F9', line_hex='CBD5E1', line_w=0.75)
-        add_rect(sl, EXP, LY, EW, _G_HDR, fill_hex='64748B')
-        add_text(sl, f"AUTRES APPLICATIONS · {len(ext_ids)}", EXP + 0.10, LY + 0.02, EW - 0.2, _G_HDR - 0.04,
-                 font_size=9, bold=True, color_hex='FFFFFF')
-
-    pill = {}
-    for m, (y, rh) in lpos.items():
-        pill[m] = (LXP + 0.10, y, LW - 0.20, rh - 0.02, 'L')
-    for m, (y, rh) in epos.items():
-        pill[m] = (EXP + 0.10, y, EW - 0.20, rh - 0.02, 'R')
-
-    slots: Dict[str, List] = {}
-    for i, f in enumerate(rel):
-        for end, other in (('from', 'to'), ('to', 'from')):
-            e = f[end]
-            slots.setdefault(e, []).append((pill[f[other]][1], i))
-    port_y: Dict = {}
-    for e, lst in slots.items():
-        lst.sort()
-        _, y, _, h, _ = pill[e]
-        for j, (_, i) in enumerate(lst):
-            port_y[(e, i)] = y + h * (j + 0.5) / len(lst)
-
-    L_STUB_END = LXP + 0.10 + (LW - 0.20)
-    E_STUB_START = EXP + 0.10
-    lane_lo, lane_hi = L_STUB_END + 1.50, E_STUB_START - 1.50
-    spans = []
-    for i, f in enumerate(rel):
-        y1, y2 = port_y[(f['from'], i)], port_y[(f['to'], i)]
-        spans.append((i, min(y1, y2), max(y1, y2)))
-    lane_idx, nl = _assign_lanes(spans)
-    step = min(0.15, (lane_hi - lane_lo) / max(nl, 1))
-
-    for i, f in enumerate(rel):
-        a, b = f['from'], f['to']
-        ya, yb = port_y[(a, i)], port_y[(b, i)]
-        sa, sb = pill[a][4], pill[b][4]
-        xa = L_STUB_END if sa == 'L' else E_STUB_START
-        xb = L_STUB_END if sb == 'L' else E_STUB_START
-        if sa == 'L' and sb == 'L':
-            lx = L_STUB_END + 0.25 + (lane_idx[i] % 6) * 0.14
-        else:
-            lx = lane_lo + lane_idx[i] * step
-        c = colors.get(_dom_of(by_id[a]), col)
-        add_ortho(sl, [(xa, ya), (lx, ya), (lx, yb), (xb, yb)], c, 1.0)
-        if show_labels:
-            txt = _short(f.get('label') or f.get('name') or '', 22)
-            if txt:
-                if sa == 'L':
-                    add_flow_label(sl, txt, xa + 0.05, ya, c, font=7)
-                else:
-                    add_flow_label(sl, txt, xa - 0.05, ya, c, align_right=True, font=7)
-    for m, (x, y, w, h, _) in pill.items():
-        dc = colors.get(_dom_of(by_id[m]), col)
-        name = by_id[m].get('name', '')
-        txt = _short(name, 30) if m in ids else _short(f"{name} · {_dom_of(by_id[m])}", 34)
-        add_pill(sl, (x, y, w, h), txt, dc, font=8 if h >= 0.26 else 7, name=name)
-    note = f"Flèches : flux (couleur = domaine émetteur) · {len(rel)} flux"
-    if not show_labels:
-        note += " · étiquettes masquées (trop de flux sur une application)"
-    add_text(sl, note, 0.55, 6.92, 11.6, 0.2, font_size=8, color_hex='64748B')
-
-
-def add_domain_view_slides(prs: Presentation, apps: List[Dict], flows: List[Dict], opts: Dict):
-    """One or more slides per domain: its applications, linked applications and every flow, labelled."""
-    colors = _dom_colors(apps)
-    by_id = {a['id']: a for a in apps}
+def add_domain_detail_slides(prs: Presentation, apps: List[Dict], flows: List[Dict], opts: Dict):
+    """Paginate a domain into individually labelled, non-crossing flow lanes."""
+    context_apps = opts.get("contextApps", apps)
+    context_flows = opts.get("contextFlows", flows)
+    colors = _dom_colors(context_apps)
+    by_id = {a['id']: a for a in context_apps}
     groups: Dict[str, List[Dict]] = {}
     for a in apps:
         groups.setdefault(_dom_of(a), []).append(a)
     for dom in sorted(groups, key=lambda d: (-len(groups[d]), d)):
-        dom_apps = sorted(groups[dom], key=lambda a: a.get('name', ''))
-        chunks = _chunk_domain(dom_apps, by_id, flows)
-        for ci, chunk in enumerate(chunks):
-            _domain_slide(prs, dom, chunk, ci, len(chunks), len(dom_apps), by_id, flows, colors)
+        dom_apps = groups[dom]
+        rows = _domain_rows(dom, dom_apps, by_id, context_flows)
+        chunks = [rows[i:i + DOMAIN_ROWS_PER_SLIDE] for i in range(0, len(rows), DOMAIN_ROWS_PER_SLIDE)]
+        for page, chunk in enumerate(chunks):
+            _domain_slide(prs, dom, chunk, page, len(chunks), len(dom_apps), by_id, colors)
+
+
+def add_domain_view_slides(prs: Presentation, apps: List[Dict], flows: List[Dict], opts: Dict):
+    context_apps = opts.get("contextApps", apps)
+    context_flows = opts.get("contextFlows", flows)
+    by_id = {a["id"]: a for a in context_apps}
+    groups = {}
+    for app in apps:
+        groups.setdefault(_dom_of(app), []).append(app)
+    for dom in sorted(groups, key=lambda d: (-len(groups[d]), d)):
+        ids = {app["id"] for app in groups[dom]}
+        relevant = [f for f in context_flows if f.get("from") in ids or f.get("to") in ids]
+        linked = ids | {end for f in relevant for end in (f.get("from"), f.get("to")) if end in by_id}
+        scoped = [app for app in context_apps if app["id"] in linked]
+        _add_consolidated_map(prs, scoped, relevant, f"DOMAINE — {dom.upper()}",
+                              "Cartographie Applicative > Vue par domaine")
 
 
 # ─── SECTION CATALOG & PLAN ──────────────────────────────────────────────────
@@ -1866,6 +1820,7 @@ SECTIONS = [
     {"id": "executive", "group": "Introduction", "label": "Synthèse exécutive (chiffres clés)", "requires": "apps"},
     {"id": "carto_globale", "group": "Cartographie", "label": "Cartographie globale — applications par domaine et tous les flux", "requires": "apps"},
     {"id": "domain_view", "group": "Cartographie", "label": "Vue par domaine — applications et flux (1 diapositive / domaine)", "requires": "apps"},
+    {"id": "domain_detail", "group": "Cartographie", "label": "Détail des flux par domaine", "requires": "apps"},
     {"id": "flux_matrix", "group": "Flux", "label": "Matrice des flux inter-domaines", "requires": "flows"},
     {"id": "hubs", "group": "Flux", "label": "Hubs applicatifs (vue d'ensemble)", "requires": "flows"},
     {"id": "hub_detail", "group": "Flux", "label": "Détail par hub (1 diapositive / hub)", "requires": "flows"},
@@ -1912,6 +1867,7 @@ def _build(prs, apps, flows, opts, ids):
         'executive': lambda: add_executive_slide(prs, apps, opts),
         'carto_globale': lambda: add_carto_globale_slide(prs, apps, flows, opts),
         'domain_view': lambda: add_domain_view_slides(prs, apps, flows, opts),
+        'domain_detail': lambda: add_domain_detail_slides(prs, apps, flows, opts),
         'flux_matrix': lambda: add_flux_matrix_slide(prs, apps, flows, opts),
         'hubs': lambda: add_hubs_slide(prs, apps, flows, opts),
         'hub_detail': lambda: add_hub_detail_slides(prs, apps, flows, opts),
@@ -1937,9 +1893,10 @@ def _build(prs, apps, flows, opts, ids):
         before = len(prs.slides)
         runners[sid]()
         added = list(range(before, len(prs.slides)))
-        _enrich(prs, added, sid, sec, apps, flows)
+        _enrich(prs, added, sid, sec, apps, flows, opts)
         for idx in added:
-            plan.append({"section": sid, "title": _slide_title(prs.slides[idx]) or sec['label']})
+            plan.append({"section": sid, "title": _slide_title(prs.slides[idx]) or sec['label'],
+                         "warnings": getattr(prs, "_carto_warnings", {}).get(idx, [])})
     return plan
 
 
@@ -2016,10 +1973,11 @@ def _conclusion(sid: str, apps: List[Dict], flows: List[Dict]) -> str:
     return ''
 
 
-def _enrich(prs, indices, sid, sec, apps, flows):
+def _enrich(prs, indices, sid, sec, apps, flows, opts):
     """Conclusive subtitles, page numbers on multi-page sections, and speaker notes."""
     n = len(indices)
-    concl = _conclusion(sid, apps, flows)
+    concl_flows = [] if sid == 'carto_globale' and not opts.get('showGlobalFlows', True) else flows
+    concl = _conclusion(sid, apps, concl_flows)
     for k, idx in enumerate(indices):
         slide = prs.slides[idx]
         if n > 1 and sid in ('domain_status', 'env_d1', 'env_d2', 'hub_detail') and sid != 'hub_detail':
@@ -2043,9 +2001,10 @@ def _resolve_ids(opts: Dict) -> List[str]:
     return list(ids) if isinstance(ids, list) else _default_sections(opts)
 
 
-def plan_pptx(apps: List[Dict], flows: List[Dict], opts: Dict, template_path: str) -> Dict:
+def plan_pptx(apps: List[Dict], flows: List[Dict], opts: Dict, template_path, custom_template=False) -> Dict:
     """Exact slide plan (same code path as generation, without serialising the file)."""
     prs = Presentation(template_path)
+    prs._carto_custom_template = custom_template
     _clear_slides(prs)
     plan = _build(prs, apps, flows, opts, _resolve_ids(opts))
     return {"slides": plan, "count": len(plan)}
@@ -2068,13 +2027,16 @@ def _stamp_logo(prs, data_url):
             return
 
 
-def generate_pptx(apps: List[Dict], flows: List[Dict], opts: Dict, template_path: str) -> bytes:
+def generate_pptx(apps: List[Dict], flows: List[Dict], opts: Dict, template_path, custom_template=False) -> bytes:
     """Generate a PPTX presentation using the given template. Returns the file as bytes."""
     prs = Presentation(template_path)
+    prs._carto_custom_template = custom_template
     _clear_slides(prs)
     _build(prs, apps, flows, opts, _resolve_ids(opts))
     _cleanup_placeholders(prs)
     _stamp_logo(prs, opts.get('clientLogo'))
+    if custom_template:
+        _scale_custom_content(prs)
     buf = io.BytesIO()
     prs.save(buf)
     buf.seek(0)

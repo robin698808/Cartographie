@@ -189,6 +189,7 @@ def delete_project(
     if current_user.role == models.UserRole.viewer:
         raise HTTPException(status_code=403, detail="Droits insuffisants (lecture seule)")
     audit.record(db, current_user, "project.deleted", "project", project_id, project_id)
+    db.query(models.ProjectPptxTemplate).filter_by(project_id=project_id).delete()
     db.delete(project)
     db.commit()
 

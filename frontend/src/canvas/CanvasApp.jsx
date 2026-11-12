@@ -4058,7 +4058,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
                 if(eApp.id&&apps.find(a=>a.id===eApp.id))setApps(p=>p.map(a=>a.id===eApp.id?{...a,...eApp}:a));else setApps(p=>[...p,{...eApp,id:uid()}]);setShowAM(false);setSelApp(null);}} style={{...B,background:"#548CA8"}}>{eApp.id&&apps.find(a=>a.id===eApp.id)?"Sauvegarder":"Créer"}</button></div>
     </div></div>}
     {/* Domain color editor */}
-    {showExportModal&&<ExportModal T={T} apps={apps} flows={flows} doms={doms} projectType={projectType} initialOpts={exportOpts} onClose={function(){setShowExportModal(false);}} onExport={exportPPTX}/>}
+    {showExportModal&&<ExportModal T={T} apps={apps} flows={flows} doms={doms} projectType={projectType} projectId={projectId} readOnly={readOnly} initialOpts={exportOpts} onClose={function(){setShowExportModal(false);}} onExport={exportPPTX}/>}
     {!readOnly&&showDomEdit!=null&&showDomEdit!==false&&<div className="moverlay" style={{position:"fixed",inset:0,background:T.overlay,display:"flex",alignItems:"center",justifyContent:"center",zIndex:350}} onMouseDown={e=>{if(e.target===e.currentTarget)setShowDomEdit(null);}}><div style={{background:T.bgCard,borderRadius:8,padding:24,width:380}} onMouseDown={e=>e.stopPropagation()}>
       <h3 style={{fontSize:16,fontWeight:700,marginBottom:16}}>Couleur du domaine</h3>
       <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20,padding:"12px 16px",background:T.bg,borderRadius:8}}>
