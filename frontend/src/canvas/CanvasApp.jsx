@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useMemo, useEffect, useLayoutEffect } from 'react';
 import CanvasHome from './CanvasHome';
 import { ItsiBudgetWidget, ItsiPatrimoineWidget } from './ItsiWidgets';
 import PriorityApps from './PriorityApps';
@@ -11,7 +11,7 @@ import './Sidebar.css';
 import WidgetHeader from './WidgetHeader';
 import DashboardInsights, { healthScore } from './DashboardInsights';
 import { routeFlows, pathToD, curvedFlowPath, placeLabels, straightFlowPath, flowLabelSpec, evaluateFlowLayout } from './flowRouting';
-import { placeMostConnectedFirst, gridOffsets } from './layoutDensity';
+import { placeMostConnectedFirst, gridOffsets, optimizedFontSizes, fitBounds } from './layoutDensity';
 import ViewsMenu from './ViewsMenu';
 import ExportModal from './ExportModal';
 import OptionListsEditor from './OptionListsEditor';
@@ -559,6 +559,7 @@ function App({ initialSnapshot, onSave, wsMessage, projectId, onThemeChange, top
   const [flowCtx,setFlowCtx]=useState(null);// context menu {flow, x, y}
   const [layoutUndo,setLayoutUndo]=useState(null);
   const [layoutReport,setLayoutReport]=useState(null);
+  const pendingOptimizedFrame=useRef(false);
   const [drag,setDrag]=useState(null); // {id,ox,oy} for app or {domain,ox,oy,appIds} for domain group
   const routeCacheRef=useRef({sig:"",paths:null});
   const labelCacheRef=useRef({sig:"",positions:null});
@@ -676,13 +677,13 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
 
   useEffect(()=>{
     if(!toolbarRef.current)return;
-    const obs=new ResizeObserver(entries=>{
-      for(const e of entries)setToolbarH(Math.ceil(e.contentRect.height)+16);
+    const obs=new ResizeObserver(()=>{
+      if(toolbarRef.current)setToolbarH(Math.ceil(toolbarRef.current.getBoundingClientRect().height));
     });
     obs.observe(toolbarRef.current);
     setToolbarH(Math.ceil(toolbarRef.current.getBoundingClientRect().height));
     return()=>obs.disconnect();
-  },[]);
+  },[view,canvasReady]);
 
   // Keep zmRef always current for document-level handlers
   useEffect(()=>{zmRef.current=zm;},[zm]);
@@ -1177,7 +1178,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     stopDrag();
   };
   const onWh=e=>{e.preventDefault();
-    if(e.ctrlKey||e.metaKey){setZm(z=>Math.max(0.25,Math.min(2.5,z-e.deltaY*0.003)));}
+    if(e.ctrlKey||e.metaKey){setZm(z=>Math.max(0.01,Math.min(2.5,z-e.deltaY*0.003)));}
     else{setOff(o=>({x:o.x-e.deltaX*0.8,y:o.y-e.deltaY*0.8}));}
   };
 
@@ -1185,12 +1186,15 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   const applyStarLayout=(sourceApps,interactive=false)=>{
     var layoutApps=sourceApps||apps;
     if(layoutApps.length===0)return;
+    const sizes=interactive?optimizedFontSizes(fontScale,categoryScale,0.6):{app:appFontScale,domain:domainFontScale,category:categoryFontScale,flow:flowFontSize};
+    const baseWidth=220*Math.max(1,sizes.app/2.4),baseHeight=84*Math.max(1,sizes.app/2.4);
+    const layoutCard=a=>({id:a.id,x:a.x,y:a.y,w:baseWidth*globalScale*(domScales[a.domain]||1)*Math.max(0.7,fontScale),h:baseHeight*globalScale*(domScales[a.domain]||1)*Math.max(0.7,fontScale)});
     const makeLayout=(extraGap,orderByConnections=false)=>{
     const central=orderByConnections==="central";
-    const cW=Math.round(AW_BASE*globalScale*Math.max(0.7,fontScale));
-    const cH=Math.round(AH_BASE*globalScale*Math.max(0.7,fontScale));
+    const cW=Math.round(baseWidth*globalScale*Math.max(0.7,fontScale));
+    const cH=Math.round(baseHeight*globalScale*Math.max(0.7,fontScale));
     const hasFlowsToRoute=flows.length>0;
-    const cGx=Math.max(18+appSpacing,hasFlowsToRoute?46:0)+extraGap,cGy=Math.max(14+appSpacing,hasFlowsToRoute?40:0)+extraGap,domPad=44,domSide=22,domGap=domainSpacing;
+    const cGx=Math.max(18+appSpacing,hasFlowsToRoute?46:0,interactive?sizes.flow*2:0)+extraGap,cGy=Math.max(14+appSpacing,hasFlowsToRoute?40:0,interactive?sizes.flow*2:0)+extraGap,domPad=44,domSide=22,domGap=domainSpacing;
     // 1. Compter les flux inter-domaines
     const domFlows={};
     const pairFlows={};
@@ -1217,6 +1221,10 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       var groups={};
       layoutApps.filter(function(a){return a.domain===dom;}).forEach(function(a){var cat=a.category||"";(groups[cat]=groups[cat]||[]).push(a);});
       var categoryGapX=categorySpacing+appSpacing+extraGap,categoryGapY=categorySpacing+28+appSpacing+extraGap;
+      if(interactive){
+        categoryGapX=Math.max(categoryGapX,60*categoryScale+20);
+        categoryGapY=Math.max(categoryGapY,38*fontScale*categoryScale*sizes.category+Math.max(30*categoryScale,38+28*fontScale+24,domainPadding+24*fontScale*sizes.domain+14)+32*categoryScale+20);
+      }
       var layouts=Object.keys(groups).map(function(category){
         var targetOrder=function(app){
           var targets=flows.flatMap(function(f){
@@ -1279,7 +1287,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     }
     var colWidths=new Array(domainCols).fill(0),rowHeights=new Array(domainRows).fill(0);
     domainLayouts.forEach(function(item,index){var col=index%domainCols,row=Math.floor(index/domainCols);colWidths[col]=Math.max(colWidths[col],item.size.w);rowHeights[row]=Math.max(rowHeights[row],item.size.h);});
-    var domainGap=Math.max(70,domGap,2*domainPadding+Math.round(24*fontScale*domainFontScale)+20)+extraGap;
+    var domainGap=Math.max(70,domGap,2*domainPadding+Math.round(24*fontScale*sizes.domain)+20)+extraGap;
     // Couloirs proportionnels au nombre de flux qui traversent chaque fronti?re.
     var crossing=function(axis,boundary){var c=0;for(var i=0;i<domainLayouts.length;i++)for(var j=i+1;j<domainLayouts.length;j++){var w=pairFlows[[domainLayouts[i].domain,domainLayouts[j].domain].sort().join("\x00")]||0;if(!w)continue;var ai=axis===0?i%domainCols:Math.floor(i/domainCols),aj=axis===0?j%domainCols:Math.floor(j/domainCols);if(Math.min(ai,aj)<=boundary&&Math.max(ai,aj)>boundary)c+=w;}return c;};
     var colOffsets=[],rowOffsets=[],offset=0;
@@ -1302,8 +1310,8 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     na.forEach(function(a){
       var cat=a.category;if(!cat)return;
       if(!newCatBounds[cat])newCatBounds[cat]={x1:Infinity,y1:Infinity,x2:-Infinity,y2:-Infinity};
-      var appW=AW_BASE*globalScale*(domScales[a.domain]||1)*Math.max(0.7,fontScale);
-      var appH=AH_BASE*globalScale*(domScales[a.domain]||1)*Math.max(0.7,fontScale);
+      var appW=layoutCard(a).w;
+      var appH=layoutCard(a).h;
       newCatBounds[cat].x1=Math.min(newCatBounds[cat].x1,a.x);
       newCatBounds[cat].y1=Math.min(newCatBounds[cat].y1,a.y);
       newCatBounds[cat].x2=Math.max(newCatBounds[cat].x2,a.x+appW);
@@ -1318,10 +1326,10 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       try{
         attempts.forEach(function([gap,orderByConnections],index){
           const candidate=makeLayout(gap,orderByConnections);
-          const geometry=getOptimizedFrame(candidate.apps);
-          const report=evaluateFlowLayout(candidate.apps.map(cardDims),flows,flowFontSize,geometry.zoom,flowShape);
+          const geometry=getOptimizedFrame(candidate.apps,layoutCard,{sizes,categoryBounds:candidate.catBounds,domainPads:{}});
+          const report=evaluateFlowLayout(candidate.apps.map(layoutCard),flows,sizes.flow,geometry.zoom,flowShape);
           const score=report.unrouted*100000+(report.labelOverlaps+report.cardOverlaps)*1000+report.flowOverlaps*10+report.flowCrossings*5+report.straightFallbacks;
-          if(score<bestScore){bestScore=score;best=candidate;bestReport={...report,smallLabels:flowFontSize*geometry.zoom*Math.min(1/Math.max(0.08,geometry.zoom),1.6)<10};}
+          if(score<bestScore){bestScore=score;best=candidate;bestReport={...report,smallLabels:sizes.flow*geometry.zoom*Math.min(1/Math.max(0.08,geometry.zoom),1.6)<10};}
         });
       }catch(err){
         console.error("Optimisation des flux",err);
@@ -1332,41 +1340,59 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     }else if(interactive){
       setLayoutReport(flows.length?{skipped:true}:{empty:true});
     }
-    if(interactive)setLayoutUndo({positions:Object.fromEntries(apps.map(a=>[a.id,[a.x,a.y]])),catBounds,domPads,zoom:zm,offset:off});
+    if(interactive){
+      setLayoutUndo({positions:Object.fromEntries(apps.map(a=>[a.id,[a.x,a.y]])),catBounds,domPads,zoom:zm,offset:off,fonts:{app:appFontScale,domain:domainFontScale,category:categoryFontScale,flow:flowFontSize}});
+      setAppFontScale(sizes.app);setDomainFontScale(sizes.domain);setCategoryFontScale(sizes.category);setFlowFontSize(sizes.flow);
+      pendingOptimizedFrame.current=true;
+    }
     setApps(best.apps);
     setCatBounds(best.catBounds);
     setDomPads({});
-    if(interactive){
-      const frame=getOptimizedFrame(best.apps);
-      setZm(frame.zoom);
-      setOff(frame.offset);
-    }else setTimeout(function(){fitCanvas(best.apps);},50);
+    if(!interactive)setTimeout(function(){fitCanvas(best.apps);},50);
   };
 
-  const getCanvasFrame=(layoutApps)=>{
-    const appWidth=(a)=>AW_BASE*globalScale*(domScales[a.domain]||1)*Math.max(0.7,fontScale);
-    const appHeight=(a)=>AH_BASE*globalScale*(domScales[a.domain]||1)*Math.max(0.7,fontScale);
-    const minX=Math.min(...layoutApps.map(a=>a.x)),minY=Math.min(...layoutApps.map(a=>a.y));
-    const maxX=Math.max(...layoutApps.map(a=>a.x+appWidth(a))),maxY=Math.max(...layoutApps.map(a=>a.y+appHeight(a)));
-    const framePad=72;
-    const boundsW=Math.max(1,maxX-minX+framePad*2),boundsH=Math.max(1,maxY-minY+framePad*2);
+  const getCanvasFrame=(layoutApps,getCard=cardDims,options={})=>{
     const rect=cvRef.current?.getBoundingClientRect();
     const vw=rect?.width||window.innerWidth||1400;
     const vh=rect?.height||((window.innerHeight||800)-100);
-    const fitZm=Math.min((vw-40)/boundsW,(vh-40)/boundsH,1.5);
-    const finalZm=Math.max(0.08,Math.min(fitZm,1.5));
-    return {zoom:finalZm,offset:{x:(vw-boundsW*finalZm)/2-(minX-framePad)*finalZm,y:(vh-boundsH*finalZm)/2-(minY-framePad)*finalZm}};
+    const sizes=options.sizes||{domain:domainFontScale,category:categoryFontScale};
+    const categoryBounds=options.categoryBounds||catBounds,domainPads=options.domainPads||domPads;
+    const domains={},categories={};
+    const extend=(groups,key,c)=>{
+      if(!groups[key])groups[key]={x1:Infinity,y1:Infinity,x2:-Infinity,y2:-Infinity};
+      const b=groups[key];b.x1=Math.min(b.x1,c.x);b.y1=Math.min(b.y1,c.y);b.x2=Math.max(b.x2,c.x+c.w);b.y2=Math.max(b.y2,c.y+c.h);
+    };
+    layoutApps.forEach(a=>{const c=getCard(a);extend(domains,a.domain,c);if(a.category)extend(categories,a.category,c);});
+    let zoom=1,frame;
+    for(let i=0;i<8;i++){
+      const bounds={x1:Infinity,y1:Infinity,x2:-Infinity,y2:-Infinity};
+      const include=(x1,y1,x2,y2)=>{bounds.x1=Math.min(bounds.x1,x1);bounds.y1=Math.min(bounds.y1,y1);bounds.x2=Math.max(bounds.x2,x2);bounds.y2=Math.max(bounds.y2,y2);};
+      Object.entries(domains).forEach(([name,b])=>{
+        const pad=domainPads[name]||{w:0,h:0},header=Math.round(24*fontScale*sizes.domain);
+        include(b.x1-domainPadding,b.y1-domainPadding-header,b.x2+domainPadding+pad.w,b.y2+domainPadding+pad.h);
+      });
+      Object.entries(categories).forEach(([name,b])=>{
+        const box=categoryBounds[name]||b,side=Math.round(30*categoryScale),bottom=Math.round(32*categoryScale);
+        const bar=Math.max(Math.round(38*fontScale*categoryScale*sizes.category),Math.round(34/zoom));
+        const top=Math.max(side,38+Math.round(28*fontScale)+24,domainPadding+Math.round(24*fontScale*sizes.domain)+14);
+        include(box.x1-side,box.y1-top-bar,box.x2+side,box.y2+bottom);
+      });
+      frame=fitBounds(bounds,vw,vh,40);
+      if(Math.abs(frame.zoom-zoom)<0.0001)break;
+      zoom=frame.zoom;
+    }
+    return frame;
   };
-  const getOptimizedFrame=(layoutApps)=>{
-    const frame=getCanvasFrame(layoutApps);
+  const getOptimizedFrame=(layoutApps,getCard=cardDims,options={})=>{
+    const frame=getCanvasFrame(layoutApps,getCard,options);
     if(frame.zoom>=0.6)return frame;
     const connections={};
     flows.forEach(f=>{connections[f.from]=(connections[f.from]||0)+1;connections[f.to]=(connections[f.to]||0)+1;});
     const hub=layoutApps.slice().sort((a,b)=>(connections[b.id]||0)-(connections[a.id]||0)||String(a.id).localeCompare(String(b.id)))[0];
-    const card=cardDims(hub),rect=cvRef.current?.getBoundingClientRect();
+    const card=getCard(hub),rect=cvRef.current?.getBoundingClientRect();
     const vw=rect?.width||window.innerWidth||1400,vh=rect?.height||((window.innerHeight||800)-100);
     const neighborIds=new Set(flows.flatMap(f=>f.from===hub.id?[f.to]:f.to===hub.id?[f.from]:[]));
-    const neighbors=layoutApps.filter(a=>neighborIds.has(a.id)).map(cardDims).sort((a,b)=>Math.hypot(a.x+a.w/2-card.x-card.w/2,a.y+a.h/2-card.y-card.h/2)-Math.hypot(b.x+b.w/2-card.x-card.w/2,b.y+b.h/2-card.y-card.h/2)).slice(0,2);
+    const neighbors=layoutApps.filter(a=>neighborIds.has(a.id)).map(getCard).sort((a,b)=>Math.hypot(a.x+a.w/2-card.x-card.w/2,a.y+a.h/2-card.y-card.h/2)-Math.hypot(b.x+b.w/2-card.x-card.w/2,b.y+b.h/2-card.y-card.h/2)).slice(0,2);
     const focus=[card,...neighbors];
     const x1=Math.min(...focus.map(c=>c.x)),x2=Math.max(...focus.map(c=>c.x+c.w));
     const y1=Math.min(...focus.map(c=>c.y)),y2=Math.max(...focus.map(c=>c.y+c.h));
@@ -1379,6 +1405,13 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     setZm(frame.zoom);
     setOff(frame.offset);
   };
+
+  useLayoutEffect(()=>{
+    if(!pendingOptimizedFrame.current||!apps.length)return;
+    pendingOptimizedFrame.current=false;
+    const frame=getOptimizedFrame(apps);
+    setZm(frame.zoom);setOff(frame.offset);
+  },[apps,layoutReport,appFontScale,domainFontScale,categoryFontScale,flowFontSize]);
 
   useEffect(function(){
     if(readOnly||!initialSnapshot||!initialSnapshot.apps||!initialSnapshot.apps.length)return;
@@ -1782,7 +1815,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       const bx1=fb.x1, bx2=fb.x2, by1=fb.y1, by2=fb.y2;
       const sidePad=Math.round(30*categoryScale), bottomPad=Math.round(32*categoryScale);
       const barH=Math.max(Math.round(38*fontScale*categoryScale*categoryFontScale),Math.round(34/zm));
-      const domLabelSpace=38+Math.round(28*fontScale)+24;
+      const domLabelSpace=Math.max(38+Math.round(28*fontScale)+24,domainPadding+Math.round(24*fontScale*domainFontScale)+14);
       const topPad=Math.max(sidePad,domLabelSpace);
       const fz=Math.max(Math.round(13*fontScale*categoryScale*categoryFontScale),Math.round(13/zm));
       const fzSub=Math.max(Math.round(9*fontScale*categoryScale*categoryFontScale),Math.round(10/zm));
@@ -3693,6 +3726,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
     </div></div></AppCtx.Provider>;
 
   /* ═══ MAPPING ═══ */
+  var menuTop=Math.ceil(toolbarRef.current?.getBoundingClientRect().bottom||toolbarH+topOffset)+8;
   var pinBtn=<button onClick={toggleToolbar} title={toolbarHidden?"Afficher le bandeau":"Masquer le bandeau"} aria-expanded={!toolbarHidden} style={{width:22,height:22,flexShrink:0,padding:0,borderRadius:7,display:"grid",placeItems:"center",cursor:"pointer",border:"1px solid transparent",background:"transparent",color:T.fgMuted,opacity:.6,transition:"all .2s ease"}} onMouseEnter={e=>{e.currentTarget.style.opacity="1";e.currentTarget.style.background=T.bgAlt;e.currentTarget.style.borderColor=T.border;e.currentTarget.style.color="#2979FF";}} onMouseLeave={e=>{e.currentTarget.style.opacity=".6";e.currentTarget.style.background="transparent";e.currentTarget.style.borderColor="transparent";e.currentTarget.style.color=T.fgMuted;}}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{transform:toolbarHidden?"rotate(180deg)":"rotate(0deg)",transition:"transform .3s cubic-bezier(.34,1.56,.64,1)"}}><path d="m18 15-6-6-6 6"/></svg></button>;
   var toolbarSurface=isDark?"linear-gradient(145deg, rgba(38,41,68,.96), rgba(20,22,42,.96))":"linear-gradient(145deg,#FFFFFF,#F2F3FB)";
   return <AppCtx.Provider value={ctxValue}><div style={{height:"100%",display:"flex",overflow:"hidden"}}><Sidebar/><div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",position:"relative"}}>
@@ -3744,7 +3778,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
       {activeFilters&&<button onMouseDown={e=>{e.stopPropagation();setSelDom([]);setSelCat([]);setSelCrit([]);setSelHost([]);setSelAType([]);setSelEos([]);setSelD1("");setSelD2("");setSelStatut("");setFlowDir("");}} style={{...B,padding:"4px 8px",fontSize:11,background:"#FF525220",color:"#FF5252",borderRadius:4}}>✕</button>}
       <div style={{flex:1}}/>
       {!readOnly&&<button className="mapping-trigger mapping-trigger-primary" onMouseDown={e=>{e.stopPropagation();applyStarLayout(undefined,true);}} title="Rapproche les applications et domaines connectés et adapte les espacements. La carte peut dépasser l'écran ; utilisez Recentrer pour la vue d'ensemble." style={{...B,padding:"7px 11px",fontSize:9.5,background:"linear-gradient(120deg,#4F46E5,#6366F1 58%,#0EA5E9)",color:"#fff",border:"1px solid rgba(165,180,252,.45)",borderRadius:11,display:"flex",alignItems:"center",gap:6,fontWeight:800,boxShadow:"0 6px 16px rgba(79,70,229,.28)"}}><span style={{fontSize:13}}>✦</span> Optimiser la disposition</button>}
-      {!readOnly&&layoutUndo&&<button type="button" className="mapping-trigger" onClick={function(){setApps(current=>current.map(a=>layoutUndo.positions[a.id]?{...a,x:layoutUndo.positions[a.id][0],y:layoutUndo.positions[a.id][1]}:a));setCatBounds(layoutUndo.catBounds);setDomPads(layoutUndo.domPads);setZm(layoutUndo.zoom);setOff(layoutUndo.offset);setLayoutUndo(null);setLayoutReport(null);}} style={{...B,padding:"7px 10px",fontSize:10,background:toolbarSurface,color:T.fg,border:"1px solid "+T.border}}>Annuler l'optimisation</button>}
+      {!readOnly&&layoutUndo&&<button type="button" className="mapping-trigger" onClick={function(){pendingOptimizedFrame.current=false;setApps(current=>current.map(a=>layoutUndo.positions[a.id]?{...a,x:layoutUndo.positions[a.id][0],y:layoutUndo.positions[a.id][1]}:a));setCatBounds(layoutUndo.catBounds);setDomPads(layoutUndo.domPads);setAppFontScale(layoutUndo.fonts.app);setDomainFontScale(layoutUndo.fonts.domain);setCategoryFontScale(layoutUndo.fonts.category);setFlowFontSize(layoutUndo.fonts.flow);setZm(layoutUndo.zoom);setOff(layoutUndo.offset);setLayoutUndo(null);setLayoutReport(null);}} style={{...B,padding:"7px 10px",fontSize:10,background:toolbarSurface,color:T.fg,border:"1px solid "+T.border}}>Annuler l'optimisation</button>}
       {/* ── Création menu ── */}
       {!readOnly&&<div className="mapping-trigger-anchor" style={{position:"relative"}}>
         <button className="mapping-trigger" aria-haspopup="true" aria-expanded={openMenu==="create"} onClick={function(){setOpenMenu(openMenu==="create"?null:"create");}} style={{...B,background:openMenu==="create"?"linear-gradient(135deg,#6366F126,#8B5CF618)":cMode?"linear-gradient(135deg,#EF44442E,#F9731618)":toolbarSurface,color:cMode?"#FB7185":T.fgMuted,border:"1px solid "+(cMode?"#EF444466":openMenu==="create"?"#8B5CF655":T.border),padding:"7px 11px",fontSize:10,borderRadius:10,display:"flex",alignItems:"center",gap:7,boxShadow:cMode?"0 4px 14px rgba(239,68,68,.14)":"0 3px 10px rgba(0,0,0,.12)"}}>
@@ -3787,7 +3821,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
       {/* ── MENU: Affichage de la cartographie ── */}
       <div className="mapping-trigger-anchor" style={{position:"relative"}}>
         <button className="mapping-trigger" aria-haspopup="true" aria-expanded={openMenu==="edit"} onClick={function(){setOpenMenu(openMenu==="edit"?null:"edit");}} style={{...B,background:openMenu==="edit"?"linear-gradient(135deg,#8B5CF626,#6366F116)":toolbarSurface,color:openMenu==="edit"?"#C4B5FD":T.fgMuted,padding:"7px 11px",fontSize:10,letterSpacing:0.1,borderRadius:10,border:"1px solid "+(openMenu==="edit"?"#8B5CF655":T.border),boxShadow:"0 3px 10px rgba(0,0,0,.12)"}}><span style={{width:20,height:20,borderRadius:7,display:"grid",placeItems:"center",background:"rgba(139,92,246,.16)",fontSize:12,marginRight:1}}>✎</span>Affichage ▾</button>
-        {openMenu==="edit"&&<div className="mapping-menu" style={{position:"fixed",top:toolbarH+topOffset+8,right:12,background:T.bgCard,border:"1px solid "+T.border,borderRadius:14,padding:14,width:"min(340px, calc(100vw - 24px))",maxHeight:"min(78vh, calc(100vh - "+(toolbarH+topOffset+20)+"px))",overflowY:"auto",boxShadow:"0 18px 46px rgba(0,0,0,.36)",zIndex:250}}>
+        {openMenu==="edit"&&<div className="mapping-menu" style={{position:"fixed",top:menuTop,right:12,background:T.bgCard,border:"1px solid "+T.border,borderRadius:14,padding:14,width:"min(340px, calc(100vw - 24px))",maxHeight:"min(78vh, calc(100vh - "+(menuTop+12)+"px))",overflowY:"auto",boxShadow:"0 18px 46px rgba(0,0,0,.36)",zIndex:250}}>
           <div className="mapping-menu-header"><div className="mapping-menu-title">Affichage</div><div className="mapping-menu-subtitle">Personnalisez la lecture de votre cartographie</div></div>
           <div className="mapping-menu-section-title">Lecture des flux</div>
           <div className="mapping-segmented">
@@ -3799,17 +3833,17 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
           <div className="mapping-menu-section-title">Taille des textes</div>
           <div style={{display:"flex",alignItems:"center",gap:7,padding:"2px 6px 8px"}}>
             <span style={{fontSize:10,color:T.fgMuted,whiteSpace:"nowrap"}}>Police générale</span>
-            <input aria-label="Police générale" type="range" min="0.8" max="2.2" step="0.1" value={fontScale} onChange={function(e){setFontScale(parseFloat(e.target.value));}} style={{flex:1,cursor:"pointer"}}/>
+            <input aria-label="Police générale" type="range" min="0.8" max="4" step="0.1" value={fontScale} onChange={function(e){setFontScale(parseFloat(e.target.value));}} style={{flex:1,cursor:"pointer"}}/>
             <span style={{fontSize:10,color:T.fg,minWidth:32,textAlign:"right"}}>{Math.round(fontScale*100)}%</span>
           </div>
-          {[{label:"Applications",value:appFontScale,set:setAppFontScale,max:3.6},{label:"Domaines",value:domainFontScale,set:setDomainFontScale,max:3.6},{label:"Catégories",value:categoryFontScale,set:setCategoryFontScale,max:2.4}].map(function(item){return <div key={item.label} style={{padding:"4px 6px"}}>
+          {[{label:"Applications",value:appFontScale,set:setAppFontScale,max:6},{label:"Domaines",value:domainFontScale,set:setDomainFontScale,max:6},{label:"Catégories",value:categoryFontScale,set:setCategoryFontScale,max:6}].map(function(item){return <div key={item.label} style={{padding:"4px 6px"}}>
             <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:T.fgMuted,marginBottom:2}}><span>{item.label}</span><span style={{color:T.fg}}>{Math.round(item.value*100)}%</span></div>
             <input aria-label={"Police "+item.label} type="range" min="0.8" max={item.max} step="0.1" value={item.value} onChange={function(e){item.set(parseFloat(e.target.value));}} style={{width:"100%",cursor:"pointer"}}/>
           </div>;})}
           <div className="mapping-menu-subtitle" style={{padding:"0 6px 6px"}}>Les grandes polices agrandissent les applications et peuvent nécessiter une nouvelle optimisation de la disposition.</div>
           <div style={{height:1,background:T.border,margin:"5px 4px 8px"}}/>
           <div className="mapping-menu-section-title">Dimensions</div>
-          {[{label:"Applications",value:globalScale,min:0.5,max:4,step:0.1,set:setGlobalScale,format:function(v){return Math.round(v*100)+"%";}},{label:"Domaines · marge",value:domainPadding,min:20,max:500,step:5,set:setDomainPadding,format:function(v){return v+" px";}},{label:"Catégories · taille",value:categoryScale,min:0.6,max:1.8,step:0.1,set:setCategoryScale,format:function(v){return Math.round(v*100)+"%";}}].map(function(item){return <div key={item.label} style={{padding:"4px 6px"}}>
+          {[{label:"Applications",value:globalScale,min:0.5,max:8,step:0.1,set:setGlobalScale,format:function(v){return Math.round(v*100)+"%";}},{label:"Domaines · marge",value:domainPadding,min:20,max:1000,step:5,set:setDomainPadding,format:function(v){return v+" px";}},{label:"Catégories · taille",value:categoryScale,min:0.6,max:4,step:0.1,set:setCategoryScale,format:function(v){return Math.round(v*100)+"%";}}].map(function(item){return <div key={item.label} style={{padding:"4px 6px"}}>
             <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:T.fgMuted,marginBottom:2}}><span>{item.label}</span><span style={{color:T.fg}}>{item.format(item.value)}</span></div>
             <input aria-label={"Taille "+item.label} type="range" min={item.min} max={item.max} step={item.step} value={item.value} onChange={function(e){item.set(parseFloat(e.target.value));}} style={{width:"100%",cursor:"pointer"}}/>
           </div>;})}
@@ -3844,7 +3878,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
       {/* ── MENU: Flux & Domaines ── */}
       <div className="mapping-trigger-anchor" style={{position:"relative"}}>
         <button className="mapping-trigger" aria-haspopup="true" aria-expanded={openMenu==="flux"} onClick={function(){setOpenMenu(openMenu==="flux"?null:"flux");}} style={{...B,background:openMenu==="flux"?"linear-gradient(135deg,#38BDF826,#06B6D416)":toolbarSurface,color:openMenu==="flux"?"#7DD3FC":T.fgMuted,border:"1px solid "+(openMenu==="flux"?"#38BDF855":T.border),padding:"7px 11px",fontSize:10,letterSpacing:0.1,borderRadius:10,boxShadow:"0 3px 10px rgba(0,0,0,.12)"}}><span style={{width:20,height:20,borderRadius:7,display:"grid",placeItems:"center",background:"rgba(56,189,248,.15)",fontSize:12,marginRight:1}}>&#8644;</span>Flux ▾</button>
-        {openMenu==="flux"&&<div className="mapping-menu" style={{position:"fixed",top:toolbarH+topOffset+8,right:12,background:T.bgCard,border:"1px solid "+T.border,borderRadius:12,padding:10,width:"min(290px, calc(100vw - 24px))",maxHeight:"min(78vh, calc(100vh - "+(toolbarH+topOffset+20)+"px))",overflowY:"auto",boxShadow:"0 16px 38px rgba(0,0,0,.32)",zIndex:300}}>
+        {openMenu==="flux"&&<div className="mapping-menu" style={{position:"fixed",top:menuTop,right:12,background:T.bgCard,border:"1px solid "+T.border,borderRadius:12,padding:10,width:"min(290px, calc(100vw - 24px))",maxHeight:"min(78vh, calc(100vh - "+(menuTop+12)+"px))",overflowY:"auto",boxShadow:"0 16px 38px rgba(0,0,0,.32)",zIndex:300}}>
           <div className="mapping-menu-section-title">Filtres des flux</div>
           <div style={{display:"flex",gap:6,padding:"4px 8px"}}>
             <select aria-label="Filtrer par protocole" value={flowProto} onChange={function(e){setFlowProto(e.target.value);}} style={{flex:1,minWidth:0,background:flowProto?"#6366F122":T.bgAlt,color:flowProto?"#A5B4FC":T.fgMuted,border:"1px solid "+(flowProto?"#6366F1":T.border),borderRadius:8,padding:"6px 8px",fontSize:10.5,fontWeight:600}}>
@@ -3863,7 +3897,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
           </div>
           <div className="mapping-menu-section-title">Taille des libellés</div>
           <div style={{display:"flex",alignItems:"center",gap:6,padding:"4px 8px"}}>
-            <input aria-label="Police étiquettes de flux" type="range" min="8" max="64" step="1" value={flowFontSize} onChange={function(e){setFlowFontSize(parseInt(e.target.value));}} style={{flex:1,cursor:"pointer"}}/>
+            <input aria-label="Police étiquettes de flux" type="range" min="8" max="96" step="1" value={flowFontSize} onChange={function(e){setFlowFontSize(parseInt(e.target.value));}} style={{flex:1,cursor:"pointer"}}/>
             <span style={{fontSize:10,color:T.fg,minWidth:24}}>{flowFontSize}pt</span>
           </div>
           <div className="mapping-menu-section-title">Style de trait</div>
@@ -3900,8 +3934,8 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
         </div>}
       </div>
     </div>
-    <div style={{flex:1,display:"flex",overflow:"hidden",position:"relative"}}>
-      {layoutReport&&<div role={layoutReport.error?"alert":"status"} style={{position:"absolute",top:10,left:12,zIndex:120,maxWidth:"min(460px, calc(100% - 24px))",padding:"10px 12px",borderRadius:10,background:T.bgCard,border:"1px solid "+T.border,boxShadow:"0 6px 20px rgba(0,0,0,.2)",fontSize:11,color:T.fg}}>
+    <div style={{flex:1,display:"flex",flexDirection:"column",minHeight:0,overflow:"hidden",position:"relative"}}>
+      {layoutReport&&<div role={layoutReport.error?"alert":"status"} style={{flexShrink:0,maxHeight:"30%",overflowY:"auto",padding:"8px 12px",background:T.bgCard,borderBottom:"1px solid "+T.border,fontSize:11,color:T.fg}}>
         <button type="button" aria-label="Fermer le bilan d'optimisation" onClick={()=>setLayoutReport(null)} style={{...B,float:"right",padding:"0 4px",background:"transparent",color:T.fg}}>✕</button>
         {layoutReport.error?<div>Échec de l'évaluation : la disposition n'a pas été modifiée.</div>:layoutReport.skipped?<div>Disposition calculée. L'analyse des flux n'est pas disponible au-delà de 120 flux.</div>:layoutReport.empty?<div>Disposition calculée. Aucun flux à analyser.</div>:<>
           <div style={{fontWeight:700}}>Bilan de l'optimisation</div>
@@ -3915,14 +3949,15 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
         {!layoutReport.error&&<div>Utilisez « Recentrer » pour afficher toute la carte.</div>}
         {flowDisplayMode!=="static"&&<div>Les flux restent affichés au survol.</div>}
       </div>}
-      <div ref={cvRef} style={{flex:1,overflow:"hidden",position:"relative",background:isDark?"#0B0B14":"#FFFFFF",cursor:pan?"grabbing":cMode?"crosshair":selMode?"default":"grab"}} onMouseDown={function(e){if(openMenu)setOpenMenu(null);const onBackground=!e.target.closest?.('[data-app]')&&!e.target.closest?.('.flow-layer');if(onBackground){setFocusApp(null);setSelFlow(null);setFlowSuppressed(true);}onCD(e);}} onMouseMove={function(e){if(!e.target.closest?.('[data-app]')&&!e.target.closest?.('[data-panel]')&&!e.target.closest?.('.flow-layer')){if(flowDisplayMode==='dynamic'){setFlowSuppressed(true);if(focusApp&&!panelOpen)setFocusApp(null);if(selFlow&&!panelOpen)setSelFlow(null);}}onCM(e);}} onMouseUp={onCU} onMouseLeave={function(e){onCU(e);const enteringPanel=e.relatedTarget?.closest?.('[data-panel]');if(!enteringPanel&&flowDisplayMode==='dynamic'){setFlowSuppressed(true);setFocusApp(null);setSelFlow(null);}}} onWheel={onWh} onContextMenu={e=>e.preventDefault()}>
+      <div style={{flex:1,minHeight:0,minWidth:0,display:"flex",overflow:"hidden"}}>
+      <div ref={cvRef} style={{flex:1,minHeight:0,minWidth:0,overflow:"hidden",position:"relative",background:isDark?"#0B0B14":"#FFFFFF",cursor:pan?"grabbing":cMode?"crosshair":selMode?"default":"grab"}} onMouseDown={function(e){if(openMenu)setOpenMenu(null);const onBackground=!e.target.closest?.('[data-app]')&&!e.target.closest?.('.flow-layer');if(onBackground){setFocusApp(null);setSelFlow(null);setFlowSuppressed(true);}onCD(e);}} onMouseMove={function(e){if(!e.target.closest?.('[data-app]')&&!e.target.closest?.('[data-panel]')&&!e.target.closest?.('.flow-layer')){if(flowDisplayMode==='dynamic'){setFlowSuppressed(true);if(focusApp&&!panelOpen)setFocusApp(null);if(selFlow&&!panelOpen)setSelFlow(null);}}onCM(e);}} onMouseUp={onCU} onMouseLeave={function(e){onCU(e);const enteringPanel=e.relatedTarget?.closest?.('[data-panel]');if(!enteringPanel&&flowDisplayMode==='dynamic'){setFlowSuppressed(true);setFocusApp(null);setSelFlow(null);}}} onWheel={onWh} onContextMenu={e=>e.preventDefault()}>
         <div className="cbg" style={{position:"absolute",inset:0,backgroundColor:T.bg,backgroundImage:isDark?"radial-gradient(circle,rgba(148,163,184,.24) 1.15px,transparent 1.15px), radial-gradient(ellipse at 54% 46%,rgba(99,102,241,.08),transparent 68%)":"radial-gradient(circle,rgba(71,85,105,.16) 1px,transparent 1px), radial-gradient(ellipse at 18% 14%,rgba(99,102,241,.08),transparent 52%), radial-gradient(ellipse at 84% 86%,rgba(34,211,238,.08),transparent 56%)",backgroundSize:isDark?"34px 34px,100% 100%":"32px 32px,100% 100%,100% 100%"}}/>
       <div style={{transform:`translate(${off.x}px,${off.y}px) scale(${zm})`,transformOrigin:"0 0",position:"absolute",top:0,left:0,width:5000,height:4000}}>
         <CategoryZones/><DomainZones/><FlowLines/>{filtered.map(a=><AppNode key={a.id} app={a}/>)}
         {lasso&&<div style={{position:"absolute",left:Math.min(lasso.x0,lasso.x1),top:Math.min(lasso.y0,lasso.y1),width:Math.abs(lasso.x1-lasso.x0),height:Math.abs(lasso.y1-lasso.y0),border:(1.5/zm)+"px dashed #34D399",background:"rgba(52,211,153,.10)",borderRadius:6/zm,pointerEvents:"none",zIndex:50}}/>}
       </div>
       <div data-app="1" style={{position:"absolute",bottom:16,right:16,display:"flex",alignItems:"center",gap:6,padding:6,borderRadius:13,background:isDark?"rgba(19,19,42,.92)":"rgba(255,255,255,.94)",border:"1px solid "+T.border,boxShadow:"0 10px 30px rgba(0,0,0,.2)",backdropFilter:"blur(12px)",color:T.fgMuted}}>
-        <button title="Dézoomer" onMouseDown={function(e){e.stopPropagation();setZm(function(z){return Math.max(.25,+(z-.1).toFixed(2));});}} style={{...B,width:30,height:30,padding:0,background:T.bgHover,color:T.fg,borderRadius:8,fontSize:17}}>−</button>
+        <button title="Dézoomer" onMouseDown={function(e){e.stopPropagation();setZm(function(z){return Math.max(.01,+(z-(z<.2?.02:.1)).toFixed(2));});}} style={{...B,width:30,height:30,padding:0,background:T.bgHover,color:T.fg,borderRadius:8,fontSize:17}}>−</button>
         <span style={{minWidth:44,textAlign:"center",fontSize:10,fontWeight:800,color:T.fg,fontVariantNumeric:"tabular-nums"}}>{Math.round(zm*100)}%</span>
         <button title="Zoomer" onMouseDown={function(e){e.stopPropagation();setZm(function(z){return Math.min(2.5,+(z+.1).toFixed(2));});}} style={{...B,width:30,height:30,padding:0,background:T.bgHover,color:T.fg,borderRadius:8,fontSize:17}}>+</button>
         <span style={{width:1,height:22,background:T.border,margin:"0 2px"}}/>
@@ -3931,7 +3966,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
         <span style={{padding:"0 6px",fontSize:9,fontWeight:650,whiteSpace:"nowrap"}}>{activeFilters?filtered.length+" / ":""}{apps.length} apps · {flows.length} flux{activeFilters?" filtrés":""}</span>
       </div>
     </div>
-    {selApp&&panelOpen&&!showAM&&<div data-panel="1" style={{width:360,flexShrink:0,background:T.bgAlt,borderLeft:"1px solid "+T.borderLight,overflowY:"auto",display:"flex",flexDirection:"column",zIndex:10}}>
+    {selApp&&panelOpen&&!showAM&&<div data-panel="1" style={{width:360,maxWidth:"100%",flexShrink:0,background:T.bgAlt,borderLeft:"1px solid "+T.borderLight,overflowY:"auto",display:"flex",flexDirection:"column",zIndex:10}}>
       {/* Header with domain color accent */}
       <div style={{background:isDark?"linear-gradient(145deg,"+(DC[selApp.domain]||DC.Autre).bg+","+T.bgAlt+")":"linear-gradient(145deg,"+(DC[selApp.domain]||DC.Autre).ac+"20,#fff)",padding:"19px 18px 16px",borderBottom:"3px solid "+(DC[selApp.domain]||DC.Autre).ac,position:"relative",overflow:"hidden",flexShrink:0}}>
         <div style={{position:"absolute",right:-28,top:-36,width:130,height:130,borderRadius:"50%",border:"1px solid "+(DC[selApp.domain]||DC.Autre).ac+"30",boxShadow:"0 0 0 18px "+(DC[selApp.domain]||DC.Autre).ac+"0A, 0 0 0 38px "+(DC[selApp.domain]||DC.Autre).ac+"08",pointerEvents:"none"}}/>
@@ -4032,6 +4067,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
         </div>}
       </div>
     </div>}
+    </div>
     </div>
     {/* Presentation mode overlay */}
     {presMode&&<div style={{position:"fixed",inset:0,zIndex:500,background:isDark?"#0B0B14":"#FFFFFF",display:"flex",flexDirection:"column"}}>

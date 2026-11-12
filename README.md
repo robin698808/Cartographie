@@ -116,19 +116,24 @@ selon les conflits de tracé et d'étiquettes. Au-delà, elle utilise une
 disposition aérée sans évaluation détaillée. Les croisements ne peuvent pas
 toujours être éliminés.
 
-Dans **Affichage**, la police des applications et celle des domaines peuvent
-atteindre 360 %. Au-delà de 240 %, la taille des applications augmente avec
-leur police ; il peut être nécessaire de relancer l'optimisation pour éviter
-les chevauchements. Dans **Flux**, les libellés peuvent atteindre 64 points ;
-une grande police peut également nécessiter davantage d'espacement.
-Les dimensions des applications peuvent atteindre 400 % et la marge des
-domaines 500 px. Après un agrandissement, relancer l'optimisation de la
-disposition si les éléments se chevauchent.
+L'optimisation ajuste également les polices des applications, domaines,
+catégories et flux pour viser une lecture confortable à un zoom de référence
+de 60 %. Les valeurs restent réglables et l'annulation les restaure. Selon le
+zoom et la densité, cette cible ne garantit pas la lisibilité de tous les
+éléments simultanément.
+
+Dans **Affichage**, la police générale peut atteindre 400 %, les polices des
+applications, domaines et catégories 600 %, les applications 800 %, la marge
+des domaines 1 000 px et la taille des catégories 400 %. Dans **Flux**, les
+libellés peuvent atteindre 96 points. Les grandes tailles peuvent nécessiter
+une nouvelle optimisation pour limiter les chevauchements.
 
 Après optimisation, la vue conserve un zoom lisible et cadre l'application la
 plus connectée et ses voisins proches si la carte ne tient pas à l'écran. Utiliser
 « Recentrer » pour cadrer toute la carte ; l'annulation restaure également le
-zoom et la position précédents. Les modifications de positions suivent les
+zoom, la position et les polices précédents. Le bilan d'optimisation est affiché
+au-dessus de la zone de dessin ; « Recentrer » tient compte des bordures et
+en-têtes des domaines et catégories. Les modifications de positions suivent les
 règles habituelles de sauvegarde du projet.
 
 En affichage statique comme au survol, les flux restent individuels. Le routage
