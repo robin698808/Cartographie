@@ -10,7 +10,7 @@ import { Network, Boxes, ChartNoAxesCombined, ListChecks, PanelLeftClose, PanelL
 import './Sidebar.css';
 import WidgetHeader from './WidgetHeader';
 import DashboardInsights, { healthScore } from './DashboardInsights';
-import { routeFlows, pathToD, placeLabels } from './flowRouting';
+import { routeFlows, pathToD, placeLabels, straightFlowPath, flowLabelSpec, evaluateFlowLayout } from './flowRouting';
 import ViewsMenu from './ViewsMenu';
 import ExportModal from './ExportModal';
 import OptionListsEditor from './OptionListsEditor';
@@ -24,6 +24,22 @@ import {
   COST_TYPES, COST_COLORS, HOSTING_OPTS, HOSTING_COLORS, APPTYPE_OPTS, APPTYPE_COLORS, EOS_BUCKETS, ITSI_FIELDS, DEAL_ONLY_PATTERNS,
   normText, parseAmount, parseDate, canonOption, eosBucket, formatEuro, formatDateFr,
 } from './itsi';
+
+const FLOW_ARROW_STYLES = [
+  { value: 'triangle', label: 'Triangle' },
+  { value: 'chevron', label: 'Chevron' },
+  { value: 'diamond', label: 'Losange' },
+  { value: 'circle', label: 'Rond' },
+  { value: 'none', label: 'Sans pointe' },
+];
+
+function FlowArrowShape({ style, color }) {
+  if (style === 'chevron') return <path d="M1 0.75 L9.25 3.5 L1 6.25" fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round"/>;
+  if (style === 'diamond') return <polygon points="0,3.5 5,0 10,3.5 5,7" fill={color}/>;
+  if (style === 'circle') return <circle cx="6.5" cy="3.5" r="3.5" fill={color}/>;
+  if (style === 'none') return null;
+  return <polygon points="0,0 10,3.5 0,7" fill={color}/>;
+}
 
 // Dynamic imports — these heavy libs (XLSX ~816KB, ) load only when
 /*
@@ -540,6 +556,8 @@ function App({ initialSnapshot, onSave, wsMessage, projectId, onThemeChange, top
   const [selApp,setSelApp]=useState(null);
   const [selFlow,setSelFlow]=useState(null);// selected flow (click)
   const [flowCtx,setFlowCtx]=useState(null);// context menu {flow, x, y}
+  const [layoutUndo,setLayoutUndo]=useState(null);
+  const [layoutReport,setLayoutReport]=useState(null);
   const [drag,setDrag]=useState(null); // {id,ox,oy} for app or {domain,ox,oy,appIds} for domain group
   const routeCacheRef=useRef({sig:"",paths:null});
   const dragRef=useRef(null); // mirror of drag for always-current access in event handlers
@@ -726,6 +744,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   const [domainFontScale,setDomainFontScale]=useState(1.5);
   const [categoryFontScale,setCategoryFontScale]=useState(1.45);
   const [flowDash,setFlowDash]=useState("none");
+  const [flowArrowStyle,setFlowArrowStyle]=useState("triangle");
   const [flowColorCustom,setFlowColorCustom]=useState("");
   const [domBorderW,setDomBorderW]=useState(1.5);
   const [openMenu,setOpenMenu]=useState(null);
@@ -1160,13 +1179,14 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   };
 
   var ctxValue={view,setView,isDark,T,apps,flows,sidebarOpen,setSidebarOpen,projectType};
-  const applyStarLayout=(sourceApps)=>{
+  const applyStarLayout=(sourceApps,interactive=false)=>{
     var layoutApps=sourceApps||apps;
     if(layoutApps.length===0)return;
+    const makeLayout=(extraGap,orderByConnections=false)=>{
     const cW=Math.round(AW_BASE*globalScale*Math.max(0.7,fontScale));
     const cH=Math.round(AH_BASE*globalScale*Math.max(0.7,fontScale));
     const hasFlowsToRoute=flows.length>0;
-    const cGx=Math.max(18+appSpacing,hasFlowsToRoute?46:0),cGy=Math.max(14+appSpacing,hasFlowsToRoute?40:0),domPad=44,domSide=22,domGap=flowDisplayMode==="static"?Math.max(domainSpacing,220):domainSpacing;
+    const cGx=Math.max(18+appSpacing,hasFlowsToRoute?46:0)+extraGap,cGy=Math.max(14+appSpacing,hasFlowsToRoute?40:0)+extraGap,domPad=44,domSide=22,domGap=domainSpacing;
     // 1. Compter les flux inter-domaines
     const domFlows={};
     const pairFlows={};
@@ -1192,9 +1212,17 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       var appW=Math.round(cW*scale),appH=Math.round(cH*scale);
       var groups={};
       layoutApps.filter(function(a){return a.domain===dom;}).forEach(function(a){var cat=a.category||"";(groups[cat]=groups[cat]||[]).push(a);});
-      var categoryGapX=categorySpacing+appSpacing,categoryGapY=categorySpacing+28+appSpacing;
+      var categoryGapX=categorySpacing+appSpacing+extraGap,categoryGapY=categorySpacing+28+appSpacing+extraGap;
       var layouts=Object.keys(groups).map(function(category){
-        var groupApps=groups[category].slice().sort(function(a,b){return(appConn[b.id]||0)-(appConn[a.id]||0);});
+        var targetOrder=function(app){
+          var targets=flows.flatMap(function(f){
+            var other=f.from===app.id?f.to:f.to===app.id?f.from:null;
+            var linked=other&&layoutApps.find(candidate=>candidate.id===other);
+            return linked&&linked.domain!==dom?[domainOrder.indexOf(linked.domain)]:[];
+          });
+          return targets.length?targets.reduce((sum,n)=>sum+n,0)/targets.length:domainOrder.length;
+        };
+        var groupApps=groups[category].slice().sort(function(a,b){return(orderByConnections?targetOrder(a)-targetOrder(b):0)||(appConn[b.id]||0)-(appConn[a.id]||0);});
         var cols=Math.max(1,Math.min(3,Math.ceil(Math.sqrt(groupApps.length))));
         var rows=Math.ceil(groupApps.length/cols);
         return{category:category,apps:groupApps,cols:cols,rows:rows,w:cols*appW+(cols-1)*cGx,h:rows*appH+(rows-1)*cGy};
@@ -1240,13 +1268,13 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     }
     var colWidths=new Array(domainCols).fill(0),rowHeights=new Array(domainRows).fill(0);
     domainLayouts.forEach(function(item,index){var col=index%domainCols,row=Math.floor(index/domainCols);colWidths[col]=Math.max(colWidths[col],item.size.w);rowHeights[row]=Math.max(rowHeights[row],item.size.h);});
-    var domainGap=Math.max(70,Math.min(domGap,96));
+    var domainGap=Math.max(70,domGap)+extraGap;
     // Couloirs proportionnels au nombre de flux qui traversent chaque fronti?re.
     var crossing=function(axis,boundary){var c=0;for(var i=0;i<domainLayouts.length;i++)for(var j=i+1;j<domainLayouts.length;j++){var w=pairFlows[[domainLayouts[i].domain,domainLayouts[j].domain].sort().join("\x00")]||0;if(!w)continue;var ai=axis===0?i%domainCols:Math.floor(i/domainCols),aj=axis===0?j%domainCols:Math.floor(j/domainCols);if(Math.min(ai,aj)<=boundary&&Math.max(ai,aj)>boundary)c+=w;}return c;};
     var colOffsets=[],rowOffsets=[],offset=0;
-    colWidths.forEach(function(width,index){colOffsets[index]=offset;offset+=width+(index<colWidths.length-1?Math.min(420,domainGap+crossing(0,index)*8):0);});
+    colWidths.forEach(function(width,index){colOffsets[index]=offset;offset+=width+(index<colWidths.length-1?domainGap+crossing(0,index)*8:0);});
     offset=0;
-    rowHeights.forEach(function(height,index){rowOffsets[index]=offset;offset+=height+(index<rowHeights.length-1?Math.min(420,domainGap+crossing(1,index)*8):0);});
+    rowHeights.forEach(function(height,index){rowOffsets[index]=offset;offset+=height+(index<rowHeights.length-1?domainGap+crossing(1,index)*8:0);});
     // 5. Positionner les applications par domaine, puis par catégorie.
     var na=layoutApps.map(function(a){return Object.assign({},a);});
     domainLayouts.forEach(function(item,index){
@@ -1270,14 +1298,37 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       newCatBounds[cat].x2=Math.max(newCatBounds[cat].x2,a.x+appW);
       newCatBounds[cat].y2=Math.max(newCatBounds[cat].y2,a.y+appH);
     });
-    setApps(na);
-    setCatBounds(newCatBounds);
+    return {apps:na,catBounds:newCatBounds};
+    };
+    let best=makeLayout(0),bestReport=null;
+    if(interactive&&flows.length&&flows.length<=120){
+      const attempts=flows.length<=40&&layoutApps.length<=100?[[0,false],[80,false],[180,false],[0,true],[80,true],[180,true]]:flows.length<=80&&layoutApps.length<=100?[[0,false],[80,false],[180,false]]:[[0,false]];
+      let bestScore=Infinity;
+      try{
+        attempts.forEach(function([gap,orderByConnections],index){
+          const candidate=index===0?best:makeLayout(gap,orderByConnections);
+          const geometry=getCanvasFrame(candidate.apps);
+          const report=evaluateFlowLayout(candidate.apps.map(cardDims),flows,flowFontSize,geometry.zoom);
+          const score=report.unrouted*100000+(report.labelOverlaps+report.cardOverlaps)*1000+report.flowOverlaps*10+report.flowCrossings*5+report.straightFallbacks;
+          if(score<bestScore){bestScore=score;best=candidate;bestReport={...report,smallLabels:flowFontSize*geometry.zoom*Math.min(1/Math.max(0.08,geometry.zoom),1.6)<10};}
+        });
+      }catch(err){
+        console.error("Optimisation des flux",err);
+        setLayoutReport({error:true});
+        return;
+      }
+      setLayoutReport({...bestReport,limited:attempts.length===1});
+    }else if(interactive){
+      setLayoutReport(flows.length?{skipped:true}:{empty:true});
+    }
+    if(interactive)setLayoutUndo({positions:Object.fromEntries(apps.map(a=>[a.id,[a.x,a.y]])),catBounds,domPads,zoom:zm,offset:off});
+    setApps(best.apps);
+    setCatBounds(best.catBounds);
     setDomPads({});
-    setTimeout(function(){fitCanvas(na);},50);
+    setTimeout(function(){fitCanvas(best.apps);},50);
   };
 
-  const fitCanvas=(layoutApps=filtered)=>{
-    if(!layoutApps.length)return;
+  const getCanvasFrame=(layoutApps)=>{
     const appWidth=(a)=>AW_BASE*globalScale*(domScales[a.domain]||1)*Math.max(0.7,fontScale);
     const appHeight=(a)=>AH_BASE*globalScale*(domScales[a.domain]||1)*Math.max(0.7,fontScale);
     const minX=Math.min(...layoutApps.map(a=>a.x)),minY=Math.min(...layoutApps.map(a=>a.y));
@@ -1289,8 +1340,13 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     const vh=rect?.height||((window.innerHeight||800)-100);
     const fitZm=Math.min((vw-40)/boundsW,(vh-40)/boundsH,1.5);
     const finalZm=Math.max(0.08,Math.min(fitZm,1.5));
-    setZm(finalZm);
-    setOff({x:(vw-boundsW*finalZm)/2-(minX-framePad)*finalZm,y:(vh-boundsH*finalZm)/2-(minY-framePad)*finalZm});
+    return {zoom:finalZm,offset:{x:(vw-boundsW*finalZm)/2-(minX-framePad)*finalZm,y:(vh-boundsH*finalZm)/2-(minY-framePad)*finalZm}};
+  };
+  const fitCanvas=(layoutApps=filtered)=>{
+    if(!layoutApps.length)return;
+    const frame=getCanvasFrame(layoutApps);
+    setZm(frame.zoom);
+    setOff(frame.offset);
   };
 
   useEffect(function(){
@@ -1395,7 +1451,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
 
   const exportCSV=()=>{const h=["Nom","Domaine","Criticité","Éditeur","Version","Responsable","Utilisateurs","Description"];const rows=apps.map(a=>[a.name,a.domain,a.criticality,a.vendor,a.version,a.owner,a.users,a.description].map(v=>'"'+v+'"').join(";"));const blob=new Blob(["\uFEFF"+[h.join(";"),...rows].join("\n")],{type:"text/csv;charset=utf-8;"});const l=document.createElement("a");l.href=URL.createObjectURL(blob);l.download="cartographie.csv";l.click();};
 
-  const viewSettings=[["domScales",domScales,setDomScales],["domPads",domPads,setDomPads],["catPads",catPads,setCatPads],["catBounds",catBounds,setCatBounds],["catColors",catColors,setCatColors],["domColors",domColors,setDomColors],["globalScale",globalScale,setGlobalScale],["fontScale",fontScale,setFontScale],["appFontScale",appFontScale,setAppFontScale],["domainFontScale",domainFontScale,setDomainFontScale],["categoryFontScale",categoryFontScale,setCategoryFontScale],["categoryScale",categoryScale,setCategoryScale],["domainPadding",domainPadding,setDomainPadding],["domBorderW",domBorderW,setDomBorderW],["categoryBorderW",categoryBorderW,setCategoryBorderW],["appSpacing",appSpacing,setAppSpacing],["domainSpacing",domainSpacing,setDomainSpacing],["categorySpacing",categorySpacing,setCategorySpacing],["flowThickness",flowThickness,setFlowThickness],["flowFontSize",flowFontSize,setFlowFontSize],["flowDisplayMode",flowDisplayMode,setFlowDisplayMode],["flowDash",flowDash,setFlowDash],["flowColorCustom",flowColorCustom,setFlowColorCustom],["zoom",zm,setZm],["offset",off,setOff]];
+  const viewSettings=[["domScales",domScales,setDomScales],["domPads",domPads,setDomPads],["catPads",catPads,setCatPads],["catBounds",catBounds,setCatBounds],["catColors",catColors,setCatColors],["domColors",domColors,setDomColors],["globalScale",globalScale,setGlobalScale],["fontScale",fontScale,setFontScale],["appFontScale",appFontScale,setAppFontScale],["domainFontScale",domainFontScale,setDomainFontScale],["categoryFontScale",categoryFontScale,setCategoryFontScale],["categoryScale",categoryScale,setCategoryScale],["domainPadding",domainPadding,setDomainPadding],["domBorderW",domBorderW,setDomBorderW],["categoryBorderW",categoryBorderW,setCategoryBorderW],["appSpacing",appSpacing,setAppSpacing],["domainSpacing",domainSpacing,setDomainSpacing],["categorySpacing",categorySpacing,setCategorySpacing],["flowThickness",flowThickness,setFlowThickness],["flowFontSize",flowFontSize,setFlowFontSize],["flowDisplayMode",flowDisplayMode,setFlowDisplayMode],["flowDash",flowDash,setFlowDash],["flowArrowStyle",flowArrowStyle,setFlowArrowStyle],["flowColorCustom",flowColorCustom,setFlowColorCustom],["zoom",zm,setZm],["offset",off,setOff]];
   const getViewState=()=>{
     const positions={};apps.forEach(a=>{positions[a.id]=[a.x,a.y];});
     const st={version:1,positions:positions};
@@ -1406,6 +1462,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     if(!st)return;
     if(st.positions)setApps(p=>p.map(a=>st.positions[a.id]?{...a,x:st.positions[a.id][0],y:st.positions[a.id][1]}:a));
     viewSettings.forEach(t=>{if(st[t[0]]!==undefined)t[2](st[t[0]]);});
+    if(st.flowArrowStyle===undefined)setFlowArrowStyle("triangle");
   };
 
   const saveJSON=()=>{
@@ -1492,6 +1549,11 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   const fs=fontScale;
   const AW=Math.round(AW_BASE*globalScale*Math.max(0.7,fs)),AH=Math.round(AH_BASE*globalScale*Math.max(0.7,fs));
   const domSc=(d)=>(domScales[d]||1)*globalScale;
+  const cardDims=function(a){var k=AW_BASE*globalScale*(domScales[a.domain]||1)*Math.max(0.7,fontScale);var kh=AH_BASE*globalScale*(domScales[a.domain]||1)*Math.max(0.7,fontScale);return{id:a.id,x:a.x,y:a.y,w:k,h:kh};};
+  const straightForFlow=function(f){
+    var cards=apps.map(cardDims);
+    return straightFlowPath(cards.find(c=>c.id===f.from),cards.find(c=>c.id===f.to),cards);
+  };
   const AppNode=({app})=>{const c=DC[app.domain]||DC.Autre;const sel=selApp?.id===app.id;
     const msel=multiSel.includes(app.id);
     const crC=CC[app.criticality]||"#999";
@@ -1578,21 +1640,27 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     visFlows.forEach(function(f){var key=[f.from,f.to].sort().join("\x00");(laneGroups[key]=laneGroups[key]||[]).push(f);});
     var laneById={};
     Object.values(laneGroups).forEach(function(group){group.forEach(function(f,i){laneById[f.id]=i-(group.length-1)/2;});});
-    var cardDims=function(a){var k=AW_BASE*globalScale*(domScales[a.domain]||1)*Math.max(0.7,fontScale);var kh=AH_BASE*globalScale*(domScales[a.domain]||1)*Math.max(0.7,fontScale);return{id:a.id,x:a.x,y:a.y,w:k,h:kh};};
-    var shortTxt=function(f){var l=f.label||"";if(l.length>22)l=l.slice(0,21)+"\u2026";return l||(staticMode?"Flux":"");};
+    var shortTxt=function(f){return f.label||(staticMode?"Flux":"");};
     var lblScale=Math.min(1/Math.max(0.08,zm),1.6);
     var routed={},labelPos={};
+    var cards=filtered.map(cardDims),allCards=apps.map(cardDims);
     if(visFlows.length>0&&visFlows.length<=250){
-      var cards=filtered.map(cardDims);
       var links=visFlows.map(function(f){return{id:f.id,from:f.from,to:f.to};});
       var sig=cards.map(function(c){return c.id+":"+Math.round(c.x)+","+Math.round(c.y)+","+Math.round(c.w);}).join("|")+"#"+links.map(function(l){return l.id+l.from+l.to;}).join("|");
       var rc=routeCacheRef.current;
       if(rc.sig===sig&&rc.paths){routed=rc.paths;}
       else if(!drag){try{routed=routeFlows(cards,links).paths;}catch(err){console.error("routeFlows",err);routed={};}routeCacheRef.current={sig:sig,paths:routed};}
-      var zmS=1/lblScale,lf=Math.max(8,flowFontSize);
-      var specs=visFlows.filter(function(f){return routed[f.id];}).map(function(f){var t=shortTxt(f);return t?{id:f.id,w:Math.max(60,t.length*lf*0.55+16)/zmS,h:lf*1.5/zmS}:null;}).filter(Boolean);
-      labelPos=placeLabels(routed,specs,cards);
     }
+    routed={...routed};
+    visFlows.forEach(function(f){
+      if(f.routeStyle!=="straight")return;
+      var source=allCards.find(function(c){return c.id===f.from;}),target=allCards.find(function(c){return c.id===f.to;});
+      var direct=straightFlowPath(source,target,allCards);
+      if(direct)routed[f.id]=direct;
+    });
+    var lf=Math.max(8,flowFontSize);
+    var specs=visFlows.filter(function(f){return routed[f.id]&&shortTxt(f);}).map(function(f){return flowLabelSpec(f,lf,zm);});
+    labelPos=placeLabels(routed,specs,cards);
     var clip=function(cx2,cy2,w,h,tx,ty){var ddx=tx-cx2,ddy=ty-cy2;if(Math.abs(ddx)<0.5&&Math.abs(ddy)<0.5)return{x:cx2,y:cy2};var sx2=Math.abs(ddx)>0.5?(w/2)/Math.abs(ddx):9999;var sy2=Math.abs(ddy)>0.5?(h/2)/Math.abs(ddy):9999;var s=Math.min(sx2,sy2);return{x:cx2+ddx*s,y:cy2+ddy*s};};
         return <svg className="flow-layer" style={{position:"absolute",top:0,left:0,width:"100%",height:"100%",pointerEvents:"none",overflow:"visible"}}>
           {visFlows.map(function(f,flowIndex){var fa=apps.find(function(a){return a.id===f.from;}),ta=apps.find(function(a){return a.id===f.to;});if(!fa||!ta)return null;
@@ -1611,20 +1679,20 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         var mx=(ep.x+en.x)/2-(dy/len)*lane,my=(ep.y+en.y)/2+(dx/len)*lane-(staticMode?28:20);
         var pathD="M"+ep.x+" "+ep.y+" Q"+mx+" "+my+" "+en.x+" "+en.y;
         var rt=routed[f.id];
-        if(rt){ep=rt[0];pathD=pathToD(rt,8);}
+        if(rt){ep=rt[0];pathD=pathToD(rt,f.routeStyle==="elbow"?0:f.routeStyle==="rounded"?24:8);}
         var labelT=staticMode&&fa.domain!==ta.domain?(fa.domain===hubDomain?0.72:ta.domain===hubDomain?0.28:0.5):0.5;
-        var labelX=ep.x+dx*labelT-(dy/len)*lane,labelY=ep.y+dy*labelT+(dx/len)*lane-(staticMode?14:0);
+        var labelX=(1-labelT)*(1-labelT)*ep.x+2*(1-labelT)*labelT*mx+labelT*labelT*en.x,labelY=(1-labelT)*(1-labelT)*ep.y+2*(1-labelT)*labelT*my+labelT*labelT*en.y;
         if(rt&&labelPos[f.id]){labelX=labelPos[f.id].x;labelY=labelPos[f.id].y;}
         var txt=shortTxt(f);
         var labelFont=Math.max(8,flowFontSize);
         var lblW=Math.max(60,txt.length*labelFont*0.55+16);
         return <g key={f.id}>
-          <defs><marker id={arrowId} markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto" fill={flowColor}><polygon points="0 0,10 3.5,0 7"/></marker></defs>
+          {flowArrowStyle!=="none"&&<defs><marker id={arrowId} viewBox="0 0 10 7" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><FlowArrowShape style={flowArrowStyle} color={flowColor}/></marker></defs>}
           <path d={pathD} stroke="transparent" strokeWidth={Math.max(16,flowThickness*4)} fill="none" style={{cursor:"pointer",pointerEvents:"stroke"}}
             onClick={function(e){e.stopPropagation();setFlowSuppressed(false);setSelFlow(selFlow===f.id?null:f.id);setFocusApp(f.from===focusApp?focusApp:f.to===focusApp?focusApp:selApp?.id||f.from);setFlowCtx(null);}}
             onDoubleClick={function(e){e.stopPropagation();if(!readOnly){setEFlow(Object.assign({},f));setShowFM(true);setSelFlow(null);}}}
             onContextMenu={function(e){e.preventDefault();e.stopPropagation();if(!readOnly){setFlowCtx({flow:f,x:e.clientX,y:e.clientY});setSelFlow(f.id);}}}/>
-          <path d={pathD} stroke={flowColor} strokeWidth={flowIsSelected?flowThickness+2:flowThickness} strokeOpacity={flowOpacity} strokeDasharray={dashVal} fill="none" markerEnd={"url(#"+arrowId+")"} style={{pointerEvents:"stroke",cursor:"pointer"}}
+          <path d={pathD} stroke={flowColor} strokeWidth={flowIsSelected?flowThickness+2:flowThickness} strokeOpacity={flowOpacity} strokeDasharray={dashVal} fill="none" markerEnd={flowArrowStyle==="none"?undefined:"url(#"+arrowId+")"} style={{pointerEvents:"stroke",cursor:"pointer"}}
             onClick={function(e){e.stopPropagation();setFlowSuppressed(false);setSelFlow(selFlow===f.id?null:f.id);setFocusApp(f.from===focusApp?focusApp:f.to===focusApp?focusApp:selApp?.id||f.from);setFlowCtx(null);}}
             onDoubleClick={function(e){e.stopPropagation();if(!readOnly){setEFlow(Object.assign({},f));setShowFM(true);setSelFlow(null);}}}
             onContextMenu={function(e){e.preventDefault();e.stopPropagation();if(!readOnly){setFlowCtx({flow:f,x:e.clientX,y:e.clientY});setSelFlow(f.id);}}}/>
@@ -3626,7 +3694,8 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
         </div>;})}
       {activeFilters&&<button onMouseDown={e=>{e.stopPropagation();setSelDom([]);setSelCat([]);setSelCrit([]);setSelHost([]);setSelAType([]);setSelEos([]);setSelD1("");setSelD2("");setSelStatut("");setFlowDir("");}} style={{...B,padding:"4px 8px",fontSize:11,background:"#FF525220",color:"#FF5252",borderRadius:4}}>✕</button>}
       <div style={{flex:1}}/>
-      {!readOnly&&<button className="mapping-trigger mapping-trigger-primary" onMouseDown={e=>{e.stopPropagation();applyStarLayout();}} title="Regroupe les applications par catégorie, rapproche les domaines les plus connectés et cadre la carte. Les fonctions d’édition restent disponibles." style={{...B,padding:"7px 11px",fontSize:9.5,background:"linear-gradient(120deg,#4F46E5,#6366F1 58%,#0EA5E9)",color:"#fff",border:"1px solid rgba(165,180,252,.45)",borderRadius:11,display:"flex",alignItems:"center",gap:6,fontWeight:800,boxShadow:"0 6px 16px rgba(79,70,229,.28)"}}><span style={{fontSize:13}}>✦</span> Optimiser la disposition</button>}
+      {!readOnly&&<button className="mapping-trigger mapping-trigger-primary" onMouseDown={e=>{e.stopPropagation();applyStarLayout(undefined,true);}} title="Regroupe les applications par catégorie, rapproche les domaines les plus connectés et cadre la carte. Les fonctions d’édition restent disponibles." style={{...B,padding:"7px 11px",fontSize:9.5,background:"linear-gradient(120deg,#4F46E5,#6366F1 58%,#0EA5E9)",color:"#fff",border:"1px solid rgba(165,180,252,.45)",borderRadius:11,display:"flex",alignItems:"center",gap:6,fontWeight:800,boxShadow:"0 6px 16px rgba(79,70,229,.28)"}}><span style={{fontSize:13}}>✦</span> Optimiser la disposition</button>}
+      {!readOnly&&layoutUndo&&<button type="button" className="mapping-trigger" onClick={function(){setApps(current=>current.map(a=>layoutUndo.positions[a.id]?{...a,x:layoutUndo.positions[a.id][0],y:layoutUndo.positions[a.id][1]}:a));setCatBounds(layoutUndo.catBounds);setDomPads(layoutUndo.domPads);setZm(layoutUndo.zoom);setOff(layoutUndo.offset);setLayoutUndo(null);setLayoutReport(null);}} style={{...B,padding:"7px 10px",fontSize:10,background:toolbarSurface,color:T.fg,border:"1px solid "+T.border}}>Annuler l'optimisation</button>}
       {/* ── Création menu ── */}
       {!readOnly&&<div className="mapping-trigger-anchor" style={{position:"relative"}}>
         <button className="mapping-trigger" aria-haspopup="true" aria-expanded={openMenu==="create"} onClick={function(){setOpenMenu(openMenu==="create"?null:"create");}} style={{...B,background:openMenu==="create"?"linear-gradient(135deg,#6366F126,#8B5CF618)":cMode?"linear-gradient(135deg,#EF44442E,#F9731618)":toolbarSurface,color:cMode?"#FB7185":T.fgMuted,border:"1px solid "+(cMode?"#EF444466":openMenu==="create"?"#8B5CF655":T.border),padding:"7px 11px",fontSize:10,borderRadius:10,display:"flex",alignItems:"center",gap:7,boxShadow:cMode?"0 4px 14px rgba(239,68,68,.14)":"0 3px 10px rgba(0,0,0,.12)"}}>
@@ -3644,6 +3713,10 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
             <span className="mapping-menu-icon" style={{fontSize:16,color:"#FB7185"}}>&#8594;</span>
             <div><div style={{fontSize:11,fontWeight:600,color:cMode?"#FF5252":T.fg}}>Créer un flux</div><div style={{fontSize:11,color:T.fgMuted}}>Clic source → clic cible</div></div>
           </div>
+          <button type="button" className="mapping-menu-item" onClick={function(){setShowCatModal(true);setOpenMenu(null);}} style={{...B,width:"100%",display:"flex",alignItems:"center",gap:10,textAlign:"left",color:T.fg}}>
+            <span className="mapping-menu-icon" style={{fontSize:16,color:"#A78BFA"}}>◫</span>
+            <span style={{fontSize:11,fontWeight:600}}>Gérer les catégories</span>
+          </button>
         </div>}
       </div>}
       {!readOnly&&multiSel.length>0&&<div style={{display:"flex",gap:4,alignItems:"center"}}><span style={{fontSize:10,color:"#00BFA5"}}>{multiSel.length} sél.</span><button onMouseDown={e=>{e.stopPropagation();if(confirm("Supprimer "+multiSel.length+" app(s) ?")){setApps(p=>p.filter(a=>!multiSel.includes(a.id)));setFlows(p=>p.filter(f=>!multiSel.includes(f.from)&&!multiSel.includes(f.to)));setMultiSel([]);}}} style={{...B,padding:"3px 6px",fontSize:11,background:"#FF525220",color:"#FF5252",borderRadius:3}}>🗑</button><button onMouseDown={e=>{e.stopPropagation();setMultiSel([]);}} style={{...B,padding:"3px 6px",fontSize:11,background:T.border,borderRadius:3}}>✕</button></div>}
@@ -3662,60 +3735,27 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
           {!readOnly&&<div className="mapping-menu-item" onClick={function(){setView("home");setOpenMenu(null);}} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 10px",borderRadius:4,cursor:"pointer",fontSize:11,color:T.fgMuted}} onMouseEnter={function(e){e.currentTarget.style.background=T.bgHover;}} onMouseLeave={function(e){e.currentTarget.style.background="transparent";}}><span className="mapping-menu-icon" style={{color:T.fgMuted}}>↻</span><span>Réimporter un fichier</span></div>}
         </div>}
       </div>
-      {/* ── MENU: Édition de la cartographie ── */}
+      {/* ── MENU: Affichage de la cartographie ── */}
       <div className="mapping-trigger-anchor" style={{position:"relative"}}>
-        <button className="mapping-trigger" aria-haspopup="true" aria-expanded={openMenu==="edit"} onClick={function(){setOpenMenu(openMenu==="edit"?null:"edit");}} style={{...B,background:openMenu==="edit"?"linear-gradient(135deg,#8B5CF626,#6366F116)":toolbarSurface,color:openMenu==="edit"?"#C4B5FD":T.fgMuted,padding:"7px 11px",fontSize:10,letterSpacing:0.1,borderRadius:10,border:"1px solid "+(openMenu==="edit"?"#8B5CF655":T.border),boxShadow:"0 3px 10px rgba(0,0,0,.12)"}}><span style={{width:20,height:20,borderRadius:7,display:"grid",placeItems:"center",background:"rgba(139,92,246,.16)",fontSize:12,marginRight:1}}>✎</span>Édition ▾</button>
-        {openMenu==="edit"&&<div className="mapping-menu" style={{position:"fixed",top:toolbarH+topOffset+8,right:12,background:T.bgCard,border:"1px solid "+T.border,borderRadius:14,padding:14,width:340,maxHeight:"78vh",overflowY:"auto",boxShadow:"0 18px 46px rgba(0,0,0,.36)",zIndex:250}}>
-          <div className="mapping-menu-header"><div className="mapping-menu-title">Affichage & édition</div><div className="mapping-menu-subtitle">Personnalisez la lecture de votre cartographie</div></div>
-          <div className="mapping-menu-section-title">Comportement des flux</div>
+        <button className="mapping-trigger" aria-haspopup="true" aria-expanded={openMenu==="edit"} onClick={function(){setOpenMenu(openMenu==="edit"?null:"edit");}} style={{...B,background:openMenu==="edit"?"linear-gradient(135deg,#8B5CF626,#6366F116)":toolbarSurface,color:openMenu==="edit"?"#C4B5FD":T.fgMuted,padding:"7px 11px",fontSize:10,letterSpacing:0.1,borderRadius:10,border:"1px solid "+(openMenu==="edit"?"#8B5CF655":T.border),boxShadow:"0 3px 10px rgba(0,0,0,.12)"}}><span style={{width:20,height:20,borderRadius:7,display:"grid",placeItems:"center",background:"rgba(139,92,246,.16)",fontSize:12,marginRight:1}}>✎</span>Affichage ▾</button>
+        {openMenu==="edit"&&<div className="mapping-menu" style={{position:"fixed",top:toolbarH+topOffset+8,right:12,background:T.bgCard,border:"1px solid "+T.border,borderRadius:14,padding:14,width:"min(340px, calc(100vw - 24px))",maxHeight:"min(78vh, calc(100vh - "+(toolbarH+topOffset+20)+"px))",overflowY:"auto",boxShadow:"0 18px 46px rgba(0,0,0,.36)",zIndex:250}}>
+          <div className="mapping-menu-header"><div className="mapping-menu-title">Affichage</div><div className="mapping-menu-subtitle">Personnalisez la lecture de votre cartographie</div></div>
+          <div className="mapping-menu-section-title">Lecture des flux</div>
           <div className="mapping-segmented">
             <button aria-pressed={flowDisplayMode==="dynamic"} onClick={function(){setFlowDisplayMode("dynamic");setFlowSuppressed(false);setFocusApp(null);setSelFlow(null);}} style={{...B,flex:1,padding:"8px 10px",fontSize:11,background:flowDisplayMode==="dynamic"?"linear-gradient(135deg,#2563EB,#0EA5E9)":"transparent",color:flowDisplayMode==="dynamic"?"#fff":T.fgMuted,border:flowDisplayMode==="dynamic"?"1px solid #38BDF8":"1px solid transparent",borderRadius:8}}>Au survol</button>
             <button aria-pressed={flowDisplayMode==="static"} onClick={function(){setFlowDisplayMode("static");setFlowSuppressed(false);setFocusApp(null);setSelFlow(null);setFlowProto("");setFlowCrit("");setTimeout(function(){fitCanvas();},80);}} style={{...B,flex:1,padding:"8px 10px",fontSize:11,background:flowDisplayMode==="static"?"linear-gradient(135deg,#2563EB,#0EA5E9)":"transparent",color:flowDisplayMode==="static"?"#fff":T.fgMuted,border:flowDisplayMode==="static"?"1px solid #38BDF8":"1px solid transparent",borderRadius:8}}>Statique</button>
           </div>
-          <div style={{display:"flex",flexDirection:"column",gap:7,padding:"2px 4px 8px"}}>
-            <div style={{display:"flex",gap:6}}>
-              <select aria-label="Filtrer par protocole" value={flowProto} onChange={function(e){setFlowProto(e.target.value);}} style={{flex:1,minWidth:0,background:flowProto?"#6366F122":T.bgAlt,color:flowProto?"#A5B4FC":T.fgMuted,border:"1px solid "+(flowProto?"#6366F1":T.border),borderRadius:8,padding:"6px 8px",fontSize:10.5,fontWeight:600}}>
-                <option value="">Tous protocoles</option>
-                {[...new Set(flows.map(function(f){return f.protocol;}).filter(Boolean))].sort().map(function(v){return <option key={v} value={v}>{v}</option>;})}
-              </select>
-              <select aria-label="Filtrer par criticité" value={flowCrit} onChange={function(e){setFlowCrit(e.target.value);}} style={{flex:1,minWidth:0,background:flowCrit?"#6366F122":T.bgAlt,color:flowCrit?"#A5B4FC":T.fgMuted,border:"1px solid "+(flowCrit?"#6366F1":T.border),borderRadius:8,padding:"6px 8px",fontSize:10.5,fontWeight:600}}>
-                <option value="">Toute criticité</option>
-                {["Haute","Moyenne","Basse"].map(function(v){return <option key={v} value={v}>{"Criticité "+v.toLowerCase()}</option>;})}
-              </select>
-            </div>
-          </div>
+          <button type="button" className="mapping-menu-action" onClick={function(){setPresMode(true);setOpenMenu(null);}} style={{display:"block",width:"calc(100% - 4px)",textAlign:"left"}}>▶ Lancer le mode présentation</button>
           <div style={{height:1,background:T.border,margin:"3px 4px 8px"}}/>
-          <div className="mapping-menu-section-title">Lisibilité</div>
-          {[{label:"Applications",value:appFontScale,set:setAppFontScale},{label:"Domaines",value:domainFontScale,set:setDomainFontScale},{label:"Catégories",value:categoryFontScale,set:setCategoryFontScale}].map(function(item){return <div key={item.label} style={{padding:"4px 6px"}}>
-            <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:T.fgMuted,marginBottom:2}}><span>{item.label}</span><span style={{color:T.fg}}>{Math.round(item.value*100)}%</span></div>
-            <input aria-label={"Police "+item.label} type="range" min="0.8" max="2.4" step="0.1" value={item.value} onChange={function(e){item.set(parseFloat(e.target.value));}} style={{width:"100%",cursor:"pointer"}}/>
-          </div>;})}
+          <div className="mapping-menu-section-title">Taille des textes</div>
           <div style={{display:"flex",alignItems:"center",gap:7,padding:"2px 6px 8px"}}>
             <span style={{fontSize:10,color:T.fgMuted,whiteSpace:"nowrap"}}>Police générale</span>
             <input aria-label="Police générale" type="range" min="0.8" max="2.2" step="0.1" value={fontScale} onChange={function(e){setFontScale(parseFloat(e.target.value));}} style={{flex:1,cursor:"pointer"}}/>
             <span style={{fontSize:10,color:T.fg,minWidth:32,textAlign:"right"}}>{Math.round(fontScale*100)}%</span>
           </div>
-          <div style={{display:"flex",alignItems:"center",gap:7,padding:"2px 6px 8px"}}>
-            <span style={{fontSize:10,color:T.fgMuted,whiteSpace:"nowrap"}}>Étiquettes de flux</span>
-            <input aria-label="Police étiquettes de flux" type="range" min="8" max="32" step="1" value={flowFontSize} onChange={function(e){setFlowFontSize(parseInt(e.target.value));}} style={{flex:1,cursor:"pointer"}}/>
-            <span style={{fontSize:10,color:T.fg,minWidth:32,textAlign:"right"}}>{flowFontSize}pt</span>
-          </div>
-          <div className="mapping-menu-action" onClick={function(){setPresMode(true);setOpenMenu(null);}}>▶ Lancer le mode présentation</div>
-          <div style={{height:1,background:T.border,margin:"3px 4px 8px"}}/>
-          <div className="mapping-menu-section-title">Mise en évidence</div>
-          <div style={{display:"flex",gap:5,padding:"3px 4px 8px"}}>
-            {[{label:"Apps",value:highlightApps,set:setHighlightApps,color:"#38BDF8"},{label:"Domaines",value:highlightDomains,set:setHighlightDomains,color:"#8B5CF6"},{label:"Catégories",value:highlightCategories,set:setHighlightCategories,color:"#F59E0B"}].map(function(item){return <button key={item.label} onClick={function(){item.set(!item.value);}} style={{flex:1,border:"1px solid "+(item.value?item.color+"80":T.border),background:item.value?item.color+"18":T.bgAlt,color:item.value?item.color:T.fgMuted,borderRadius:6,padding:"5px 3px",fontSize:9,fontWeight:700,cursor:"pointer"}}>{item.value?"✓ ":""}{item.label}</button>;})}
-          </div>
-          <div style={{display:"flex",alignItems:"center",gap:7,padding:"2px 6px 9px"}}>
-            <span style={{fontSize:10,color:T.fgMuted,whiteSpace:"nowrap"}}>Intensité</span>
-            <input aria-label="Intensité de surbrillance" type="range" min="0" max="100" step="5" value={highlightStrength} onChange={function(e){setHighlightStrength(parseInt(e.target.value));}} style={{flex:1,cursor:"pointer"}}/>
-            <span style={{fontSize:10,color:T.fg,minWidth:30,textAlign:"right"}}>{highlightStrength}%</span>
-          </div>
-          <div style={{height:1,background:T.border,margin:"3px 4px 8px"}}/>
-          <div className="mapping-menu-section-title">Espacement des groupes</div>
-          {[{label:"Applications",value:appSpacing,min:0,max:100,step:5,set:setAppSpacing},{label:"Catégories",value:categorySpacing,min:30,max:360,step:10,set:setCategorySpacing},{label:"Domaines",value:domainSpacing,min:40,max:520,step:20,set:setDomainSpacing}].map(function(item){return <div key={item.label} style={{padding:"4px 6px"}}>
-            <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:T.fgMuted,marginBottom:2}}><span>{item.label}</span><span style={{color:T.fg}}>{item.value}px</span></div>
-            <input aria-label={"Espacement "+item.label} type="range" min={item.min} max={item.max} step={item.step} value={item.value} onChange={function(e){item.set(parseInt(e.target.value));}} style={{width:"100%",cursor:"pointer"}}/>
+          {[{label:"Applications",value:appFontScale,set:setAppFontScale},{label:"Domaines",value:domainFontScale,set:setDomainFontScale},{label:"Catégories",value:categoryFontScale,set:setCategoryFontScale}].map(function(item){return <div key={item.label} style={{padding:"4px 6px"}}>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:T.fgMuted,marginBottom:2}}><span>{item.label}</span><span style={{color:T.fg}}>{Math.round(item.value*100)}%</span></div>
+            <input aria-label={"Police "+item.label} type="range" min="0.8" max="2.4" step="0.1" value={item.value} onChange={function(e){item.set(parseFloat(e.target.value));}} style={{width:"100%",cursor:"pointer"}}/>
           </div>;})}
           <div style={{height:1,background:T.border,margin:"5px 4px 8px"}}/>
           <div className="mapping-menu-section-title">Dimensions</div>
@@ -3723,19 +3763,48 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
             <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:T.fgMuted,marginBottom:2}}><span>{item.label}</span><span style={{color:T.fg}}>{item.format(item.value)}</span></div>
             <input aria-label={"Taille "+item.label} type="range" min={item.min} max={item.max} step={item.step} value={item.value} onChange={function(e){item.set(parseFloat(e.target.value));}} style={{width:"100%",cursor:"pointer"}}/>
           </div>;})}
-          <div style={{height:1,background:T.border,margin:"5px 4px 8px"}}/>
+          <div style={{height:1,background:T.border,margin:"3px 4px 8px"}}/>
+          <div className="mapping-menu-section-title">Mise en évidence</div>
+          <div style={{display:"flex",gap:5,padding:"3px 4px 8px"}}>
+            {[{label:"Apps",value:highlightApps,set:setHighlightApps,color:"#38BDF8"},{label:"Domaines",value:highlightDomains,set:setHighlightDomains,color:"#8B5CF6"},{label:"Catégories",value:highlightCategories,set:setHighlightCategories,color:"#F59E0B"}].map(function(item){return <button key={item.label} aria-pressed={item.value} onClick={function(){item.set(!item.value);}} style={{flex:1,border:"1px solid "+(item.value?item.color+"80":T.border),background:item.value?item.color+"18":T.bgAlt,color:item.value?item.color:T.fgMuted,borderRadius:6,padding:"5px 3px",fontSize:9,fontWeight:700,cursor:"pointer"}}>{item.value?"✓ ":""}{item.label}</button>;})}
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:7,padding:"2px 6px 9px"}}>
+            <span style={{fontSize:10,color:T.fgMuted,whiteSpace:"nowrap"}}>Intensité</span>
+            <input aria-label="Intensité de surbrillance" type="range" min="0" max="100" step="5" value={highlightStrength} onChange={function(e){setHighlightStrength(parseInt(e.target.value));}} style={{flex:1,cursor:"pointer"}}/>
+            <span style={{fontSize:10,color:T.fg,minWidth:30,textAlign:"right"}}>{highlightStrength}%</span>
+          </div>
+          <div style={{height:1,background:T.border,margin:"3px 4px 8px"}}/>
           <div className="mapping-menu-section-title">Contours</div>
           {[{label:"Domaines",value:domBorderW,set:setDomBorderW},{label:"Catégories",value:categoryBorderW,set:setCategoryBorderW}].map(function(item){return <div key={item.label} style={{display:"flex",alignItems:"center",gap:7,padding:"4px 6px"}}>
             <span style={{fontSize:10,color:T.fgMuted,minWidth:62}}>{item.label}</span><input aria-label={"Bordure "+item.label} type="range" min="0.5" max="6" step="0.5" value={item.value} onChange={function(e){item.set(parseFloat(e.target.value));}} style={{flex:1,cursor:"pointer"}}/><span style={{fontSize:10,color:T.fg,minWidth:28,textAlign:"right"}}>{item.value}px</span>
           </div>;})}
-          {!readOnly&&<button onClick={function(){setOpenMenu(null);applyStarLayout();}} style={{...B,width:"100%",marginTop:8,padding:"7px 10px",fontSize:10,background:"#6366F1",color:"#fff"}}>⟳ Appliquer le réagencement auto</button>}
+          <details className="mapping-advanced">
+            <summary>Options avancées</summary>
+            <div className="mapping-menu-section-title">Espacement des groupes</div>
+            <div className="mapping-menu-subtitle" style={{padding:"0 6px 6px"}}>Appliqué lors de l'optimisation de la disposition.</div>
+            {[{label:"Applications",value:appSpacing,min:0,max:100,step:5,set:setAppSpacing},{label:"Catégories",value:categorySpacing,min:30,max:360,step:10,set:setCategorySpacing},{label:"Domaines",value:domainSpacing,min:40,max:520,step:20,set:setDomainSpacing}].map(function(item){return <div key={item.label} style={{padding:"4px 6px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:T.fgMuted,marginBottom:2}}><span>{item.label}</span><span style={{color:T.fg}}>{item.value}px</span></div>
+              <input aria-label={"Espacement "+item.label} type="range" min={item.min} max={item.max} step={item.step} value={item.value} onChange={function(e){item.set(parseInt(e.target.value));}} style={{width:"100%",cursor:"pointer"}}/>
+            </div>;})}
+          </details>
         </div>}
       </div>
       {projectId&&viewsSlot&&createPortal(<ViewsMenu projectId={projectId} T={T} B={B} toolbarSurface={toolbarSurface} open={openMenu==="views"} onToggle={function(){setOpenMenu(openMenu==="views"?null:"views");}} getViewState={getViewState} applyViewState={applyViewState} readOnly={readOnly}/>,viewsSlot)}
       {/* ── MENU: Flux & Domaines ── */}
       <div className="mapping-trigger-anchor" style={{position:"relative"}}>
         <button className="mapping-trigger" aria-haspopup="true" aria-expanded={openMenu==="flux"} onClick={function(){setOpenMenu(openMenu==="flux"?null:"flux");}} style={{...B,background:openMenu==="flux"?"linear-gradient(135deg,#38BDF826,#06B6D416)":toolbarSurface,color:openMenu==="flux"?"#7DD3FC":T.fgMuted,border:"1px solid "+(openMenu==="flux"?"#38BDF855":T.border),padding:"7px 11px",fontSize:10,letterSpacing:0.1,borderRadius:10,boxShadow:"0 3px 10px rgba(0,0,0,.12)"}}><span style={{width:20,height:20,borderRadius:7,display:"grid",placeItems:"center",background:"rgba(56,189,248,.15)",fontSize:12,marginRight:1}}>&#8644;</span>Flux ▾</button>
-        {openMenu==="flux"&&<div className="mapping-menu" style={{position:"absolute",top:"100%",right:0,marginTop:6,background:T.bgCard,border:"1px solid "+T.border,borderRadius:12,padding:10,minWidth:250,boxShadow:"0 16px 38px rgba(0,0,0,.32)",zIndex:300}}>
+        {openMenu==="flux"&&<div className="mapping-menu" style={{position:"fixed",top:toolbarH+topOffset+8,right:12,background:T.bgCard,border:"1px solid "+T.border,borderRadius:12,padding:10,width:"min(290px, calc(100vw - 24px))",maxHeight:"min(78vh, calc(100vh - "+(toolbarH+topOffset+20)+"px))",overflowY:"auto",boxShadow:"0 16px 38px rgba(0,0,0,.32)",zIndex:300}}>
+          <div className="mapping-menu-section-title">Filtres des flux</div>
+          <div style={{display:"flex",gap:6,padding:"4px 8px"}}>
+            <select aria-label="Filtrer par protocole" value={flowProto} onChange={function(e){setFlowProto(e.target.value);}} style={{flex:1,minWidth:0,background:flowProto?"#6366F122":T.bgAlt,color:flowProto?"#A5B4FC":T.fgMuted,border:"1px solid "+(flowProto?"#6366F1":T.border),borderRadius:8,padding:"6px 8px",fontSize:10.5,fontWeight:600}}>
+              <option value="">Tous protocoles</option>
+              {[...new Set(flows.map(function(f){return f.protocol;}).filter(Boolean))].sort().map(function(v){return <option key={v} value={v}>{v}</option>;})}
+            </select>
+            <select aria-label="Filtrer par criticité" value={flowCrit} onChange={function(e){setFlowCrit(e.target.value);}} style={{flex:1,minWidth:0,background:flowCrit?"#6366F122":T.bgAlt,color:flowCrit?"#A5B4FC":T.fgMuted,border:"1px solid "+(flowCrit?"#6366F1":T.border),borderRadius:8,padding:"6px 8px",fontSize:10.5,fontWeight:600}}>
+              <option value="">Toute criticité</option>
+              {["Haute","Moyenne","Basse"].map(function(v){return <option key={v} value={v}>{"Criticité "+v.toLowerCase()}</option>;})}
+            </select>
+          </div>
           <div className="mapping-menu-section-title">Épaisseur des flux</div>
           <div style={{display:"flex",alignItems:"center",gap:6,padding:"4px 8px"}}>
             <input type="range" min="1" max="6" step="0.5" value={flowThickness} onChange={function(e){setFlowThickness(parseFloat(e.target.value));}} style={{flex:1,cursor:"pointer"}}/>
@@ -3743,7 +3812,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
           </div>
           <div className="mapping-menu-section-title">Taille des libellés</div>
           <div style={{display:"flex",alignItems:"center",gap:6,padding:"4px 8px"}}>
-            <input type="range" min="8" max="32" step="1" value={flowFontSize} onChange={function(e){setFlowFontSize(parseInt(e.target.value));}} style={{flex:1,cursor:"pointer"}}/>
+            <input aria-label="Police étiquettes de flux" type="range" min="8" max="32" step="1" value={flowFontSize} onChange={function(e){setFlowFontSize(parseInt(e.target.value));}} style={{flex:1,cursor:"pointer"}}/>
             <span style={{fontSize:10,color:T.fg,minWidth:24}}>{flowFontSize}pt</span>
           </div>
           <div className="mapping-menu-section-title">Style de trait</div>
@@ -3752,17 +3821,42 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
             <button aria-pressed={flowDash==="dashed"} onClick={function(){setFlowDash("dashed");}} style={{...B,background:flowDash==="dashed"?"linear-gradient(135deg,#2563EB,#0EA5E9)":"transparent",color:flowDash==="dashed"?"#fff":T.fgMuted,border:flowDash==="dashed"?"1px solid #38BDF8":"1px solid transparent",padding:"7px 8px",fontSize:10,flex:1}}>Tirets</button>
             <button aria-pressed={flowDash==="dotted"} onClick={function(){setFlowDash("dotted");}} style={{...B,background:flowDash==="dotted"?"linear-gradient(135deg,#2563EB,#0EA5E9)":"transparent",color:flowDash==="dotted"?"#fff":T.fgMuted,border:flowDash==="dotted"?"1px solid #38BDF8":"1px solid transparent",padding:"7px 8px",fontSize:10,flex:1}}>Points</button>
           </div>
+          <div className="mapping-menu-section-title" id="flow-arrow-style-label">Style des flèches de flux</div>
+          <div role="group" aria-labelledby="flow-arrow-style-label" style={{display:"grid",gridTemplateColumns:"repeat(3, minmax(0, 1fr))",gap:5,padding:"4px 8px"}}>
+            {FLOW_ARROW_STYLES.map(function(option){
+              const active=flowArrowStyle===option.value;
+              return <button key={option.value} type="button" aria-pressed={active} onClick={function(){setFlowArrowStyle(option.value);}} style={{...B,display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"7px 3px",fontSize:9,background:active?"linear-gradient(135deg,#2563EB,#0EA5E9)":T.bgAlt,color:active?"#fff":T.fgMuted,border:"1px solid "+(active?"#38BDF8":T.border)}}>
+                <svg width="32" height="14" viewBox="0 0 32 14" aria-hidden="true">
+                  <path d="M2 7 H28" fill="none" stroke="currentColor" strokeWidth="1.5"/>
+                  <g transform="translate(18 3.5)"><FlowArrowShape style={option.value} color="currentColor"/></g>
+                </svg>
+                <span>{option.label}</span>
+              </button>;
+            })}
+          </div>
           <div className="mapping-menu-section-title">Couleur du flux</div>
           <div style={{display:"flex",alignItems:"center",gap:6,padding:"4px 8px"}}>
             <input type="color" value={flowColorCustom||"#548CA8"} onChange={function(e){setFlowColorCustom(e.target.value);}} style={{width:24,height:24,border:"none",borderRadius:4,cursor:"pointer",padding:0}}/>
             <span style={{fontSize:10,color:T.fg}}>{flowColorCustom||"Auto"}</span>
             {flowColorCustom&&<button onClick={function(){setFlowColorCustom("");}} style={{...B,padding:"2px 8px",fontSize:11,background:T.border}}>Reset</button>}
           </div>
-          {!readOnly&&<div onClick={function(){setShowCatModal(true);setOpenMenu(null);}} style={{padding:"6px 8px",borderRadius:4,cursor:"pointer",fontSize:11,color:T.fg,marginTop:4}} onMouseEnter={function(e){e.currentTarget.style.background=T.bgHover;}} onMouseLeave={function(e){e.currentTarget.style.background="transparent";}}>◫ Catégories</div>}
         </div>}
       </div>
     </div>
     <div style={{flex:1,display:"flex",overflow:"hidden",position:"relative"}}>
+      {layoutReport&&<div role={layoutReport.error?"alert":"status"} style={{position:"absolute",top:10,left:12,zIndex:120,maxWidth:"min(460px, calc(100% - 24px))",padding:"10px 12px",borderRadius:10,background:T.bgCard,border:"1px solid "+T.border,boxShadow:"0 6px 20px rgba(0,0,0,.2)",fontSize:11,color:T.fg}}>
+        <button type="button" aria-label="Fermer le bilan d'optimisation" onClick={()=>setLayoutReport(null)} style={{...B,float:"right",padding:"0 4px",background:"transparent",color:T.fg}}>✕</button>
+        {layoutReport.error?<div>Échec de l'évaluation : la disposition n'a pas été modifiée.</div>:layoutReport.skipped?<div>Disposition calculée. L'analyse des flux n'est pas disponible au-delà de 120 flux.</div>:layoutReport.empty?<div>Disposition calculée. Aucun flux à analyser.</div>:<>
+          <div style={{fontWeight:700}}>Bilan de l'optimisation</div>
+          <div>{layoutReport.unrouted} flux non routés · {layoutReport.labelOverlaps} chevauchements d'étiquettes · {layoutReport.cardOverlaps} étiquettes sur des applications · {layoutReport.flowOverlaps} étiquettes sur d'autres flux</div>
+          <div>{layoutReport.flowCrossings} croisements de flux détectés</div>
+          {layoutReport.straightFallbacks>0&&<div>{layoutReport.straightFallbacks} tracés droits utilisent le tracé automatique à cause d'un obstacle.</div>}
+          {layoutReport.limited&&<div>Carte volumineuse : une seule disposition a été évaluée.</div>}
+          {layoutReport.smallLabels&&<div>Les étiquettes peuvent nécessiter un zoom pour être lisibles.</div>}
+        </>}
+        {(appFiltered.length!==apps.length||flowFilterActive||search)&&<div>Des filtres ou une recherche masquent des éléments ; le bilan porte sur tous les flux.</div>}
+        {flowDisplayMode!=="static"&&<div>Les flux restent affichés au survol.</div>}
+      </div>}
       <div ref={cvRef} style={{flex:1,overflow:"hidden",position:"relative",background:isDark?"#0B0B14":"#FFFFFF",cursor:pan?"grabbing":cMode?"crosshair":selMode?"default":"grab"}} onMouseDown={function(e){if(openMenu)setOpenMenu(null);const onBackground=!e.target.closest?.('[data-app]')&&!e.target.closest?.('.flow-layer');if(onBackground){setFocusApp(null);setSelFlow(null);setFlowSuppressed(true);}onCD(e);}} onMouseMove={function(e){if(!e.target.closest?.('[data-app]')&&!e.target.closest?.('[data-panel]')&&!e.target.closest?.('.flow-layer')){if(flowDisplayMode==='dynamic'){setFlowSuppressed(true);if(focusApp&&!panelOpen)setFocusApp(null);if(selFlow&&!panelOpen)setSelFlow(null);}}onCM(e);}} onMouseUp={onCU} onMouseLeave={function(e){onCU(e);const enteringPanel=e.relatedTarget?.closest?.('[data-panel]');if(!enteringPanel&&flowDisplayMode==='dynamic'){setFlowSuppressed(true);setFocusApp(null);setSelFlow(null);}}} onWheel={onWh} onContextMenu={e=>e.preventDefault()}>
         <div className="cbg" style={{position:"absolute",inset:0,backgroundColor:T.bg,backgroundImage:isDark?"radial-gradient(circle,rgba(148,163,184,.24) 1.15px,transparent 1.15px), radial-gradient(ellipse at 54% 46%,rgba(99,102,241,.08),transparent 68%)":"radial-gradient(circle,rgba(71,85,105,.16) 1px,transparent 1px), radial-gradient(ellipse at 18% 14%,rgba(99,102,241,.08),transparent 52%), radial-gradient(ellipse at 84% 86%,rgba(34,211,238,.08),transparent 56%)",backgroundSize:isDark?"34px 34px,100% 100%":"32px 32px,100% 100%,100% 100%"}}/>
       <div style={{transform:`translate(${off.x}px,${off.y}px) scale(${zm})`,transformOrigin:"0 0",position:"absolute",top:0,left:0,width:5000,height:4000}}>
@@ -4136,6 +4230,17 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
       <div style={{marginBottom:12}}><label style={{fontSize:11,color:T.fgMuted,display:"block",marginBottom:3}}>Libellé du flux</label><input type="text" value={eFlow.label||""} placeholder="Ex: Données clients, Commandes..." onChange={e=>setEFlow(p=>({...p,label:e.target.value}))} style={I}/></div>
       <div style={{marginBottom:12}}><label style={{fontSize:11,color:T.fgMuted,display:"block",marginBottom:3}}>Protocole / Type</label><select value={eFlow.protocol||"API"} onChange={e=>setEFlow(p=>({...p,protocol:e.target.value}))} style={I}>{PROTOS.map(o=><option key={o} value={o}>{o}</option>)}</select></div>
       <div style={{marginBottom:12}}><label style={{fontSize:11,color:T.fgMuted,display:"block",marginBottom:3}}>Fréquence</label><select value={eFlow.frequency||""} onChange={e=>setEFlow(p=>({...p,frequency:e.target.value}))} style={I}>{FREQS.map(o=><option key={o} value={o}>{o||"— Non défini —"}</option>)}</select></div>
+      <div style={{marginBottom:12}}>
+        <label htmlFor="flow-route-style" style={{fontSize:11,color:T.fgMuted,display:"block",marginBottom:3}}>Tracé du flux</label>
+        <select id="flow-route-style" value={eFlow.routeStyle||"auto"} onChange={e=>setEFlow(p=>({...p,routeStyle:e.target.value}))} style={I}>
+          <option value="auto">Automatique</option>
+          <option value="elbow">Coude</option>
+          <option value="rounded">Arrondi</option>
+          <option value="straight">Ligne droite</option>
+        </select>
+        <div style={{fontSize:10,color:T.fgMuted,marginTop:5}}>Une ligne droite bloquée par une application utilise le tracé automatique.</div>
+        {eFlow.routeStyle==="straight"&&!straightForFlow(eFlow)&&<div role="status" style={{fontSize:10,color:"#F59E0B",marginTop:5}}>Ligne droite indisponible : le tracé automatique sera utilisé.</div>}
+      </div>
       <div style={{marginBottom:12}}><label style={{fontSize:11,color:T.fgMuted,display:"block",marginBottom:3}}>Description / Notes</label><textarea value={eFlow.description||""} placeholder="Détails sur ce flux..." rows={3} onChange={e=>setEFlow(p=>({...p,description:e.target.value}))} style={{...I,resize:"vertical",fontFamily:"inherit"}}/></div>
       <div style={{display:"flex",gap:8,marginTop:20,justifyContent:"space-between"}}>
         <button onClick={()=>{setFlows(p=>p.filter(f=>f.id!==eFlow.id));setShowFM(false);}} style={{...B,background:"#E06C75",padding:"8px 14px"}}>🗑 Supprimer</button>
@@ -4150,6 +4255,9 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
       <div onClick={function(){setEFlow(Object.assign({},flowCtx.flow));setShowFM(true);setFlowCtx(null);}} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",borderRadius:4,cursor:"pointer"}} onMouseEnter={function(e){e.currentTarget.style.background=T.bgHover;}} onMouseLeave={function(e){e.currentTarget.style.background="transparent";}}>
         <span style={{fontSize:14}}>&#9998;</span><span style={{fontSize:11,color:T.fg}}>Éditer</span>
       </div>
+      <button type="button" onClick={function(){setEFlow(Object.assign({},flowCtx.flow));setShowFM(true);setFlowCtx(null);setTimeout(function(){document.getElementById("flow-route-style")?.focus();},0);}} style={{...B,width:"100%",display:"flex",alignItems:"center",gap:8,padding:"7px 10px",background:"transparent",color:T.fg,textAlign:"left",fontSize:11}}>
+        <span aria-hidden="true" style={{fontSize:14}}>⌁</span>Modifier le tracé
+      </button>
       <div onClick={function(){if(confirm("Supprimer ce flux ?")){setFlows(function(p){return p.filter(function(f){return f.id!==flowCtx.flow.id;});});setFlowCtx(null);setSelFlow(null);}}} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",borderRadius:4,cursor:"pointer"}} onMouseEnter={function(e){e.currentTarget.style.background="#FF525220";}} onMouseLeave={function(e){e.currentTarget.style.background="transparent";}}>
         <span style={{fontSize:14}}>&#128465;</span><span style={{fontSize:11,color:"#E06C75",fontWeight:600}}>Supprimer</span>
       </div>

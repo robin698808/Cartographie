@@ -122,6 +122,15 @@ body {
 
 .admin-header { flex-wrap: wrap; gap: 12px; }
 .admin-header > .row { flex-wrap: wrap; }
+.project-admin-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 24px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .project-admin-layout { grid-template-columns: minmax(0, 1fr); }
+}
 
 .container {
   max-width: 1120px;
@@ -788,6 +797,22 @@ select.inp   { cursor:pointer; background-image:url("data:image/svg+xml,%3Csvg x
   transition:transform var(--tf), border-color var(--tf), background var(--tf);
 }
 .mapping-menu-action:hover { transform:translateY(-1px); border-color:rgba(129,140,248,.5); background:linear-gradient(110deg,rgba(99,102,241,.22),rgba(14,165,233,.13)); }
+.mapping-advanced {
+  margin: 12px 2px 2px;
+  padding: 10px;
+  border: 1px solid rgba(148,163,184,.18);
+  border-radius: 10px;
+  background: rgba(148,163,184,.05);
+}
+.mapping-advanced summary {
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+}
+.mapping-advanced summary:focus-visible {
+  outline: 2px solid #818cf8;
+  outline-offset: 3px;
+}
 .mapping-menu input[type="range"] { accent-color:#818cf8; min-height:20px; }
 @keyframes mapMenuIn {
   from { opacity: 0; transform: translateY(-5px) scale(.985); }

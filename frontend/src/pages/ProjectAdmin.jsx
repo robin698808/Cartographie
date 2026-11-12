@@ -18,7 +18,9 @@ function fmtDate(d) {
 }
 
 const ROLE_LABELS = { owner: 'Propriétaire', editor: 'Éditeur', viewer: 'Lecteur' };
+const ROLE_ICONS = { owner: '👑', editor: '✏️', viewer: '👁' };
 const ROLE_BADGE  = { owner: 'badge-ad', editor: 'badge-a', viewer: 'badge-m' };
+const MEMBER_COLUMNS = 'minmax(180px, 1fr) 130px 110px 150px 65px';
 
 export default function ProjectAdmin() {
   const { projectId }         = useParams();
@@ -176,10 +178,10 @@ export default function ProjectAdmin() {
       {showProfile && <ProfileModal onClose={() => setShowProfile(false)} />}
 
       <div className="container">
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 24, alignItems: 'start' }}>
+        <div className="project-admin-layout">
 
           {/* ── Colonne principale ── */}
-          <div className="col g5">
+          <div className="col g5" style={{ minWidth: 0 }}>
 
             {/* Infos projet */}
             <div className="card">
@@ -261,13 +263,14 @@ export default function ProjectAdmin() {
                 </h2>
               </div>
 
+              <div style={{ overflowX: 'auto' }}>
               {/* En-tête colonnes */}
               <div style={{
-                display: 'grid', gridTemplateColumns: '1fr 160px 160px 80px',
+                display: 'grid', gridTemplateColumns: MEMBER_COLUMNS, minWidth: 635,
                 padding: '10px 20px', borderBottom: '1px solid var(--border)',
                 background: 'var(--surface-2)',
               }}>
-                {['Membre', 'Rôle', 'Rejoint le', ''].map(h => (
+                {['Membre', 'Rôle', 'Rejoint le', 'Transfert de propriété', 'Retirer'].map(h => (
                   <span key={h} className="f11 w6 t3 caps">{h}</span>
                 ))}
               </div>
@@ -275,11 +278,12 @@ export default function ProjectAdmin() {
               {loading ? (
                 <div className="col g3" style={{ padding: 20 }}>
                   {[1, 2, 3].map(i => (
-                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 160px 160px 80px', gap: 12 }}>
+                    <div key={i} style={{ display: 'grid', gridTemplateColumns: MEMBER_COLUMNS, minWidth: 595 }}>
                       <div className="skel" style={{ height: 16 }} />
                       <div className="skel" style={{ height: 20, width: 90 }} />
                       <div className="skel" style={{ height: 16 }} />
                       <div className="skel" style={{ height: 28, width: 60 }} />
+                      <div className="skel" style={{ height: 28, width: 30 }} />
                     </div>
                   ))}
                 </div>
@@ -302,6 +306,7 @@ export default function ProjectAdmin() {
                   />
                 ))
               )}
+              </div>
             </div>
           </div>
 
@@ -325,8 +330,8 @@ export default function ProjectAdmin() {
                   <div className="fg-lg">
                     <label className="lbl">Rôle</label>
                     <select className="inp" value={invRole} onChange={e => setInvRole(e.target.value)}>
-                      <option value="editor">Éditeur — peut modifier</option>
-                      <option value="viewer">Lecteur — lecture seule</option>
+                      <option value="editor">✏️ Éditeur — peut modifier</option>
+                      <option value="viewer">👁 Lecteur — lecture seule</option>
                     </select>
                   </div>
                   {invErr && (
@@ -350,7 +355,7 @@ export default function ProjectAdmin() {
                     <th style={{ textAlign: 'left', padding: '4px 0', color: 'var(--t3)', fontWeight: 600 }}>Action</th>
                     {['owner', 'editor', 'viewer'].map(r => (
                       <th key={r} style={{ textAlign: 'center', padding: '4px 6px', color: 'var(--t3)', fontWeight: 600 }}>
-                        {r === 'owner' ? '👑' : r === 'editor' ? '✏️' : '👁'}
+                        <span role="img" aria-label={ROLE_LABELS[r]} title={ROLE_LABELS[r]}>{ROLE_ICONS[r]}</span>
                       </th>
                     ))}
                   </tr>
@@ -399,11 +404,11 @@ export default function ProjectAdmin() {
 
 /* ── Ligne membre ─────────────────────────────────────────────────── */
 function MemberRow({ member, isMe, isOwner, canManage, isLast, onRoleChange, onRemove, onTransfer }) {
-  const displayRole = isOwner ? 'owner' : member.role === 'owner' ? (member.user?.role === 'viewer' ? 'viewer' : 'editor') : member.role;
+  const displayRole = isOwner ? 'owner' : member.user?.role === 'viewer' ? 'viewer' : member.role === 'owner' ? 'editor' : member.role;
 
   return (
     <div style={{
-      display: 'grid', gridTemplateColumns: '1fr 160px 160px 80px',
+      display: 'grid', gridTemplateColumns: MEMBER_COLUMNS, minWidth: 635,
       alignItems: 'center', padding: '12px 20px',
       borderBottom: isLast ? 'none' : '1px solid var(--border)',
       transition: 'background var(--tn)',
@@ -431,16 +436,17 @@ function MemberRow({ member, isMe, isOwner, canManage, isLast, onRoleChange, onR
         {canManage && !isOwner && !isMe ? (
           <select
             className="inp"
+            aria-label="Rôle"
             value={displayRole}
             onChange={e => onRoleChange(e.target.value)}
             style={{ fontSize:12, padding:'4px 28px 4px 10px', width:'auto', minWidth:110, height:26 }}
           >
-            <option value="editor" disabled={member.user?.role === 'viewer'}>Éditeur</option>
-            <option value="viewer">Lecteur</option>
+            <option value="editor" disabled={member.user?.role === 'viewer'}>✏️ Éditeur</option>
+            <option value="viewer">👁 Lecteur</option>
           </select>
         ) : (
           <span className={`badge ${ROLE_BADGE[displayRole]}`} style={{ gap:5 }}>
-            {isOwner && <span style={{ fontSize:11, lineHeight:1 }}>👑</span>}
+            <span aria-hidden="true" style={{ fontSize:11, lineHeight:1 }}>{ROLE_ICONS[displayRole]}</span>
             {ROLE_LABELS[displayRole]}
           </span>
         )}
@@ -451,13 +457,19 @@ function MemberRow({ member, isMe, isOwner, canManage, isLast, onRoleChange, onR
         <span className="f12 t4">{fmtDate(member.joined_at)}</span>
       </div>
 
-      {/* Action */}
+      {/* Transfert de propriété */}
+      <div style={{ display:'flex', alignItems:'center' }}>
+        {canManage && !isOwner && !isMe && member.user?.role !== 'viewer' ? (
+          <button onClick={onTransfer} className="btn btn-s btn-xs" title="Transférer la propriété" aria-label="Transférer la propriété">👑</button>
+        ) : (
+          <span className="f11 t4">—</span>
+        )}
+      </div>
+
+      {/* Retrait */}
       <div style={{ display:'flex', alignItems:'center' }}>
         {canManage && !isOwner && !isMe ? (
-          <div className="row g2">
-            {member.user?.role !== 'viewer' && <button onClick={onTransfer} className="btn btn-s btn-xs" title="Transférer la propriété">👑</button>}
-            <button onClick={onRemove} className="btn-d" title="Retirer du projet" style={{ fontSize:14, lineHeight:1 }}>🗑</button>
-          </div>
+          <button onClick={onRemove} className="btn-d" title="Retirer du projet" aria-label="Retirer du projet" style={{ fontSize:14, lineHeight:1 }}>🗑</button>
         ) : (
           <span className="f11 t4">—</span>
         )}

@@ -22,6 +22,37 @@ const sideOf=(a,b)=>{
   return dy>=0?1:3;
 };
 
+export function straightFlowPath(source, target, cards, pad=3) {
+  if (!source || !target || source.id === target.id) return null;
+  const sx=source.x+source.w/2,sy=source.y+source.h/2;
+  const tx=target.x+target.w/2,ty=target.y+target.h/2;
+  const dx=tx-sx,dy=ty-sy;
+  if (dx===0 && dy===0) return null;
+  const edge=(c,x,y,vx,vy)=>{
+    const scale=Math.min(vx===0?Infinity:c.w/2/Math.abs(vx),vy===0?Infinity:c.h/2/Math.abs(vy));
+    return {x:x+vx*scale,y:y+vy*scale};
+  };
+  const from=edge(source,sx,sy,dx,dy),to=edge(target,tx,ty,-dx,-dy);
+  if ((to.x-from.x)*dx+(to.y-from.y)*dy<=0) return null;
+  const intersects=(card)=>{
+    let low=0,high=1;
+    for (const [start,delta,min,max] of [
+      [from.x,to.x-from.x,card.x-pad,card.x+card.w+pad],
+      [from.y,to.y-from.y,card.y-pad,card.y+card.h+pad],
+    ]) {
+      if (delta===0) {
+        if (start<min || start>max) return false;
+      } else {
+        const a=(min-start)/delta,b=(max-start)/delta;
+        low=Math.max(low,Math.min(a,b));high=Math.min(high,Math.max(a,b));
+        if (low>high) return false;
+      }
+    }
+    return true;
+  };
+  return cards.some(c=>c.id!==source.id && c.id!==target.id && intersects(c)) ? null : [from,to];
+}
+
 /**
  * cards: [{id,x,y,w,h}], links: [{id,from,to}]
  * Retourne {paths:{[linkId]:[{x,y}...]|null}}; chaque chemin est une polyligne orthogonale
@@ -100,11 +131,74 @@ export function routeFlows(cards,links,opts){
     e.ps=mkPort(e.a,e.sS,ps.t);e.pt=mkPort(e.b,e.sT,pt.t);
   });
 
+  // Align facing ports when a clear shared grid line exists, without reusing another port.
+  const portUsage=new Map();
+  const portKey=(card,side,port)=>card.id+"|"+side+"|"+(side%2===0?port.row:port.col);
+  const countPort=(key,delta)=>{
+    const n=(portUsage.get(key)||0)+delta;
+    if(n)portUsage.set(key,n);else portUsage.delete(key);
+  };
+  ends.forEach(e=>{countPort(portKey(e.a,e.sS,e.ps),1);countPort(portKey(e.b,e.sT,e.pt),1);});
+  ends.forEach(e=>{
+    const horizontal=(e.sS===0&&e.sT===2&&e.a.x+e.a.w<=e.b.x)||(e.sS===2&&e.sT===0&&e.b.x+e.b.w<=e.a.x);
+    const vertical=(e.sS===1&&e.sT===3&&e.a.y+e.a.h<=e.b.y)||(e.sS===3&&e.sT===1&&e.b.y+e.b.h<=e.a.y);
+    if(!horizontal&&!vertical)return;
+    const s=e.ps,t=e.pt;
+    const lo=horizontal?Math.max(e.a.y,e.b.y)+portMargin:Math.max(e.a.x,e.b.x)+portMargin;
+    const hi=horizontal?Math.min(e.a.y+e.a.h,e.b.y+e.b.h)-portMargin:Math.min(e.a.x+e.a.w,e.b.x+e.b.w)-portMargin;
+    const origin=horizontal?minY:minX,limit=horizontal?rows:cols;
+    const first=Math.max(0,Math.ceil((lo-origin-G/2)/G));
+    const last=Math.min(limit-1,Math.floor((hi-origin-G/2)/G));
+    const preferred=horizontal?(s.row+t.row)/2:(s.col+t.col)/2;
+    const candidates=[];
+    for(let i=first;i<=last;i++)candidates.push(i);
+    candidates.sort((a,b)=>Math.abs(a-preferred)-Math.abs(b-preferred));
+    const oldS=portKey(e.a,e.sS,s),oldT=portKey(e.b,e.sT,t);
+    for(const i of candidates){
+      const newS=horizontal?{...s,row:i,ey:ccy(i),cell:i*cols+s.col}:{...s,col:i,ex:ccx(i),cell:s.row*cols+i};
+      const newT=horizontal?{...t,row:i,ey:ccy(i),cell:i*cols+t.col}:{...t,col:i,ex:ccx(i),cell:t.row*cols+i};
+      const keyS=portKey(e.a,e.sS,newS),keyT=portKey(e.b,e.sT,newT);
+      if((portUsage.get(keyS)||0)-(keyS===oldS?1:0)>0||(portUsage.get(keyT)||0)-(keyT===oldT?1:0)>0)continue;
+      const start=horizontal?Math.min(s.ex,t.ex):Math.min(s.ey,t.ey);
+      const end=horizontal?Math.max(s.ex,t.ex):Math.max(s.ey,t.ey);
+      const axis=horizontal?newS.ey:newS.ex;
+      const clear=!cards.some(c=>c.id!==e.a.id&&c.id!==e.b.id&&(
+        horizontal
+          ? axis>c.y-o.pad&&axis<c.y+c.h+o.pad&&start<c.x+c.w+o.pad&&end>c.x-o.pad
+          : axis>c.x-o.pad&&axis<c.x+c.w+o.pad&&start<c.y+c.h+o.pad&&end>c.y-o.pad
+      ));
+      if(!clear)continue;
+      countPort(oldS,-1);countPort(oldT,-1);
+      e.ps=newS;e.pt=newT;
+      e.direct=horizontal?"horizontal":"vertical";
+      countPort(keyS,1);countPort(keyT,1);
+      break;
+    }
+  });
+
   const g=new Float32Array(N*4),closed=new Uint8Array(N*4),parent=new Int32Array(N*4),usage=new Uint8Array(N);
   const order=ends.slice().sort((p,q)=>(Math.abs(p.ps.col-p.pt.col)+Math.abs(p.ps.row-p.pt.row))-(Math.abs(q.ps.col-q.pt.col)+Math.abs(q.ps.row-q.pt.row)));
 
   order.forEach(e=>{
     const s=e.ps,t=e.pt;
+    if(e.direct){
+      const horizontal=e.direct==="horizontal";
+      const start=horizontal?Math.min(s.ex,t.ex):Math.min(s.ey,t.ey);
+      const end=horizontal?Math.max(s.ex,t.ex):Math.max(s.ey,t.ey);
+      const origin=horizontal?minX:minY,limit=horizontal?cols:rows;
+      const first=Math.max(0,Math.ceil((start-origin-G/2)/G));
+      const last=Math.min(limit-1,Math.floor((end-origin-G/2)/G));
+      const cells=[];
+      for(let i=first;i<=last;i++){
+        const cell=horizontal?s.row*cols+i:i*cols+s.col;
+        if(!blocked[cell])cells.push(cell);
+      }
+      if(cells.every(cell=>usage[cell]===0)){
+        cells.forEach(cell=>{usage[cell]=1;});
+        paths[e.link.id]=[{x:s.ex,y:s.ey},{x:t.ex,y:t.ey}];
+        return;
+      }
+    }
     const sb=blocked[s.cell],tb=blocked[t.cell];
     blocked[s.cell]=0;blocked[t.cell]=0;
     g.fill(Infinity);closed.fill(0);
@@ -200,8 +294,13 @@ export function placeLabels(paths,specs,cards){
       const a=p[i],b=p[i+1];
       const horiz=a.y===b.y;
       const L=Math.abs(b.x-a.x)+Math.abs(b.y-a.y);
-      [0.5,0.3,0.7,0.15,0.85].forEach(t=>{
-        cands.push({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,base:(horiz?0:6)+(L<(horiz?sp.w:sp.h)?40:0)+Math.abs(t-0.5)*10-Math.min(L,500)/100});
+      const length=Math.hypot(b.x-a.x,b.y-a.y);
+      const inset=length?Math.min(0.5,24/length):0.5;
+      [0.5,0.3,0.7,0.15,0.85].forEach(candidate=>{
+        const t=Math.max(inset,Math.min(1-inset,candidate));
+        const x=a.x+(b.x-a.x)*t,y=a.y+(b.y-a.y)*t;
+        const base=(horiz?0:6)+(L<(horiz?sp.w:sp.h)?40:0)+Math.abs(t-0.5)*10-Math.min(L,500)/100;
+        cands.push({x:x,y:y,base:base});
       });
     }
     let best=null;
@@ -219,4 +318,68 @@ export function placeLabels(paths,specs,cards){
     if(best){out[sp.id]={x:best.x,y:best.y};placed.push(best.r);}
   });
   return out;
+}
+
+export function flowLabelSpec(flow, fontSize, zoom) {
+  const text=flow.label||'Flux';
+  const scale=Math.min(1/Math.max(0.08,zoom),1.6);
+  const font=Math.max(8,fontSize);
+  return {id:flow.id,w:Math.max(60,text.length*font*0.55+16)*scale,h:font*1.5*scale};
+}
+
+export function evaluateFlowLayout(cards, flows, fontSize, zoom) {
+  const byId=new Map(cards.map(c=>[c.id,c]));
+  const valid=flows.filter(f=>byId.has(f.from)&&byId.has(f.to)&&f.from!==f.to);
+  const paths=routeFlows(cards,valid.map(f=>({id:f.id,from:f.from,to:f.to}))).paths;
+  let straightFallbacks=0;
+  valid.forEach(f=>{
+    if(f.routeStyle==='straight'){
+      const straight=straightFlowPath(byId.get(f.from),byId.get(f.to),cards);
+      if(straight)paths[f.id]=straight;
+      else straightFallbacks++;
+    }
+  });
+  const specs=valid.filter(f=>paths[f.id]).map(f=>flowLabelSpec(f,fontSize,zoom));
+  const labels=placeLabels(paths,specs,cards);
+  const rects=specs.filter(s=>labels[s.id]).map(s=>({id:s.id,x:labels[s.id].x-s.w/2,y:labels[s.id].y-s.h/2,w:s.w,h:s.h}));
+  let labelOverlaps=0,cardOverlaps=0,flowOverlaps=0,flowCrossings=0;
+  rects.forEach((rect,i)=>{
+    for(let j=0;j<i;j++)if(overlap(rect,rects[j],0))labelOverlaps++;
+    cards.forEach(card=>{if(overlap(rect,card,0))cardOverlaps++;});
+    Object.entries(paths).forEach(([id,points])=>{
+      if(String(id)===String(rect.id)||!points)return;
+      for(let j=1;j<points.length;j++){
+        const a=points[j-1],b=points[j];
+        let lo=0,hi=1;
+        for(const [p,d,min,max] of [[a.x,b.x-a.x,rect.x,rect.x+rect.w],[a.y,b.y-a.y,rect.y,rect.y+rect.h]]){
+          if(d===0){if(p<min||p>max){hi=-1;break;}}
+          else{const x=(min-p)/d,y=(max-p)/d;lo=Math.max(lo,Math.min(x,y));hi=Math.min(hi,Math.max(x,y));}
+        }
+        if(lo<=hi){flowOverlaps++;break;}
+      }
+    });
+  });
+  const activePaths=Object.values(paths).filter(Boolean);
+  const crosses=(a,b,c,d)=>{
+    const rx=b.x-a.x,ry=b.y-a.y,sx=d.x-c.x,sy=d.y-c.y;
+    const cross=rx*sy-ry*sx,qx=c.x-a.x,qy=c.y-a.y;
+    if(Math.abs(cross)<1e-8){
+      if(Math.abs(qx*ry-qy*rx)>1e-8)return false;
+      const length=rx*rx+ry*ry;
+      if(length<1e-8)return false;
+      const t0=(qx*rx+qy*ry)/length,t1=t0+(sx*rx+sy*ry)/length;
+      return Math.min(1,Math.max(t0,t1))-Math.max(0,Math.min(t0,t1))>1e-6;
+    }
+    const t=(qx*sy-qy*sx)/cross,u=(qx*ry-qy*rx)/cross;
+    return t>=0&&t<=1&&u>=0&&u<=1&&!((t<1e-6||t>1-1e-6)&&(u<1e-6||u>1-1e-6));
+  };
+  for(let i=0;i<activePaths.length;i++)for(let j=0;j<i;j++){
+    const a=activePaths[i],b=activePaths[j];
+    let found=false;
+    for(let k=1;k<a.length&&!found;k++)for(let l=1;l<b.length;l++){
+      if(crosses(a[k-1],a[k],b[l-1],b[l])){found=true;break;}
+    }
+    if(found)flowCrossings++;
+  }
+  return {unrouted:flows.length-valid.length+valid.filter(f=>!paths[f.id]).length,labelOverlaps,cardOverlaps,flowOverlaps,flowCrossings,straightFallbacks};
 }
