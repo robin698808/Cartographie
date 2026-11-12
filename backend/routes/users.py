@@ -3,7 +3,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from database import get_db, settings
 from datetime import datetime, timedelta, timezone
-import uuid, smtplib, logging
+import uuid, smtplib, logging, json, urllib.request
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import models, schemas, auth, audit
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 def send_reset_email(to_email: str, reset_link: str):
     """Envoie l'email de réinitialisation. Si SMTP non configuré, log le lien."""
-    if not settings.SMTP_HOST:
+    if not settings.SMTP_HOST and not settings.BREVO_API_KEY:
         logger.warning(f"[DEV] Lien de réinitialisation pour {to_email}: {reset_link}")
         print(f"\n{'='*60}\nLien reset mot de passe ({to_email}):\n{reset_link}\n{'='*60}\n")
         return
@@ -43,10 +43,33 @@ def send_reset_email(to_email: str, reset_link: str):
     """
     msg.attach(MIMEText(html, "html"))
 
-    with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as s:
-        s.starttls()
-        s.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-        s.sendmail(msg["From"], [to_email], msg.as_string())
+    try:
+        if settings.BREVO_API_KEY:
+            req = urllib.request.Request(
+                "https://api.brevo.com/v3/smtp/email",
+                data=json.dumps({
+                    "sender": {"email": msg["From"], "name": "Cartographe"},
+                    "to": [{"email": to_email}],
+                    "subject": msg["Subject"],
+                    "htmlContent": html,
+                }).encode(),
+                headers={
+                    "api-key": settings.BREVO_API_KEY,
+                    "content-type": "application/json",
+                    "accept": "application/json",
+                },
+            )
+            with urllib.request.urlopen(req, timeout=10) as r:
+                logger.info("Email reset envoyé via Brevo API (%s)", r.status)
+        else:
+            with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10) as s:
+                s.starttls()
+                s.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+                s.sendmail(msg["From"], [to_email], msg.as_string())
+    except Exception as e:
+        # Ne jamais faire échouer la requête (et ne pas révéler si l'email existe)
+        detail = getattr(e, "read", lambda: b"")().decode(errors="ignore")
+        logger.error("Échec d'envoi de l'email de reset: %s %s", e, detail)
 
 
 # ─── Auth ─────────────────────────────────────────────────────────────────────
