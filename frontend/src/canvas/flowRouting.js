@@ -59,7 +59,7 @@ export function straightFlowPath(source, target, cards, pad=3) {
  * qui contourne les cartes et se répartit sur des couloirs parallèles.
  */
 export function routeFlows(cards,links,opts){
-  const o=Object.assign({pad:3,margin:160,maxCells:110000,minCell:9,turn:5,cong:3,maxExpand:350000},opts);
+  const o=Object.assign({pad:3,margin:160,maxCells:110000,minCell:9,turn:5,cong:3,crossing:12,maxExpand:350000},opts);
   const paths={};
   if(!cards.length||!links.length)return{paths:paths};
   const byId=new Map(cards.map(c=>[c.id,c]));
@@ -176,7 +176,7 @@ export function routeFlows(cards,links,opts){
     }
   });
 
-  const g=new Float32Array(N*4),closed=new Uint8Array(N*4),parent=new Int32Array(N*4),usage=new Uint8Array(N);
+  const g=new Float32Array(N*4),closed=new Uint8Array(N*4),parent=new Int32Array(N*4),usage=new Uint8Array(N),directions=new Uint8Array(N);
   const order=ends.slice().sort((p,q)=>(Math.abs(p.ps.col-p.pt.col)+Math.abs(p.ps.row-p.pt.row))-(Math.abs(q.ps.col-q.pt.col)+Math.abs(q.ps.row-q.pt.row)));
 
   order.forEach(e=>{
@@ -194,7 +194,7 @@ export function routeFlows(cards,links,opts){
         if(!blocked[cell])cells.push(cell);
       }
       if(cells.every(cell=>usage[cell]===0)){
-        cells.forEach(cell=>{usage[cell]=1;});
+        cells.forEach(cell=>{usage[cell]=1;directions[cell]|=horizontal?1:2;});
         paths[e.link.id]=[{x:s.ex,y:s.ey},{x:t.ex,y:t.ey}];
         return;
       }
@@ -223,7 +223,9 @@ export function routeFlows(cards,links,opts){
         if(blocked[ncell])continue;
         const nidx=ncell*4+nd;
         if(closed[nidx])continue;
-        const ng=g[idx]+1+usage[ncell]*o.cong+(nd!==d?o.turn:0);
+        const axis=nd%2===0?1:2;
+        const crosses=(directions[ncell]&(axis===1?2:1))!==0;
+        const ng=g[idx]+1+usage[ncell]*o.cong+(crosses?o.crossing:0)+(nd!==d?o.turn:0);
         if(ng<g[nidx]){g[nidx]=ng;parent[nidx]=idx;heap.push(ng+h(ncell),nidx);}
       }
     }
@@ -237,6 +239,8 @@ export function routeFlows(cards,links,opts){
     cells.forEach((idx,i)=>{
       const cell=idx>>2,d=idx&3;
       usage[cell]=Math.min(255,usage[cell]+1);
+      directions[cell]|=d%2===0?1:2;
+      if(i+1<cells.length)directions[cell]|=(cells[i+1]&3)%2===0?1:2;
       const cc=cell%cols,cr=(cell-cc)/cols;
       const isEnd=i===cells.length-1;
       if(i===0||isEnd||d!==(cells[i+1]&3)){pts.push({x:ccx(cc),y:ccy(cr)});}
@@ -274,15 +278,78 @@ export function pathToD(pts,radius){
 
 const overlap=(a,b,m)=>a.x-m<b.x+b.w&&a.x+a.w+m>b.x&&a.y-m<b.y+b.h&&a.y+a.h+m>b.y;
 
+function segmentIntersectsRect(a,b,rect){
+  let lo=0,hi=1;
+  for(const [p,d,min,max] of [[a.x,b.x-a.x,rect.x,rect.x+rect.w],[a.y,b.y-a.y,rect.y,rect.y+rect.h]]){
+    if(d===0){if(p<min||p>max)return false;}
+    else{const x=(min-p)/d,y=(max-p)/d;lo=Math.max(lo,Math.min(x,y));hi=Math.min(hi,Math.max(x,y));if(lo>hi)return false;}
+  }
+  return true;
+}
+
+// Utilise l'enveloppe convexe de chaque courbe pour préserver les obstacles.
+export function curvedFlowPath(points,cards,sourceId,targetId){
+  if(!points||points.length<2)return {d:"",points:[]};
+  const samples=[points[0]];
+  let d="M"+points[0].x+" "+points[0].y;
+  const line=p=>{d+=" L"+p.x+" "+p.y;samples.push(p);};
+  const clear=(a,c,b,ignoreEndpoints=false)=>{
+    const minX=Math.min(a.x,b.x,c.x),maxX=Math.max(a.x,b.x,c.x);
+    const minY=Math.min(a.y,b.y,c.y),maxY=Math.max(a.y,b.y,c.y);
+    return !cards.some(card=>{
+      if(ignoreEndpoints&&(card.id===sourceId||card.id===targetId))return false;
+      return minX<card.x+card.w+3&&maxX>card.x-3&&minY<card.y+card.h+3&&maxY>card.y-3;
+    });
+  };
+  const curve=(a,c,b)=>{
+    d+=" Q"+c.x+" "+c.y+" "+b.x+" "+b.y;
+    for(let i=1;i<=4;i++){
+      const t=i/4,u=1-t;
+      samples.push({x:u*u*a.x+2*u*t*c.x+t*t*b.x,y:u*u*a.y+2*u*t*c.y+t*t*b.y});
+    }
+  };
+  if(points.length===2){
+    const a=points[0],b=points[1],dx=b.x-a.x,dy=b.y-a.y,length=Math.hypot(dx,dy);
+    if(length>0&&(dx===0||dy===0)){
+      for(const side of [1,-1]){
+        const offset=Math.min(48,length/5)*side;
+        const control={x:(a.x+b.x)/2-dy/length*offset,y:(a.y+b.y)/2+dx/length*offset};
+        if(clear(a,control,b,true)){curve(a,control,b);return {d,points:samples};}
+      }
+    }
+    line(b);
+    return {d,points:samples};
+  }
+  for(let i=1;i<points.length-1;i++){
+    const p=points[i-1],c=points[i],n=points[i+1];
+    const l1=Math.hypot(c.x-p.x,c.y-p.y),l2=Math.hypot(n.x-c.x,n.y-c.y);
+    let r=Math.min(80,l1/2,l2/2),a,b;
+    while(r>=2){
+      a={x:c.x-(c.x-p.x)/l1*r,y:c.y-(c.y-p.y)/l1*r};
+      b={x:c.x+(n.x-c.x)/l2*r,y:c.y+(n.y-c.y)/l2*r};
+      if(clear(a,c,b))break;
+      r/=2;
+    }
+    if(r<2)line(c);
+    else{line(a);curve(a,c,b);}
+  }
+  line(points[points.length-1]);
+  return {d,points:samples};
+}
+
 /**
  * specs: [{id,w,h}] (dimensions en unités canvas), cards: [{x,y,w,h}].
- * Retourne {[id]:{x,y}} (centre de l'étiquette) en évitant les autres étiquettes, les cartes et les autres flux.
+ * Les étiquettes peuvent être décalées de leur segment ; anchorX/anchorY indiquent
+ * alors le point du flux à relier visuellement à l'étiquette.
  */
 export function placeLabels(paths,specs,cards){
   const segs=[];
   Object.keys(paths).forEach(id=>{
     const p=paths[id];if(!p)return;
-    for(let i=0;i<p.length-1;i++)segs.push({id:String(id),x1:Math.min(p[i].x,p[i+1].x),y1:Math.min(p[i].y,p[i+1].y),x2:Math.max(p[i].x,p[i+1].x),y2:Math.max(p[i].y,p[i+1].y)});
+    for(let i=0;i<p.length-1;i++){
+      const a=p[i],b=p[i+1];
+      segs.push({id:String(id),a,b,x1:Math.min(a.x,b.x),x2:Math.max(a.x,b.x),y1:Math.min(a.y,b.y),y2:Math.max(a.y,b.y)});
+    }
   });
   const len=id=>{const p=paths[id];let L=0;if(p)for(let i=0;i<p.length-1;i++)L+=Math.abs(p[i+1].x-p[i].x)+Math.abs(p[i+1].y-p[i].y);return L;};
   const order=specs.slice().sort((a,b)=>len(a.id)-len(b.id));
@@ -301,21 +368,37 @@ export function placeLabels(paths,specs,cards){
         const x=a.x+(b.x-a.x)*t,y=a.y+(b.y-a.y)*t;
         const base=(horiz?0:6)+(L<(horiz?sp.w:sp.h)?40:0)+Math.abs(t-0.5)*10-Math.min(L,500)/100;
         cands.push({x:x,y:y,base:base});
+        if(length){
+          const nx=-(b.y-a.y)/length,ny=(b.x-a.x)/length;
+          const clearance=(Math.abs(nx)*sp.w+Math.abs(ny)*sp.h)/2;
+          [8,24,48].forEach(gap=>{
+            [-1,1].forEach(side=>{
+              const distance=clearance+gap;
+              cands.push({x:x+nx*distance*side,y:y+ny*distance*side,anchorX:x,anchorY:y,base:base+15+gap/4});
+            });
+          });
+        }
       });
     }
     let best=null;
     cands.forEach(c=>{
       const r={x:c.x-sp.w/2,y:c.y-sp.h/2,w:sp.w,h:sp.h};
       let score=c.base;
-      placed.forEach(q=>{if(overlap(r,q,4))score+=1000;});
-      cards.forEach(cd=>{if(overlap(r,cd,2))score+=1000;});
+      placed.forEach(q=>{if(overlap(r,q,4))score+=10000;});
+      cards.forEach(cd=>{if(overlap(r,cd,2))score+=10000;});
       segs.forEach(s=>{
         if(s.id===String(sp.id))return;
-        if(s.x1<=r.x+r.w&&s.x2>=r.x&&s.y1<=r.y+r.h&&s.y2>=r.y)score+=25;
+        if(s.x1>r.x+r.w||s.x2<r.x||s.y1>r.y+r.h||s.y2<r.y)return;
+        if(segmentIntersectsRect(s.a,s.b,r))score+=250;
       });
-      if(!best||score<best.score)best={score:score,x:c.x,y:c.y,r:r};
+      if(c.anchorX!==undefined){
+        const anchor={x:c.anchorX,y:c.anchorY},center={x:c.x,y:c.y};
+        cards.forEach(card=>{if(segmentIntersectsRect(anchor,center,card))score+=10000;});
+        placed.forEach(label=>{if(segmentIntersectsRect(anchor,center,label))score+=1000;});
+      }
+      if(!best||score<best.score)best={...c,score:score,r:r};
     });
-    if(best){out[sp.id]={x:best.x,y:best.y};placed.push(best.r);}
+    if(best){out[sp.id]={x:best.x,y:best.y};if(best.anchorX!==undefined){out[sp.id].anchorX=best.anchorX;out[sp.id].anchorY=best.anchorY;}placed.push(best.r);}
   });
   return out;
 }
@@ -327,7 +410,7 @@ export function flowLabelSpec(flow, fontSize, zoom) {
   return {id:flow.id,w:Math.max(60,text.length*font*0.55+16)*scale,h:font*1.5*scale};
 }
 
-export function evaluateFlowLayout(cards, flows, fontSize, zoom) {
+export function evaluateFlowLayout(cards, flows, fontSize, zoom, flowShape='default') {
   const byId=new Map(cards.map(c=>[c.id,c]));
   const valid=flows.filter(f=>byId.has(f.from)&&byId.has(f.to)&&f.from!==f.to);
   const paths=routeFlows(cards,valid.map(f=>({id:f.id,from:f.from,to:f.to}))).paths;
@@ -338,6 +421,7 @@ export function evaluateFlowLayout(cards, flows, fontSize, zoom) {
       if(straight)paths[f.id]=straight;
       else straightFallbacks++;
     }
+    if(flowShape==='curved'&&paths[f.id])paths[f.id]=curvedFlowPath(paths[f.id],cards,f.from,f.to).points;
   });
   const specs=valid.filter(f=>paths[f.id]).map(f=>flowLabelSpec(f,fontSize,zoom));
   const labels=placeLabels(paths,specs,cards);
@@ -349,13 +433,7 @@ export function evaluateFlowLayout(cards, flows, fontSize, zoom) {
     Object.entries(paths).forEach(([id,points])=>{
       if(String(id)===String(rect.id)||!points)return;
       for(let j=1;j<points.length;j++){
-        const a=points[j-1],b=points[j];
-        let lo=0,hi=1;
-        for(const [p,d,min,max] of [[a.x,b.x-a.x,rect.x,rect.x+rect.w],[a.y,b.y-a.y,rect.y,rect.y+rect.h]]){
-          if(d===0){if(p<min||p>max){hi=-1;break;}}
-          else{const x=(min-p)/d,y=(max-p)/d;lo=Math.max(lo,Math.min(x,y));hi=Math.min(hi,Math.max(x,y));}
-        }
-        if(lo<=hi){flowOverlaps++;break;}
+        if(segmentIntersectsRect(points[j-1],points[j],rect)){flowOverlaps++;break;}
       }
     });
   });

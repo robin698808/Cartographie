@@ -10,7 +10,7 @@ import { Network, Boxes, ChartNoAxesCombined, ListChecks, PanelLeftClose, PanelL
 import './Sidebar.css';
 import WidgetHeader from './WidgetHeader';
 import DashboardInsights, { healthScore } from './DashboardInsights';
-import { routeFlows, pathToD, placeLabels, straightFlowPath, flowLabelSpec, evaluateFlowLayout } from './flowRouting';
+import { routeFlows, pathToD, curvedFlowPath, placeLabels, straightFlowPath, flowLabelSpec, evaluateFlowLayout } from './flowRouting';
 import ViewsMenu from './ViewsMenu';
 import ExportModal from './ExportModal';
 import OptionListsEditor from './OptionListsEditor';
@@ -560,6 +560,7 @@ function App({ initialSnapshot, onSave, wsMessage, projectId, onThemeChange, top
   const [layoutReport,setLayoutReport]=useState(null);
   const [drag,setDrag]=useState(null); // {id,ox,oy} for app or {domain,ox,oy,appIds} for domain group
   const routeCacheRef=useRef({sig:"",paths:null});
+  const labelCacheRef=useRef({sig:"",positions:null});
   const dragRef=useRef(null); // mirror of drag for always-current access in event handlers
   const startDrag=(val)=>{if(readOnly)return;dragRef.current=val;setDrag(val);};
   const stopDrag=()=>{dragRef.current=null;setDrag(null);};
@@ -744,6 +745,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   const [domainFontScale,setDomainFontScale]=useState(1.5);
   const [categoryFontScale,setCategoryFontScale]=useState(1.45);
   const [flowDash,setFlowDash]=useState("none");
+  const [flowShape,setFlowShape]=useState("default");
   const [flowArrowStyle,setFlowArrowStyle]=useState("triangle");
   const [flowColorCustom,setFlowColorCustom]=useState("");
   const [domBorderW,setDomBorderW]=useState(1.5);
@@ -1266,6 +1268,10 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       }
       if(!improvedSwap)break;
     }
+    if(orderByConnections){
+      domainOrder=domainLayouts.map(function(item){return item.domain;});
+      domainLayouts.forEach(function(item){item.size=getDomSize(item.domain);});
+    }
     var colWidths=new Array(domainCols).fill(0),rowHeights=new Array(domainRows).fill(0);
     domainLayouts.forEach(function(item,index){var col=index%domainCols,row=Math.floor(index/domainCols);colWidths[col]=Math.max(colWidths[col],item.size.w);rowHeights[row]=Math.max(rowHeights[row],item.size.h);});
     var domainGap=Math.max(70,domGap)+extraGap;
@@ -1302,13 +1308,13 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     };
     let best=makeLayout(0),bestReport=null;
     if(interactive&&flows.length&&flows.length<=120){
-      const attempts=flows.length<=40&&layoutApps.length<=100?[[0,false],[80,false],[180,false],[0,true],[80,true],[180,true]]:flows.length<=80&&layoutApps.length<=100?[[0,false],[80,false],[180,false]]:[[0,false]];
+      const attempts=flows.length<=40&&layoutApps.length<=100?[[0,false],[80,false],[180,false],[0,true],[80,true],[180,true]]:layoutApps.length<=100?[[0,false],[80,false],[0,true]]:[[0,false]];
       let bestScore=Infinity;
       try{
         attempts.forEach(function([gap,orderByConnections],index){
           const candidate=index===0?best:makeLayout(gap,orderByConnections);
           const geometry=getCanvasFrame(candidate.apps);
-          const report=evaluateFlowLayout(candidate.apps.map(cardDims),flows,flowFontSize,geometry.zoom);
+          const report=evaluateFlowLayout(candidate.apps.map(cardDims),flows,flowFontSize,geometry.zoom,flowShape);
           const score=report.unrouted*100000+(report.labelOverlaps+report.cardOverlaps)*1000+report.flowOverlaps*10+report.flowCrossings*5+report.straightFallbacks;
           if(score<bestScore){bestScore=score;best=candidate;bestReport={...report,smallLabels:flowFontSize*geometry.zoom*Math.min(1/Math.max(0.08,geometry.zoom),1.6)<10};}
         });
@@ -1451,7 +1457,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
 
   const exportCSV=()=>{const h=["Nom","Domaine","Criticité","Éditeur","Version","Responsable","Utilisateurs","Description"];const rows=apps.map(a=>[a.name,a.domain,a.criticality,a.vendor,a.version,a.owner,a.users,a.description].map(v=>'"'+v+'"').join(";"));const blob=new Blob(["\uFEFF"+[h.join(";"),...rows].join("\n")],{type:"text/csv;charset=utf-8;"});const l=document.createElement("a");l.href=URL.createObjectURL(blob);l.download="cartographie.csv";l.click();};
 
-  const viewSettings=[["domScales",domScales,setDomScales],["domPads",domPads,setDomPads],["catPads",catPads,setCatPads],["catBounds",catBounds,setCatBounds],["catColors",catColors,setCatColors],["domColors",domColors,setDomColors],["globalScale",globalScale,setGlobalScale],["fontScale",fontScale,setFontScale],["appFontScale",appFontScale,setAppFontScale],["domainFontScale",domainFontScale,setDomainFontScale],["categoryFontScale",categoryFontScale,setCategoryFontScale],["categoryScale",categoryScale,setCategoryScale],["domainPadding",domainPadding,setDomainPadding],["domBorderW",domBorderW,setDomBorderW],["categoryBorderW",categoryBorderW,setCategoryBorderW],["appSpacing",appSpacing,setAppSpacing],["domainSpacing",domainSpacing,setDomainSpacing],["categorySpacing",categorySpacing,setCategorySpacing],["flowThickness",flowThickness,setFlowThickness],["flowFontSize",flowFontSize,setFlowFontSize],["flowDisplayMode",flowDisplayMode,setFlowDisplayMode],["flowDash",flowDash,setFlowDash],["flowArrowStyle",flowArrowStyle,setFlowArrowStyle],["flowColorCustom",flowColorCustom,setFlowColorCustom],["zoom",zm,setZm],["offset",off,setOff]];
+  const viewSettings=[["domScales",domScales,setDomScales],["domPads",domPads,setDomPads],["catPads",catPads,setCatPads],["catBounds",catBounds,setCatBounds],["catColors",catColors,setCatColors],["domColors",domColors,setDomColors],["globalScale",globalScale,setGlobalScale],["fontScale",fontScale,setFontScale],["appFontScale",appFontScale,setAppFontScale],["domainFontScale",domainFontScale,setDomainFontScale],["categoryFontScale",categoryFontScale,setCategoryFontScale],["categoryScale",categoryScale,setCategoryScale],["domainPadding",domainPadding,setDomainPadding],["domBorderW",domBorderW,setDomBorderW],["categoryBorderW",categoryBorderW,setCategoryBorderW],["appSpacing",appSpacing,setAppSpacing],["domainSpacing",domainSpacing,setDomainSpacing],["categorySpacing",categorySpacing,setCategorySpacing],["flowThickness",flowThickness,setFlowThickness],["flowFontSize",flowFontSize,setFlowFontSize],["flowDisplayMode",flowDisplayMode,setFlowDisplayMode],["flowDash",flowDash,setFlowDash],["flowShape",flowShape,setFlowShape],["flowArrowStyle",flowArrowStyle,setFlowArrowStyle],["flowColorCustom",flowColorCustom,setFlowColorCustom],["zoom",zm,setZm],["offset",off,setOff]];
   const getViewState=()=>{
     const positions={};apps.forEach(a=>{positions[a.id]=[a.x,a.y];});
     const st={version:1,positions:positions};
@@ -1463,6 +1469,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     if(st.positions)setApps(p=>p.map(a=>st.positions[a.id]?{...a,x:st.positions[a.id][0],y:st.positions[a.id][1]}:a));
     viewSettings.forEach(t=>{if(st[t[0]]!==undefined)t[2](st[t[0]]);});
     if(st.flowArrowStyle===undefined)setFlowArrowStyle("triangle");
+    if(st.flowShape===undefined)setFlowShape("default");
   };
 
   const saveJSON=()=>{
@@ -1658,12 +1665,23 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       var direct=straightFlowPath(source,target,allCards);
       if(direct)routed[f.id]=direct;
     });
+    var curvePaths={};
+    if(flowShape==="curved")visFlows.forEach(function(f){
+      if(routed[f.id]){
+        curvePaths[f.id]=curvedFlowPath(routed[f.id],allCards,f.from,f.to);
+        routed[f.id]=curvePaths[f.id].points;
+      }
+    });
     var lf=Math.max(8,flowFontSize);
     var specs=visFlows.filter(function(f){return routed[f.id]&&shortTxt(f);}).map(function(f){return flowLabelSpec(f,lf,zm);});
-    labelPos=placeLabels(routed,specs,cards);
+    var labelSig=JSON.stringify([routed,specs,cards]);
+    if(labelCacheRef.current.sig===labelSig)labelPos=labelCacheRef.current.positions;
+    else{
+      labelPos=placeLabels(routed,specs,cards);
+      labelCacheRef.current={sig:labelSig,positions:labelPos};
+    }
     var clip=function(cx2,cy2,w,h,tx,ty){var ddx=tx-cx2,ddy=ty-cy2;if(Math.abs(ddx)<0.5&&Math.abs(ddy)<0.5)return{x:cx2,y:cy2};var sx2=Math.abs(ddx)>0.5?(w/2)/Math.abs(ddx):9999;var sy2=Math.abs(ddy)>0.5?(h/2)/Math.abs(ddy):9999;var s=Math.min(sx2,sy2);return{x:cx2+ddx*s,y:cy2+ddy*s};};
-        return <svg className="flow-layer" style={{position:"absolute",top:0,left:0,width:"100%",height:"100%",pointerEvents:"none",overflow:"visible"}}>
-          {visFlows.map(function(f,flowIndex){var fa=apps.find(function(a){return a.id===f.from;}),ta=apps.find(function(a){return a.id===f.to;});if(!fa||!ta)return null;
+        var renderedFlows=visFlows.map(function(f,flowIndex){var fa=apps.find(function(a){return a.id===f.from;}),ta=apps.find(function(a){return a.id===f.to;});if(!fa||!ta)return null;
             var flowColor=focusApp===f.from?"#34D399":focusApp===f.to?"#38BDF8":lineCol;
             var flowIsSelected=selFlow===f.id;
             var flowOpacity=staticMode?0.82:selFlow?(flowIsSelected?1:0.07):0.65;
@@ -1679,14 +1697,20 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         var mx=(ep.x+en.x)/2-(dy/len)*lane,my=(ep.y+en.y)/2+(dx/len)*lane-(staticMode?28:20);
         var pathD="M"+ep.x+" "+ep.y+" Q"+mx+" "+my+" "+en.x+" "+en.y;
         var rt=routed[f.id];
-        if(rt){ep=rt[0];pathD=pathToD(rt,f.routeStyle==="elbow"?0:f.routeStyle==="rounded"?24:8);}
+        if(rt){ep=rt[0];pathD=curvePaths[f.id]?curvePaths[f.id].d:pathToD(rt,f.routeStyle==="elbow"?0:f.routeStyle==="rounded"?24:8);}
         var labelT=staticMode&&fa.domain!==ta.domain?(fa.domain===hubDomain?0.72:ta.domain===hubDomain?0.28:0.5):0.5;
         var labelX=(1-labelT)*(1-labelT)*ep.x+2*(1-labelT)*labelT*mx+labelT*labelT*en.x,labelY=(1-labelT)*(1-labelT)*ep.y+2*(1-labelT)*labelT*my+labelT*labelT*en.y;
         if(rt&&labelPos[f.id]){labelX=labelPos[f.id].x;labelY=labelPos[f.id].y;}
         var txt=shortTxt(f);
         var labelFont=Math.max(8,flowFontSize);
         var lblW=Math.max(60,txt.length*labelFont*0.55+16);
-        return <g key={f.id}>
+        var label=labelPos[f.id],leaderEnd=null;
+        if(label&&label.anchorX!==undefined){
+          var lx=label.anchorX-labelX,ly=label.anchorY-labelY;
+          var edgeScale=Math.min(lx?lblW*lblScale/2/Math.abs(lx):Infinity,ly?labelFont*1.5*lblScale/2/Math.abs(ly):Infinity,1);
+          leaderEnd={x:labelX+lx*edgeScale,y:labelY+ly*edgeScale};
+        }
+        return {id:f.id,line:<g>
           {flowArrowStyle!=="none"&&<defs><marker id={arrowId} viewBox="0 0 10 7" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><FlowArrowShape style={flowArrowStyle} color={flowColor}/></marker></defs>}
           <path d={pathD} stroke="transparent" strokeWidth={Math.max(16,flowThickness*4)} fill="none" style={{cursor:"pointer",pointerEvents:"stroke"}}
             onClick={function(e){e.stopPropagation();setFlowSuppressed(false);setSelFlow(selFlow===f.id?null:f.id);setFocusApp(f.from===focusApp?focusApp:f.to===focusApp?focusApp:selApp?.id||f.from);setFlowCtx(null);}}
@@ -1698,11 +1722,16 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
             onContextMenu={function(e){e.preventDefault();e.stopPropagation();if(!readOnly){setFlowCtx({flow:f,x:e.clientX,y:e.clientY});setSelFlow(f.id);}}}/>
           <circle cx={ep.x} cy={ep.y} r={Math.max(3,flowThickness+1)} fill={flowColor} fillOpacity={flowOpacity}/>
           {!staticMode&&flowIndex<16&&<circle r="3.2" fill={flowColor} opacity={flowOpacity} style={{filter:"drop-shadow(0 0 4px "+flowColor+")",pointerEvents:"none"}}><animateMotion path={pathD} dur={(1.5+(flowIndex%4)*0.22)+"s"} begin={(flowIndex%8)*0.13+"s"} repeatCount="indefinite"/></circle>}
-          {txt&&<g opacity={flowLabelOpacity} transform={"translate("+labelX+" "+labelY+") scale("+lblScale+") translate("+(-labelX)+" "+(-labelY)+")"}>
-            <rect x={labelX-lblW/2} y={labelY-labelFont*0.8} width={lblW} height={labelFont*1.5} rx="4" fill={T.bgCard} fillOpacity="0.96" stroke={flowColor} strokeWidth="0.8" strokeOpacity="0.55"/>
+        </g>,label:txt&&<g>
+          {txt&&leaderEnd&&<path d={"M"+label.anchorX+" "+label.anchorY+" L"+leaderEnd.x+" "+leaderEnd.y} stroke={flowColor} strokeWidth={1/Math.max(0.08,zm)} strokeOpacity={flowLabelOpacity*0.8} fill="none" style={{pointerEvents:"none"}}/>}
+          <g opacity={flowLabelOpacity} transform={"translate("+labelX+" "+labelY+") scale("+lblScale+") translate("+(-labelX)+" "+(-labelY)+")"}>
+            <rect x={labelX-lblW/2} y={labelY-labelFont*0.75} width={lblW} height={labelFont*1.5} rx="4" fill={T.bgCard} fillOpacity="0.96" stroke={flowColor} strokeWidth="0.8" strokeOpacity="0.55"/>
             <text x={labelX} y={labelY+labelFont*0.25} fill={flowColor} fontSize={labelFont} textAnchor="middle" fontFamily="inherit" fontWeight="600" style={{pointerEvents:"none"}}>{txt}</text>
-          </g>}
-        </g>;})}
+          </g>
+        </g>};});
+        return <svg className="flow-layer" style={{position:"absolute",top:0,left:0,width:"100%",height:"100%",pointerEvents:"none",overflow:"visible"}}>
+          {renderedFlows.filter(Boolean).map(item=><g key={item.id}>{item.line}</g>)}
+          {renderedFlows.filter(Boolean).map(item=><g key={item.id}>{item.label}</g>)}
     </svg>;
   };
 
@@ -3821,6 +3850,12 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
             <button aria-pressed={flowDash==="dashed"} onClick={function(){setFlowDash("dashed");}} style={{...B,background:flowDash==="dashed"?"linear-gradient(135deg,#2563EB,#0EA5E9)":"transparent",color:flowDash==="dashed"?"#fff":T.fgMuted,border:flowDash==="dashed"?"1px solid #38BDF8":"1px solid transparent",padding:"7px 8px",fontSize:10,flex:1}}>Tirets</button>
             <button aria-pressed={flowDash==="dotted"} onClick={function(){setFlowDash("dotted");}} style={{...B,background:flowDash==="dotted"?"linear-gradient(135deg,#2563EB,#0EA5E9)":"transparent",color:flowDash==="dotted"?"#fff":T.fgMuted,border:flowDash==="dotted"?"1px solid #38BDF8":"1px solid transparent",padding:"7px 8px",fontSize:10,flex:1}}>Points</button>
           </div>
+          <div className="mapping-menu-section-title" id="flow-shape-label">Forme des flux</div>
+          <div className="mapping-segmented" role="group" aria-labelledby="flow-shape-label">
+            <button type="button" aria-pressed={flowShape==="default"} onClick={function(){setFlowShape("default");}} style={{...B,background:flowShape==="default"?"linear-gradient(135deg,#2563EB,#0EA5E9)":"transparent",color:flowShape==="default"?"#fff":T.fgMuted,border:flowShape==="default"?"1px solid #38BDF8":"1px solid transparent",padding:"7px 8px",fontSize:10,flex:1}}>Par défaut</button>
+            <button type="button" aria-pressed={flowShape==="curved"} onClick={function(){setFlowShape("curved");}} style={{...B,background:flowShape==="curved"?"linear-gradient(135deg,#2563EB,#0EA5E9)":"transparent",color:flowShape==="curved"?"#fff":T.fgMuted,border:flowShape==="curved"?"1px solid #38BDF8":"1px solid transparent",padding:"7px 8px",fontSize:10,flex:1}}>Courbes</button>
+          </div>
+          <div className="mapping-menu-subtitle" style={{padding:"0 8px 6px"}}>Les courbes suivent les trajets existants ; certains segments restent droits pour éviter les applications.</div>
           <div className="mapping-menu-section-title" id="flow-arrow-style-label">Style des flèches de flux</div>
           <div role="group" aria-labelledby="flow-arrow-style-label" style={{display:"grid",gridTemplateColumns:"repeat(3, minmax(0, 1fr))",gap:5,padding:"4px 8px"}}>
             {FLOW_ARROW_STYLES.map(function(option){

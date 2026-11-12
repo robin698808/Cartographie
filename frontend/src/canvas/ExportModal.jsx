@@ -1,37 +1,23 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import API from '../api/client';
+import { buildPriorityItems } from './priority-score';
 
 // Catalogue aligné sur backend/pptx_generator.py (SECTIONS)
 const CATALOG = [
-  { group: 'Introduction', items: [
-    { id: 'cover', label: 'Page de garde' },
-    { id: 'synthese', label: 'Messages clés', hint: 'Dépendances et points d’attention' },
-    { id: 'executive', label: 'Synthèse exécutive', hint: 'Chiffres clés et état du portefeuille' },
+  { group: '2. Vue exécutive', items: [
+    { id: 'cover', label: 'Page de garde', hint: 'Titre et identité du client' },
+    { id: 'key_graphs', label: 'Graphiques clés', hint: 'Statuts, hébergement et répartition du portefeuille' },
+    { id: 'key_information', label: 'Informations clés', hint: 'Applications, domaines, flux et criticité' },
+    { id: 'synthese', label: 'Messages clés et synthèse exécutive', hint: 'Dépendances et points d’attention' },
   ] },
-  { group: 'Cartographie', requires: 'apps', items: [
-    { id: 'carto_globale', label: 'Cartographie globale', hint: 'Applications regroupées par domaine' },
-    { id: 'domain_view', label: 'Vue consolidée par domaine', hint: 'Une diapositive par domaine, avec tous ses flux et les applications liées' },
-    { id: 'domain_detail', label: 'Détail des flux par domaine', hint: 'Lignes lisibles et pagination pour les domaines denses' },
+  { group: '3. Vue cartographie', items: [
+    { id: 'portfolio_map', label: 'Applications et statuts par domaine', hint: 'Vue consolidée sur une page, sans flux ; texte réduit si nécessaire' },
+    { id: 'domain_view', label: 'Applications et flux par domaine', hint: 'Carte consolidée si lisible, sinon détail paginé avec applications liées' },
   ] },
-  { group: 'Flux', requires: 'flows', items: [
-    { id: 'flux_matrix', label: 'Matrice des flux inter-domaines' },
-    { id: 'hubs', label: 'Hubs applicatifs (vue d’ensemble)' },
-    { id: 'hub_detail', label: 'Détail par hub', hint: '1 diapositive par hub', hubOptions: true },
-    { id: 'flux_table', label: 'Tableau détaillé des flux', hint: 'Paginé, en-têtes répétés' },
+  { group: '4. Annexes', items: [
+    { id: 'flow_register', label: 'Matrice détaillée des flux', hint: 'Domaine, applications, objet, priorité, protocole, licences et coûts', requires: 'flows' },
   ] },
-  { group: 'Domaines', requires: 'deal', items: [
-    { id: 'domain_status', label: 'Cartographie par domaine (Day 1 / Day 2)' },
-    { id: 'env_d1', label: 'Environnement applicatif — Day 1' },
-    { id: 'env_d2', label: 'Environnement applicatif — Day 2' },
-  ] },
-  { group: 'Portefeuille', items: [
-    { id: 'paysage', label: 'Paysage applicatif', hint: 'Treemap par domaine' },
-    { id: 'recap_apps', label: 'Récapitulatif des applications', hint: 'Tableau paginé' },
-  ] },
-  { group: 'Conclusion', items: [{ id: 'end', label: 'Diapositive de fin' }] },
 ];
-
-const MAIN_IDS = ['cover', 'synthese', 'executive', 'carto_globale', 'domain_view'];
 
 const COLORS = ['0B2545', '1B3A5C', '2979FF', '10B981', '6366F1', 'EF6C00', 'E06C75', '2D6A4F'];
 
@@ -39,13 +25,12 @@ export default function ExportModal({ T, apps, flows, doms, projectType, project
   const isDeal = projectType === 'deal';
   const available = (g, it) => !((g.requires === 'flows' && !flows.length) || (g.requires === 'deal' && !isDeal) || (it.requires === 'flows' && !flows.length));
   const allIds = useMemo(() => CATALOG.flatMap((g) => g.items.filter((it) => available(g, it)).map((it) => it.id)), [flows.length, isDeal]); // eslint-disable-line
-  const [selected, setSelected] = useState(() => new Set(['cover', 'carto_globale', 'domain_view', 'domain_detail', 'flux_table'].filter((id) => allIds.includes(id))));
-  const [showGlobalFlows, setShowGlobalFlows] = useState(true);
+  const [selected, setSelected] = useState(() => new Set(allIds));
   const [domains, setDomains] = useState(() => new Set(doms));
   const [primary, setPrimary] = useState(initialOpts.clientPrimary || '2979FF');
   const [clientName, setClientName] = useState(initialOpts.clientName || '');
   const [logo, setLogo] = useState(initialOpts.clientLogo || null);
-  const [hubLimit, setHubLimit] = useState(initialOpts.hubLimit || 8);
+  const [hubLimit] = useState(initialOpts.hubLimit || 8);
   const [plan, setPlan] = useState(null);
   const [planErr, setPlanErr] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -93,6 +78,9 @@ export default function ExportModal({ T, apps, flows, doms, projectType, project
     return { apps: a, flows: flows.filter((f) => ids.has(f.from) && ids.has(f.to)) };
   }, [apps, flows, domains]);
 
+  const priorityScores = useMemo(() => Object.fromEntries(
+    buildPriorityItems(apps, flows).map(({ app, score }) => [app.id, score])
+  ), [apps, flows]);
   const opts = useMemo(() => ({
     sections: allIds.filter((id) => selected.has(id)),
     clientPrimary: primary,
@@ -100,10 +88,10 @@ export default function ExportModal({ T, apps, flows, doms, projectType, project
     hubLimit,
     inclDomainStatus: isDeal,
     projectType,
-    showGlobalFlows,
     contextApps: apps,
     contextFlows: flows,
-  }), [allIds, selected, primary, clientName, hubLimit, isDeal, projectType, showGlobalFlows, apps, flows]);
+    priorityScores,
+  }), [allIds, selected, primary, clientName, hubLimit, isDeal, projectType, apps, flows, priorityScores]);
 
   const reqRef = useRef(0);
   useEffect(() => {
@@ -161,7 +149,7 @@ export default function ExportModal({ T, apps, flows, doms, projectType, project
         <div style={{ flex: 1, display: 'flex', flexWrap: 'wrap', overflowY: 'auto', minHeight: 0 }}>
           {/* Colonne gauche : contenu */}
           <div style={{ padding: '16px 22px', flex: '1 1 420px', minWidth: 0, borderRight: '1px solid ' + T.border }}>
-            <div style={lbl}>Modèle PowerPoint du projet</div>
+            <div style={lbl}>1. Modèle PowerPoint du projet</div>
             <div style={{ fontSize: 11, color: T.fg, marginBottom: 8 }}>
               {templateLoading ? 'Chargement du modèle…' : !templateReady ? 'Chargement du modèle impossible' : template ? `Modèle utilisé : ${template}` : 'Modèle par défaut'}
             </div>
@@ -174,72 +162,27 @@ export default function ExportModal({ T, apps, flows, doms, projectType, project
             </div>}
             <div style={{ fontSize: 10, color: T.fgMuted, marginBottom: 8 }}>PPTX jusqu’à 25 Mo, partagé avec les membres du projet. Les diapositives du fichier servent de modèle et ne sont pas conservées.</div>
             {templateError && <div role="alert" style={{ color: '#EF4444', fontSize: 11, marginBottom: 8 }}>Modèle : {String(templateError)}</div>}
-            <div style={{ ...lbl, marginTop: 16 }}>Diapositives à inclure</div>
             <div style={{ fontSize: 10, color: T.fgMuted, marginBottom: 8 }}>
               {isDeal ? 'Projet Deal : trajectoire Day 1 / Day 2, criticité et dépendances.' : 'Projet hors Deal : statut, hébergement, criticité et dépendances.'}
             </div>
-            {CATALOG.slice(0, 2).map((group) => (
+            {CATALOG.map((group) => (
               <div key={group.group} style={{ marginTop: 12 }}>
-                <div style={lbl}>{group.group === 'Introduction' ? 'Synthèse' : 'Cartographie'}</div>
-                {group.items.filter((item) => MAIN_IDS.includes(item.id) && available(group, item)).map((item) => (
+                <div style={lbl}>{group.group}</div>
+                {group.items.filter((item) => available(group, item)).map((item) => (
                   <div key={item.id} style={{ padding: '6px 8px', borderRadius: 6, background: selected.has(item.id) ? '#2979FF0D' : 'transparent' }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12, color: T.fg }}>
                       <input type="checkbox" checked={selected.has(item.id)} onChange={(e) => toggle([item.id], e.target.checked)} style={{ accentColor: '#2979FF' }} />
-                      <span style={{ flex: 1 }}>{item.label}</span>
+                      <span style={{ flex: 1 }}>{item.label}<span style={{ display: 'block', fontSize: 10, color: T.fgMuted }}>{item.hint}</span></span>
                       {selected.has(item.id) && planBySection[item.id] > 0 && <span style={{ fontSize: 10, color: '#2979FF' }}>{planBySection[item.id]} diap.</span>}
                     </label>
-                    {item.id === 'carto_globale' && selected.has(item.id) && (
-                      <label style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '8px 0 2px 24px', fontSize: 11, color: T.fgMuted }}>
-                        <input type="checkbox" checked={showGlobalFlows} onChange={(e) => setShowGlobalFlows(e.target.checked)} disabled={!scoped.flows.length} style={{ accentColor: '#2979FF' }} />
-                        Afficher les flux sur la cartographie globale
-                      </label>
-                    )}
                   </div>
                 ))}
               </div>
             ))}
             <details style={{ marginTop: 16 }}>
-              <summary style={{ color: T.fg, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>Autres diapositives</summary>
-            {CATALOG.map((g) => {
-              const items = g.items.filter((it) => !MAIN_IDS.includes(it.id) && available(g, it));
-              if (!items.length) return null;
-              const ids = items.map((i) => i.id);
-              const nOn = ids.filter((i) => selected.has(i)).length;
-              return (
-                <div key={g.group} style={{ marginTop: 14 }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: 4 }}>
-                    <input type="checkbox" checked={nOn === ids.length} ref={(el) => { if (el) el.indeterminate = nOn > 0 && nOn < ids.length; }} onChange={(e) => toggle(ids, e.target.checked)} style={{ accentColor: '#2979FF' }} />
-                    <span style={{ ...lbl, marginBottom: 0 }}>{g.group}</span>
-                  </label>
-                  {items.map((it) => {
-                    const on = selected.has(it.id);
-                    return (
-                      <div key={it.id} style={{ marginLeft: 22, padding: '6px 10px', borderRadius: 8, background: on ? '#2979FF0D' : 'transparent', border: '1px solid ' + (on ? '#2979FF40' : 'transparent'), marginBottom: 3 }}>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                          <input type="checkbox" checked={on} onChange={(e) => toggle([it.id], e.target.checked)} style={{ accentColor: '#2979FF' }} />
-                          <span style={{ flex: 1 }}>
-                            <span style={{ fontSize: 12, fontWeight: 600, color: T.fg }}>{it.label}</span>
-                            {it.hint && <span style={{ display: 'block', fontSize: 10, color: T.fgMuted }}>{it.hint}</span>}
-                          </span>
-                          {on && planBySection[it.id] > 0 && <span style={{ fontSize: 9, fontWeight: 700, color: '#2979FF' }}>{planBySection[it.id]} diap.</span>}
-                        </label>
-                        {on && it.hubOptions && (
-                          <div style={{ marginTop: 6, marginLeft: 24, fontSize: 11, color: T.fgMuted, display: 'flex', alignItems: 'center', gap: 8 }}>
-                            Nombre de hubs max
-                            <input type="number" min={1} max={15} value={hubLimit} onChange={(e) => setHubLimit(Math.max(1, Math.min(15, parseInt(e.target.value, 10) || 1)))} style={{ width: 54, padding: '2px 6px', borderRadius: 6, border: '1px solid ' + T.border, background: T.bg, color: T.fg }} />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })}
-            </details>
-            <details style={{ marginTop: 16 }}>
               <summary style={{ color: T.fg, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>Périmètre et identité</summary>
             <div style={{ ...lbl, marginTop: 18 }}>Domaines inclus</div>
-            <div style={{ fontSize: 10, color: T.fgMuted, marginBottom: 6 }}>Les vues par domaine incluent aussi les applications externes directement liées.</div>
+            <div style={{ fontSize: 10, color: T.fgMuted, marginBottom: 6 }}>Les vues par domaine incluent les applications externes liées. Les annexes couvrent les flux dont les deux applications sont dans le périmètre.</div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {doms.map((d) => <button type="button" key={d} style={chip(domains.has(d))} aria-pressed={domains.has(d)} onClick={() => toggleDomain(d)}>{d}</button>)}
             </div>

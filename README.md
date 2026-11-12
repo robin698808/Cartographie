@@ -74,30 +74,58 @@ pas repris ; ceux des masques peuvent être conservés. Sans modèle personnalis
 le modèle livré avec l'application reste utilisé. Après mise à jour, redémarrer
 le backend pour créer la table nécessaire.
 
-Les sections « Cartographie globale » et « Vue consolidée par domaine » produisent
-respectivement une vue unique du périmètre et une vue par domaine avec ses
-applications liées et leurs flux entrants, sortants et internes. L'agencement
-compare plusieurs dispositions sur les cartes de taille modérée et cherche des
-trajets orthogonaux évitant les applications et les autres flux. Les conflits
-géométriques restants, flux sans extrémité visible et cartes denses sont signalés
-sur la diapositive et dans l'aperçu ; la lisibilité ne peut pas être garantie
-pour tous les périmètres, notamment sur une seule diapositive.
-Lorsqu'un sous-ensemble de domaines est sélectionné, la vue globale est limitée
-à ce périmètre, mais les vues par domaine incluent aussi les applications
-externes directement liées afin de conserver les flux entrants et sortants.
+Le menu propose quatre parties :
 
-La section facultative « Détail des flux par domaine » présente chaque flux sur
-une ligne distincte et se répartit sur plusieurs diapositives si nécessaire.
-Elle complète les vues consolidées sans les remplacer. Dans le menu, les
-principales diapositives sont sélectionnables directement ; les autres
-diapositives, le périmètre et l'identité sont regroupés dans des options
-repliables. L'option « Afficher les flux sur la cartographie globale » n'agit
-que sur cette vue, sans retirer les flux des vues de domaine ou des tableaux.
-Les synthèses des projets Deal présentent la trajectoire Day 1 / Day 2 ; celles
-des autres projets présentent les statuts et l'hébergement. La criticité et les
-dépendances sont également prises en compte.
+1. **Modèle** : choix du modèle PowerPoint du projet.
+2. **Vue exécutive** : page de garde, graphiques, informations et messages clés.
+3. **Vue cartographie** : applications regroupées par domaine et leurs statuts,
+   sans flux, puis vues des applications et flux par domaine. Pour un projet Deal,
+   les statuts Day 1 et Day 2 sont présentés ; sinon, le statut courant est utilisé.
+   Les pastilles numérotées renvoient à la légende des statuts sur la
+   diapositive ; pour un Deal, la pastille gauche correspond à Day 1 et celle
+   de droite à Day 2. La vue globale tient sur une seule diapositive : le texte peut être réduit
+   pour y inclure tous les domaines et applications. Les vues détaillées par
+   domaine restent paginées si nécessaire.
+4. **Annexes** : matrice détaillée paginée avec domaine, applications émettrice
+   et réceptrice, objet, priorité, protocole, licences et coût annuel. Les
+   domaines, scores de priorité, licences et coûts sont indiqués pour les deux
+   applications (É : émettrice, R : réceptrice). Le score est le même que dans
+   le tableau de bord, calculé sur l'ensemble des applications et flux du projet.
+   Ces valeurs applicatives sont répétées pour chaque flux et ne
+   doivent pas être additionnées comme s'il s'agissait de coûts de flux.
+
+Les vues de domaine tentent une carte consolidée avec des trajets orthogonaux.
+Lorsque l'analyse géométrique approximative détecte des conflits ou estime le
+texte trop étroit, des lignes de flux paginées la remplacent ; l'aperçu le signale.
+Une extrémité absente est signalée comme inconnue. Le contrôle ne garantit pas
+la lisibilité des textes longs ni des modèles personnalisés aux masques chargés.
+Lorsqu'un sous-ensemble de domaines est sélectionné, les vues de domaine
+incluent les applications externes directement liées. Les annexes, les graphiques
+et informations clés portent sur les applications sélectionnées et les flux
+dont les deux extrémités sont dans ce périmètre.
 
 ---
+
+## Lisibilité des flux sur la cartographie
+
+L'optimisation de la disposition conserve les applications par domaine et
+catégorie et reste annulable. Jusqu'à 120 flux, elle évalue les conflits de
+tracé et d'étiquettes ; pour les cartes denses de 100 applications au plus,
+elle compare plusieurs dispositions. Au-delà de 120 flux, la disposition
+est calculée sans évaluation détaillée. Les croisements ne peuvent pas toujours
+être éliminés.
+
+En affichage statique comme au survol, les flux restent individuels. Le routage
+privilégie les couloirs moins encombrés et pénalise les croisements. Les
+étiquettes peuvent être décalées lorsque leur placement sur le flux masquerait
+une application, une autre étiquette ou un autre flux ; un trait les relie alors
+à leur flux. Les styles de tracé et les filtres restent disponibles.
+
+Dans **Flux → Forme des flux**, « Courbes » applique aux flux visibles un
+tracé courbe basé sur les mêmes trajets, en modes statique et survol. Certains
+segments restent droits lorsque la courbe risquerait de traverser une
+application. « Par défaut » rétablit les styles individuels ; ce choix est
+enregistré avec les vues sauvegardées. Il ne garantit pas moins de croisements.
 
 ## Rôles et autorisations
 

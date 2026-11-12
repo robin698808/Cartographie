@@ -167,8 +167,8 @@ def _evaluate(apps, flows, variant):
         text = str(route["flow"].get("label") or route["flow"].get("name") or "")
         if not text:
             continue
-        width = min(20, max(5, len(text) * .55))
-        height = 2.0
+        width = min(32, max(5, len(text) * .68 + 1))
+        height = 2.4
         candidates = []
         pts = route["points"]
         for a, b in zip(pts, pts[1:]):

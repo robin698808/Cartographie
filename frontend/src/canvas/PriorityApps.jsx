@@ -1,12 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import WidgetHeader from './WidgetHeader';
-import { EOS_BUCKETS, eosBucket, formatEuro, formatDateFr } from './itsi';
+import { EOS_BUCKETS, formatEuro, formatDateFr } from './itsi';
+import { buildPriorityItems, EOS_PTS, RISK_STATUTS } from './priority-score';
 
 const CRIT_W = { Critique: 4, Haute: 3, Moyenne: 2, Basse: 1 };
 const CRIT_COLOR = { Critique: '#B91C1C', Haute: '#EF4444', Moyenne: '#F59E0B', Basse: '#10B981' };
-const CRIT_PTS = { Critique: 40, Haute: 32, Moyenne: 18, Basse: 6 };
-const EOS_PTS = { expired: 20, lt6: 15, lt12: 8 };
-const RISK_STATUTS = ['Legacy', 'En décommissionnement', 'À migrer', 'À refondre', 'À remplacer', 'À décommissionner'];
 const SORTS = [
   { k: 'score', label: 'Priorité' },
   { k: 'degree', label: 'Nombre de flux' },
@@ -17,23 +15,6 @@ const SORTS = [
 
 const colorOf = i => CRIT_COLOR[i.app.criticality] || '#94A3B8';
 
-function buildItems(apps, flows) {
-  const inc = {}, out = {};
-  flows.forEach(f => { out[f.from] = (out[f.from] || 0) + 1; inc[f.to] = (inc[f.to] || 0) + 1; });
-  return apps.map(app => {
-    const incoming = inc[app.id] || 0, outgoing = out[app.id] || 0, degree = incoming + outgoing;
-    const eos = eosBucket(app.endOfService);
-    const parts = [
-      { k: 'Criticité', v: CRIT_PTS[app.criticality] || 0, c: '#EF4444' },
-      { k: 'Connectivité', v: Math.round(Math.min(degree / 8, 1) * 25), c: '#06B6D4' },
-      { k: 'Fin de service', v: EOS_PTS[eos] || 0, c: '#F59E0B' },
-      { k: 'Statut à risque', v: RISK_STATUTS.includes(app.statut) ? 10 : 0, c: '#8B5CF6' },
-      { k: 'Sans responsable', v: app.owner && app.owner.trim() ? 0 : 5, c: '#64748B' },
-    ];
-    return { app, incoming, outgoing, degree, eos, parts, score: parts.reduce((s, p) => s + p.v, 0) };
-  });
-}
-
 export default function PriorityApps({ apps, flows, T, DC, statutColors, onOpen, expanded }) {
   const [crit, setCrit] = useState('');
   const [domain, setDomain] = useState('');
@@ -43,7 +24,7 @@ export default function PriorityApps({ apps, flows, T, DC, statutColors, onOpen,
   const [selId, setSelId] = useState(null);
   const [view, setView] = useState('list');
 
-  const all = useMemo(() => buildItems(apps, flows), [apps, flows]);
+  const all = useMemo(() => buildPriorityItems(apps, flows), [apps, flows]);
   const domains = useMemo(() => [...new Set(apps.map(a => a.domain || 'Autre'))].sort(), [apps]);
   const dcol = d => (DC[d] || DC.Autre).ac;
 
