@@ -1,4 +1,4 @@
-import { EN } from './i18nDict';
+import { EN } from './i18nDict.js';
 
 const STORAGE_KEY = 'carto:lang';
 const EVENT = 'carto:lang-change';
@@ -63,19 +63,34 @@ const RULES = [
   [/^(\d+) projets? dans votre espace(?: · (\d+) partagés? avec l'équipe)?\.$/i, (m) => `${m[1]} project${m[1] === '1' ? '' : 's'} in your workspace${m[2] ? ` · ${m[2]} shared with your team` : ''}.`],
   [/^Bonjour(?:, (.*?))?(\s*\S*)$/i, (m) => `Good morning${m[1] ? ', ' + m[1] : ''}${m[2] || ''}`],
   [/^Bonsoir(?:, (.*?))?(\s*\S*)$/i, (m) => `Good evening${m[1] ? ', ' + m[1] : ''}${m[2] || ''}`],
-  [/^Supprimer (.+)$/, (m) => `Delete ${m[1]}`],
-  [/^Modifier (.+)$/, (m) => `Edit ${m[1]}`],
   [/^(\d{1,2}) (janv\.|févr\.|mars|avr\.|mai|juin|juil\.|août|sept\.|oct\.|nov\.|déc\.) (\d{4})$/i, (m) => `${MONTHS[m[2].toLowerCase()]} ${parseInt(m[1], 10)}, ${m[3]}`],
   [/^Application à criticité (haute|critique) : continuité de service à sécuriser\.$/i, (m) => `Application with ${m[1].toLowerCase() === 'haute' ? 'high' : 'critical'} criticality: service continuity to be secured.`],
   [/^Statut « (.+) » : trajectoire à planifier\.$/i, (m) => `Status "${m[1]}": roadmap to be planned.`],
   [/^il y a (\d+) min$/i, (m) => `${m[1]} min ago`],
   [/^il y a (\d+) h$/i, (m) => `${m[1]} h ago`],
   [/^il y a (\d+) j$/i, (m) => `${m[1]} d ago`],
+  [/^il y a (\d+) sem\.$/i, (m) => `${m[1]} week${m[1] === '1' ? '' : 's'} ago`],
   [/^(\d+) mois$/i, (m) => `${m[1]} months`],
   [/^(\d+) ans?$/i, (m) => `${m[1]} year${m[1] === '1' ? '' : 's'}`],
   [/^(\d+) jours?$/i, (m) => `${m[1]} day${m[1] === '1' ? '' : 's'}`],
   [/^Supprimer la vue « ?(.*?) ? » \?$/i, (m) => `Delete view "${m[1]}"?`],
   [/^Remplacer la vue « ?(.*?) ? » par la disposition actuelle \?$/i, (m) => `Replace view "${m[1]}" with the current layout?`],
+  [/^Fin de service dans moins de (\d+) mois$/i, (m) => `End of service in less than ${m[1]} months`],
+  [/^Format non pris en charge \((.*)\)$/i, (m) => `Unsupported format (${m[1]})`],
+  [/^(\d+) app(s?) = 80 % du budget$/i, (m) => `${m[1]} app${m[2]} = 80% of the budget`],
+  [/^(.+) · (\d+) entrants?, (\d+) sortants?$/i, (m) => `${m[1]} · ${m[2]} incoming, ${m[3]} outgoing`],
+  [/^Rôle de (.+) mis à jour$/i, (m) => `Role updated for ${m[1]}`],
+  [/^Retirer (.+) du projet \?$/i, (m) => `Remove ${m[1]} from the project?`],
+  [/^(.+) retiré du projet$/i, (m) => `${m[1]} removed from the project`],
+  [/^Transférer la propriété du projet à (.+) \?$/i, (m) => `Transfer project ownership to ${m[1]}?`],
+  [/^Supprimer "(.+)" \? Cette action est irréversible\.$/i, (m) => `Delete "${m[1]}"? This action cannot be undone.`],
+  [/^(.+) supprimé$/i, (m) => `${m[1]} deleted`],
+  [/^(.+) · Modifier mon profil$/i, (m) => `${m[1]} · Edit my profile`],
+  [/^Modèle PPTX invalide : (.+)$/i, (m) => `Invalid PowerPoint template: ${m[1]}`],
+  [/^Erreur plan PPTX: (.+)$/i, (m) => `PowerPoint plan error: ${m[1]}`],
+  [/^Erreur génération PPTX: (.+)$/i, (m) => `PowerPoint generation error: ${m[1]}`],
+  [/^Supprimer (.+)$/, (m) => `Delete ${m[1]}`],
+  [/^Modifier (.+)$/, (m) => `Edit ${m[1]}`],
 ];
 
 const matchCase = (src, out) => (src[0] && src[0] !== src[0].toLowerCase() && out ? out[0].toUpperCase() + out.slice(1) : out);

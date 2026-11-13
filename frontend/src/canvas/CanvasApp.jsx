@@ -371,8 +371,8 @@ function Sidebar(){
   var NAV=[
     {id:"mapping",Icon:Network,label:"Cartographie"},
     {id:"urbanisme",Icon:Boxes,label:"Paysage"},
-    {id:"dashboard",Icon:ChartNoAxesCombined,label:"Dashboard"},
-    ...(projectType==='deal'?[{id:"decisions",Icon:ListChecks,label:"Decisions D1/D2"}]:[]),
+    {id:"dashboard",Icon:ChartNoAxesCombined,label:"Tableau de bord"},
+    ...(projectType==='deal'?[{id:"decisions",Icon:ListChecks,label:"Décisions D1/D2"}]:[]),
   ];
   return <aside className={"project-sidebar"+(sidebarOpen?"":" is-collapsed")+(isDark?" is-dark":"")} style={{"--sidebar-bg":T.bgAlt,"--sidebar-border":T.border,"--sidebar-text":T.fg,"--sidebar-muted":T.fgMuted}}>
     <div className="project-sidebar-header">
@@ -2379,7 +2379,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       </div>}
       <div style={{position:"sticky",top:0,zIndex:50,margin:"-24px -32px 16px",padding:"10px 20px",background:T.bgAlt,borderBottom:"1px solid "+T.border,display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
         <div>
-          <div style={{fontSize:15,fontWeight:800,color:T.fg,letterSpacing:"-0.02em",lineHeight:1}}>Dashboard</div>
+          <div style={{fontSize:15,fontWeight:800,color:T.fg,letterSpacing:"-0.02em",lineHeight:1}}>Tableau de bord</div>
           <div style={{fontSize:11,color:T.fgMuted,marginTop:3}}>Vue d'ensemble des domaines et flux applicatifs</div>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
@@ -3028,7 +3028,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     <div style={{display:"flex",gap:4,justifyContent:"center",fontSize:10,color:T.fgDim}}>
       <span>Lecture</span><span style={{width:26}}/>
       <span>Analyse</span><span style={{width:20}}/>
-      <span>Mapping</span><span style={{width:20}}/>
+      <span>Correspondance</span><span style={{width:20}}/>
       <span>Prêt</span>
     </div>
     {loadStatus.step==="error"&&<button onClick={()=>{setLoadStatus(null);setView("home");}} style={{...B,background:T.border,marginTop:24}}>← Retour</button>}
@@ -3052,7 +3052,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         <main className="import-mapping-content">
           <div className="import-mapping-heading">
             <div className="import-mapping-heading-icon"><FileSpreadsheet size={22} aria-hidden="true"/></div>
-            <div><h2>Mapping des colonnes</h2><p>{fName&&<><strong>{fName}</strong> · </>}{rawData?.length} lignes · Vérifiez ou ajustez le mapping</p></div>
+            <div><h2>Correspondance des colonnes</h2><p>{fName&&<><strong>{fName}</strong> · </>}{rawData?.length} lignes · Vérifiez ou ajustez la correspondance</p></div>
           </div>
           {loadStatus?.stats&&<section className="import-mapping-summary">
             <div className="import-mapping-success"><CheckCircle2 size={17} aria-hidden="true"/> Fichier chargé avec succès</div>
@@ -3062,7 +3062,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
             {loadStatus.stats.domainList&&<div className="import-mapping-domains">{loadStatus.stats.domainList.map(d=>{const c=DC[d]||DC.Autre;return <span key={d} style={{background:c.ac+"20",color:c.ac,borderColor:c.ac+"50"}}>{d} ({rawData?.filter(r=>r[cMap.domain]===d).length||0})</span>;})}</div>}
             {loadStatus.stats.ignored&&loadStatus.stats.ignored.length>0&&<div className="import-mapping-warning"><strong>Colonnes non utilisées pour ce type de projet :</strong> {loadStatus.stats.ignored.map(x=>x.header).join(", ")}. Elles correspondent à un autre type de projet ({projectType==='deal'?"IT/SI":"Deal IT/TECH"}) et sont ignorées à l'import.</div>}
           </section>}
-          <section className="import-mapping-panel" aria-label="Mapping des colonnes">
+          <section className="import-mapping-panel" aria-label="Correspondance des colonnes">
             <div className="import-mapping-panel-heading"><div><h3>Correspondance des champs</h3><p>Associez chaque champ à une colonne du fichier.</p></div><span className="import-mapping-count">{mappedCount} / {importFields.length}</span></div>
             <div className="import-mapping-grid">{importFields.map(({key,label,req})=><label key={key} className="import-mapping-field">
               <span className="import-mapping-field-label">{label}{req&&<span className="import-mapping-required"> *</span>}{cMap[key]&&<CheckCircle2 size={14} className="import-mapping-check" aria-hidden="true"/>}</span>
@@ -3172,7 +3172,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
         <span style={{fontSize:11,color:T.fgMuted}}>Zoom</span>
         <input type="range" min="0.5" max="1.5" step="0.1" value={cardZoom} onChange={function(e){setCardZoom(parseFloat(e.target.value));}} style={{width:60,cursor:"pointer",accentColor:"#6366F1"}}/>
-        {(hasDomPos||Object.keys(domWidths).length>0)&&<button onClick={function(){setDomPos({});setDomWidths({});}} style={{...B,background:T.border,padding:"4px 10px",fontSize:11,borderRadius:8}}>Reset</button>}
+        {(hasDomPos||Object.keys(domWidths).length>0)&&<button onClick={function(){setDomPos({});setDomWidths({});}} style={{...B,background:T.border,padding:"4px 10px",fontSize:11,borderRadius:8}}>Réinitialiser</button>}
         <button onClick={function(){setActiveDomFilter("");setView("urbanisme");}} style={{...B,background:"#F59E0B",padding:"6px 14px",fontSize:11,fontWeight:600,borderRadius:8,display:"flex",alignItems:"center",gap:5}}><span>&#8592;</span> Paysage</button>
         <button onClick={function(){setView("mapping");setTimeout(fitCanvas,50);}} style={{...B,background:"#6366F1",padding:"6px 14px",fontSize:11,fontWeight:600,borderRadius:8,display:"flex",alignItems:"center",gap:5}}><span>&#8592;</span> Cartographie</button>
       </div>
@@ -3832,7 +3832,7 @@ if(view==="urbanisme"){
           {[["Tout neutre",0,"#6B6B9A"],["Tout Day 1",1,"#F59E0B"],["Tout Day 2",2,"#8B5CF6"]].map(function(m){
             return <button key={m[0]} onClick={function(){setAllState(m[1]);}} style={{background:m[2]+"18",border:"1px solid "+m[2]+"45",color:m[2],borderRadius:8,padding:"5px 12px",fontSize:11,fontWeight:600,cursor:"pointer",transition:"all 0.15s"}}>{m[0]}</button>;
           })}
-          <button onClick={function(){setDecisionStates({});}} style={{background:T.bgCard,border:"1px solid "+T.border,color:T.fgMuted,borderRadius:8,padding:"5px 12px",fontSize:11,cursor:"pointer"}}>Reset</button>
+          <button onClick={function(){setDecisionStates({});}} style={{background:T.bgCard,border:"1px solid "+T.border,color:T.fgMuted,borderRadius:8,padding:"5px 12px",fontSize:11,cursor:"pointer"}}>Réinitialiser</button>
         </div>
         {/* Stats */}
         <div style={{display:"flex",gap:8,marginLeft:4}}>
@@ -4032,7 +4032,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
       {/* ── MENU: Affichage de la cartographie ── */}
       <div className="mapping-trigger-anchor" style={{position:"relative"}}>
         <button className="mapping-trigger" aria-haspopup="true" aria-expanded={openMenu==="edit"} onClick={function(){setOpenMenu(openMenu==="edit"?null:"edit");}} style={{...B,background:openMenu==="edit"?"linear-gradient(135deg,#8B5CF626,#6366F116)":toolbarSurface,color:openMenu==="edit"?"#C4B5FD":T.fgMuted,padding:"7px 11px",fontSize:10,letterSpacing:0.1,borderRadius:10,border:"1px solid "+(openMenu==="edit"?"#8B5CF655":T.border),boxShadow:"0 3px 10px rgba(0,0,0,.12)"}}><span style={{width:20,height:20,borderRadius:7,display:"grid",placeItems:"center",background:"rgba(139,92,246,.16)",fontSize:12,marginRight:1}}>✎</span>Affichage ▾</button>
-        {openMenu==="edit"&&<div className="mapping-menu" style={{position:"fixed",top:menuTop,right:12,background:T.bgCard,border:"1px solid "+T.border,borderRadius:14,padding:14,width:"min(340px, calc(100vw - 24px))",maxHeight:"min(78vh, calc(100vh - "+(menuTop+12)+"px))",overflowY:"auto",boxShadow:"0 18px 46px rgba(0,0,0,.36)",zIndex:250}}>
+        {openMenu==="edit"&&<div className="mapping-menu mapping-display-menu" style={{position:"fixed",top:menuTop,right:12,background:T.bgCard,border:"1px solid "+T.border,borderRadius:14,padding:14,width:"min(340px, calc(100vw - 24px))",maxHeight:"min(78vh, calc(100vh - "+(menuTop+12)+"px))",overflowY:"auto",boxShadow:"0 18px 46px rgba(0,0,0,.36)",zIndex:250}}>
           <div className="mapping-menu-header"><div className="mapping-menu-title">Affichage</div><div className="mapping-menu-subtitle">Personnalisez la lecture de votre cartographie</div></div>
           <div className="mapping-menu-section-title">Lecture des flux</div>
           <div className="mapping-segmented">
@@ -4063,7 +4063,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
           {[{mode:"dark",label:"Mode nuit",fallback:"#0B0B14"},{mode:"light",label:"Mode jour",fallback:"#FFFFFF"}].map(function(item){
             const color=mapBackgrounds?.[item.mode]||null;
             return <div key={item.mode} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 6px"}}>
-              <span style={{fontSize:10,color:T.fgMuted,width:62,flexShrink:0}}>{item.label}</span>
+              <span style={{fontSize:10,color:T.fgMuted,minWidth:75,flexShrink:0}}>{item.label}</span>
               <MapColorPicker label={"Fond "+item.label.toLowerCase()} value={color||item.fallback} onChange={function(e){setMapBackgrounds(current=>({...current,[item.mode]:e.target.value}));}}/>
               <span style={{fontSize:10,color:T.fg,flex:1,fontFamily:"monospace"}}>{color||"Thème"}</span>
               {color&&<button type="button" aria-label={"Réinitialiser "+item.label.toLowerCase()} onClick={function(){setMapBackgrounds(current=>({...current,[item.mode]:null}));}} style={{...B,padding:"4px 8px",fontSize:10,background:T.bgAlt,color:T.fg,border:"1px solid "+T.border}}>Réinitialiser</button>}
@@ -4150,7 +4150,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
           <div style={{display:"flex",alignItems:"center",gap:6,padding:"4px 8px"}}>
             <MapColorPicker label="Couleur du flux" value={flowColorCustom||(flowDisplayMode==="static"?(isDark?"#B9C4FF":"#334155"):(isDark?"#548CA8":"#3D7A9E"))} onChange={function(e){setFlowColorCustom(e.target.value);}}/>
             <span style={{fontSize:10,color:T.fg}}>{flowColorCustom||"Auto"}</span>
-            {flowColorCustom&&<button onClick={function(){setFlowColorCustom("");}} style={{...B,padding:"2px 8px",fontSize:11,background:T.border}}>Reset</button>}
+            {flowColorCustom&&<button onClick={function(){setFlowColorCustom("");}} style={{...B,padding:"2px 8px",fontSize:11,background:T.border}}>Réinitialiser</button>}
           </div>
           <div className="mapping-menu-section-title">Couleurs par direction</div>
           <div className="mapping-menu-subtitle" style={{padding:"0 8px 4px"}}>Appliquées par rapport à l'application survolée ou sélectionnée.</div>

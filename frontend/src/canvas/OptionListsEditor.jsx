@@ -67,7 +67,7 @@ export default function OptionListsEditor({ T, I, B, apps, lists, initialTab = '
         {rows.map((r, idx) => <div key={idx} style={{ display: 'grid', gridTemplateColumns: '34px 1fr 1fr 28px', gap: 6, alignItems: 'center' }}>
           <input type="color" value={r.color} onChange={(e) => patch(idx, { color: e.target.value })} style={{ width: 30, height: 28, padding: 0, border: '1px solid ' + T.border, borderRadius: 6, background: 'transparent', cursor: 'pointer' }} />
           <input value={r.value} onChange={(e) => patch(idx, { value: e.target.value })} placeholder="Libellé" style={I} />
-          <input value={r.en || ''} onChange={(e) => patch(idx, { en: e.target.value })} placeholder="English label" style={I} />
+          <input value={r.en || ''} onChange={(e) => patch(idx, { en: e.target.value })} placeholder="Libellé anglais" style={I} />
           <button onClick={() => remove(idx)} title="Supprimer" style={{ background: 'transparent', border: 'none', color: '#EF4444', cursor: 'pointer', fontSize: 15 }}>🗑</button>
         </div>)}
         <button onClick={add} style={{ ...B, alignSelf: 'flex-start', background: 'transparent', color: '#2979FF', border: '1px dashed #2979FF88', padding: '6px 12px', fontSize: 11 }}>+ Ajouter</button>

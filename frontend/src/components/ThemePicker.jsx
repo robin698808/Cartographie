@@ -63,7 +63,7 @@ export default function ThemePicker() {
         title="Personnaliser les couleurs"
       >
         <Palette size={13} strokeWidth={1.8} />
-        Custom
+        Personnalisé
       </button>
 
       {/* Panel */}

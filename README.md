@@ -53,6 +53,20 @@ docker-compose up --build
 
 ---
 
+## Langue de l'interface
+
+Le sélecteur de langue permet de passer du français à l'anglais ; le choix est
+mémorisé dans le navigateur. Les libellés, infobulles et messages de l'interface
+sont définis en français et traduits à partir du dictionnaire
+`frontend/src/i18nDict.js`. Les nouveaux libellés doivent y être ajoutés, y
+compris les textes accessibles et les messages affichés dynamiquement.
+Les messages connus renvoyés par l'API sont également traduits ; la traduction
+des contenus libres et des détails techniques variables n'est pas garantie.
+Les traductions peuvent être vérifiées avec
+`node --test frontend/src/i18n.test.js` depuis le répertoire Cartographie.
+
+---
+
 ## Export PowerPoint : modèle de projet
 
 Dans **Fichier → Exporter PowerPoint**, un éditeur, propriétaire ou administrateur
@@ -177,7 +191,8 @@ nuit, sont réglables dans **Affichage**. Elles sont mémorisées localement par
 projet et incluses dans les vues nommées et les exports JSON. Le bouton de
 réinitialisation de chaque mode rétablit le fond associé au thème. Les grandes
 tailles peuvent nécessiter une nouvelle optimisation pour limiter les
-chevauchements.
+chevauchements. Les titres et sous-titres du menu utilisent une présentation
+homogène en français comme en anglais.
 
 Dans **Flux**, les couleurs des flux entrants et sortants sont personnalisables
 indépendamment. Elles s'appliquent aux flux de l'application survolée ou

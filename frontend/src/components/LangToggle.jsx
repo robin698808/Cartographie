@@ -44,7 +44,7 @@ export default function LangToggle({ floating = false }) {
   );
 
   return (
-    <div role="group" aria-label="Language" data-notranslate className={`lang-toggle${floating ? ' lang-toggle-floating' : ''}`}>
+    <div role="group" aria-label={lang === 'en' ? 'Language' : 'Langue'} data-notranslate className={`lang-toggle${floating ? ' lang-toggle-floating' : ''}`}>
       {item('fr', 'Français', FlagFR)}
       {item('en', 'English', FlagGB)}
     </div>
