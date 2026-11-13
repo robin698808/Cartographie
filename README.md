@@ -116,6 +116,12 @@ selon les conflits de tracé et d'étiquettes. Au-delà, elle utilise une
 disposition aérée sans évaluation détaillée. Les croisements ne peuvent pas
 toujours être éliminés.
 
+Au-delà de 100 flux, les applications reliées au plus grand nombre de domaines
+distincts sont placées au centre de leur grille. Les autres sont ordonnées
+selon les domaines partenaires des flux entrants et sortants, afin de rendre
+les parcours plus directs. Le routeur continue d'éviter les cartes ; les
+croisements entre flux restent possibles sur les graphes denses.
+
 À chaque ouverture d'une cartographie, cette optimisation est lancée
 automatiquement après le chargement des données. Dans un projet modifiable,
 les nouvelles positions suivent la sauvegarde automatique habituelle ; le

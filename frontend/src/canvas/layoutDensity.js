@@ -13,6 +13,39 @@ export function placeMostConnectedFirst(items, columns, connections) {
   return result;
 }
 
+export function placeAppsByDomainAffinity(items, columns, domainConnections, connections, affinities) {
+  const rows=Math.ceil(items.length/columns);
+  const centerX=(columns-1)/2,centerY=(rows-1)/2;
+  const slotVector=index=>({x:index%columns-centerX,y:Math.floor(index/columns)-centerY});
+  const angle=vector=>Math.atan2(vector.y,vector.x);
+  const priority=(a,b)=>(domainConnections[b.id]||0)-(domainConnections[a.id]||0)||
+    (connections[b.id]||0)-(connections[a.id]||0)||String(a.id).localeCompare(String(b.id));
+  const ranked=items.slice().sort(priority);
+  const centralCount=Math.min(items.length,Math.max(1,Math.ceil(items.length*0.15)));
+  const slots=centralSlots(items.length,columns);
+  const result=new Array(items.length);
+  ranked.slice(0,centralCount).forEach((item,index)=>{result[slots[index]]=item;});
+  const remainingSlots=slots.slice(centralCount);
+  const remainingItems=ranked.slice(centralCount);
+  const neutralItems=remainingItems.filter(item=>{
+    const vector=affinities[item.id];
+    return !vector||Math.hypot(vector.x,vector.y)<1e-8;
+  }).sort((a,b)=>(connections[b.id]||0)-(connections[a.id]||0)||String(a.id).localeCompare(String(b.id)));
+  const neutralSlots=remainingSlots.slice().sort((a,b)=>{
+    const va=slotVector(a),vb=slotVector(b);
+    return Math.hypot(va.x,va.y)-Math.hypot(vb.x,vb.y)||a-b;
+  });
+  neutralItems.forEach((item,index)=>{result[neutralSlots[index]]=item;});
+  const neutralIds=new Set(neutralItems.map(item=>item.id));
+  const neutralSlotSet=new Set(neutralSlots.slice(0,neutralItems.length));
+  const affinityItems=remainingItems.filter(item=>!neutralIds.has(item.id)).sort((a,b)=>
+    angle(affinities[a.id])-angle(affinities[b.id])||priority(a,b));
+  const affinitySlots=remainingSlots.filter(slot=>!neutralSlotSet.has(slot)).sort((a,b)=>
+    angle(slotVector(a))-angle(slotVector(b))||a-b);
+  affinityItems.forEach((item,index)=>{result[affinitySlots[index]]=item;});
+  return result;
+}
+
 export function gridOffsets(items, columns, width, height, gapX, gapY, connections, densityFactor) {
   const rows=Math.ceil(items.length/columns);
   const colDegree=new Array(columns).fill(0),rowDegree=new Array(rows).fill(0);

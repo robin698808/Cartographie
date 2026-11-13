@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { centralSlots, placeMostConnectedFirst, gridOffsets, repositionFixedBounds, preserveDomainSize, optimizedSpacing, fitBounds, compactLayoutEligible, compactLayoutAcceptable, denseDefaultSizes, optimizedFlowSizes } from './layoutDensity.js';
+import { centralSlots, placeMostConnectedFirst, placeAppsByDomainAffinity, gridOffsets, repositionFixedBounds, preserveDomainSize, optimizedSpacing, fitBounds, compactLayoutEligible, compactLayoutAcceptable, denseDefaultSizes, optimizedFlowSizes } from './layoutDensity.js';
 import { evaluateFlowLayout } from './flowRouting.js';
 
 test('most connected applications occupy central slots deterministically', () => {
@@ -10,6 +10,19 @@ test('most connected applications occupy central slots deterministically', () =>
   assert.ok([1,3,5,7].includes(placed.findIndex(app=>app.id==='0')));
   assert.equal(new Set(placed.map(app=>app.id)).size,apps.length);
   assert.deepEqual(centralSlots(1,1),[0]);
+});
+
+test('cross-domain hubs are centered and other apps face their connected domains', () => {
+  const apps=['hub','hub2','right','left','a','b','c','d','e'].map(id=>({id}));
+  const domainConnections={hub:4,hub2:3};
+  const connections={hub:2,hub2:100};
+  const affinities={'right':{x:1,y:0},'left':{x:-1,y:0}};
+  const placed=placeAppsByDomainAffinity(apps,3,domainConnections,connections,affinities);
+  assert.equal(placed[4].id,'hub');
+  assert.equal(placed[1].id,'hub2');
+  assert.ok(placed.findIndex(app=>app.id==='right')%3>1);
+  assert.equal(placed.findIndex(app=>app.id==='left')%3,0);
+  assert.equal(new Set(placed.map(app=>app.id)).size,apps.length);
 });
 
 test('dense grids reserve extra space around well-connected applications', () => {

@@ -12,7 +12,7 @@ import './ImportMapping.css';
 import WidgetHeader from './WidgetHeader';
 import DashboardInsights, { healthScore } from './DashboardInsights';
 import { routeFlows, pathToD, curvedFlowPath, placeLabels, straightFlowPath, flowLabelSpec, evaluateFlowLayout } from './flowRouting';
-import { placeMostConnectedFirst, gridOffsets, repositionFixedBounds, preserveDomainSize, optimizedSpacing, fitBounds, DEFAULT_LAYOUT_SPACING, compactLayoutEligible, compactLayoutAcceptable, denseDefaultSizes, optimizedFlowSizes } from './layoutDensity';
+import { placeMostConnectedFirst, placeAppsByDomainAffinity, gridOffsets, repositionFixedBounds, preserveDomainSize, optimizedSpacing, fitBounds, DEFAULT_LAYOUT_SPACING, compactLayoutEligible, compactLayoutAcceptable, denseDefaultSizes, optimizedFlowSizes } from './layoutDensity';
 import ViewsMenu from './ViewsMenu';
 import ExportModal from './ExportModal';
 import OptionListsEditor from './OptionListsEditor';
@@ -1252,18 +1252,30 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     const domFlows={};
     const pairFlows={};
     const appConn={};
+    const appById=new Map(layoutApps.map(a=>[a.id,a]));
+    const appExternalDomains={};
+    const appDomainFlows={};
     flows.forEach(function(f){
-      var fa=layoutApps.find(function(a){return a.id===f.from;});
-      var ta=layoutApps.find(function(a){return a.id===f.to;});
+      var fa=appById.get(f.from);
+      var ta=appById.get(f.to);
       if(!fa||!ta)return;
       appConn[fa.id]=(appConn[fa.id]||0)+1;
       appConn[ta.id]=(appConn[ta.id]||0)+1;
       domFlows[fa.domain]=(domFlows[fa.domain]||0)+1;
       domFlows[ta.domain]=(domFlows[ta.domain]||0)+1;
-      if(fa.domain!==ta.domain){var pairKey=[fa.domain,ta.domain].sort().join("\x00");pairFlows[pairKey]=(pairFlows[pairKey]||0)+1;}
+      if(fa.domain!==ta.domain){
+        var pairKey=[fa.domain,ta.domain].sort().join("\x00");
+        pairFlows[pairKey]=(pairFlows[pairKey]||0)+1;
+        [[fa,ta.domain],[ta,fa.domain]].forEach(function([app,otherDomain]){
+          (appExternalDomains[app.id]||(appExternalDomains[app.id]=new Set())).add(otherDomain);
+          var weights=appDomainFlows[app.id]||(appDomainFlows[app.id]={});
+          weights[otherDomain]=(weights[otherDomain]||0)+1;
+        });
+      }
     });
     const doms=[...new Set(layoutApps.map(function(a){return a.domain;}))];
     if(doms.length===0)return;
+    const domainCols=Math.min(3,Math.max(1,Math.ceil(Math.sqrt(doms.length/2))));
     // 2. Compter les applications par domaine.
     const domAppCnt={};
     layoutApps.forEach(function(a){domAppCnt[a.domain]=(domAppCnt[a.domain]||0)+1;});
@@ -1279,18 +1291,36 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       var categoryGapX=(interactive?spacing.categoryX:categorySpacing+appSpacing)+extraGap;
       var categoryGapY=(interactive?spacing.categoryY:categorySpacing+28+appSpacing)+extraGap;
       var layouts=Object.keys(groups).map(function(category){
-        var targetOrder=function(app){
-          var targets=flows.flatMap(function(f){
-            var other=f.from===app.id?f.to:f.to===app.id?f.from:null;
-            var linked=other&&layoutApps.find(candidate=>candidate.id===other);
-            return linked&&linked.domain!==dom?[domainOrder.indexOf(linked.domain)]:[];
+        var appAffinity=function(app){
+          const affinity={x:0,y:0};
+          const sourceIndex=domainOrder.indexOf(dom);
+          const sourceCol=sourceIndex%domainCols,sourceRow=Math.floor(sourceIndex/domainCols);
+          Object.entries(appDomainFlows[app.id]||{}).forEach(function([otherDomain,weight]){
+            const targetIndex=domainOrder.indexOf(otherDomain);
+            if(targetIndex<0)return;
+            affinity.x+=(targetIndex%domainCols-sourceCol)*weight;
+            affinity.y+=(Math.floor(targetIndex/domainCols)-sourceRow)*weight;
           });
-          return targets.length?targets.reduce((sum,n)=>sum+n,0)/targets.length:domainOrder.length;
+          return affinity;
         };
-        var groupApps=groups[category].slice().sort(function(a,b){return(orderByConnections===true?targetOrder(a)-targetOrder(b):0)||(appConn[b.id]||0)-(appConn[a.id]||0);});
+        var groupApps=groups[category].slice();
         var cols=Math.max(1,Math.min(3,Math.ceil(Math.sqrt(groupApps.length))));
         var rows=Math.ceil(groupApps.length/cols);
-        if(central)groupApps=placeMostConnectedFirst(groupApps,cols,appConn);
+        if(central&&flows.length>100){
+          const affinities=Object.fromEntries(groupApps.map(app=>[app.id,appAffinity(app)]));
+          const domainConnections=Object.fromEntries(groupApps.map(app=>[app.id,appExternalDomains[app.id]?.size||0]));
+          groupApps=placeAppsByDomainAffinity(groupApps,cols,domainConnections,appConn,affinities);
+        }else if(central){
+          groupApps=placeMostConnectedFirst(groupApps,cols,appConn);
+        }else if(orderByConnections===true){
+          groupApps.sort(function(a,b){
+            var targetOrder=function(app){
+              var targets=Object.keys(appDomainFlows[app.id]||{}).map(function(otherDomain){return domainOrder.indexOf(otherDomain);}).filter(index=>index>=0);
+              return targets.length?targets.reduce((sum,index)=>sum+index,0)/targets.length:domainOrder.length;
+            };
+            return targetOrder(a)-targetOrder(b)||(appConn[b.id]||0)-(appConn[a.id]||0)||String(a.id).localeCompare(String(b.id));
+          });
+        }
         var grid=gridOffsets(groupApps,cols,appW,appH,cGx,cGy,appConn,central?(compact?2:4):0);
         return{category:category,apps:groupApps,cols:cols,rows:rows,w:grid.w,h:grid.h,xOffsets:grid.x,yOffsets:grid.y};
       }).sort(function(a,b){return b.apps.length-a.apps.length;});
@@ -1323,7 +1353,6 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       domainOrder.push(pendingDomains.shift());
     }
     var domainLayouts=domainOrder.map(function(dom){return{domain:dom,size:getDomSize(dom),apps:domAppCnt[dom]||0,flows:domFlows[dom]||0};});
-    var domainCols=Math.min(3,Math.max(1,Math.ceil(Math.sqrt(domainLayouts.length/2))));
     var domainRows=Math.ceil(domainLayouts.length/domainCols);
     if(central)domainLayouts=placeMostConnectedFirst(domainLayouts.map(item=>({...item,id:item.domain})),domainCols,domFlows);
     // Affinage : ?changes de domaines entre cases pour minimiser flux x distance.
