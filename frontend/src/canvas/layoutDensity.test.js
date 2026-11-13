@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { centralSlots, placeMostConnectedFirst, gridOffsets, repositionFixedBounds, preserveDomainSize, optimizedSpacing, fitBounds, compactLayoutEligible, compactLayoutAcceptable, denseDefaultSizes } from './layoutDensity.js';
+import { centralSlots, placeMostConnectedFirst, gridOffsets, repositionFixedBounds, preserveDomainSize, optimizedSpacing, fitBounds, compactLayoutEligible, compactLayoutAcceptable, denseDefaultSizes, optimizedFlowSizes } from './layoutDensity.js';
 import { evaluateFlowLayout } from './flowRouting.js';
 
 test('most connected applications occupy central slots deterministically', () => {
@@ -99,6 +99,23 @@ test('automatic sizing increases only default values and preserves custom choice
   assert.deepEqual(denseDefaultSizes(true,1.6,1.5,1,13,2),{app:2.8,domain:3,scale:1.5,flow:32,thickness:3.5});
   assert.deepEqual(denseDefaultSizes(true,3,1.5,2,35,5),{app:3,domain:3,scale:2,flow:35,thickness:5});
   assert.deepEqual(denseDefaultSizes(false,1.6,1.5,1,13,2),{app:1.6,domain:1.5,scale:1,flow:13,thickness:2});
+});
+
+test('flow sizing targets readable screen dimensions and preserves custom settings', () => {
+  const normal=optimizedFlowSizes(0.2,13,2,true,true);
+  assert.ok(normal.font*0.2*1.6>=12);
+  assert.ok(normal.thickness*0.2<=1.5);
+  assert.equal(normal.thickness,6);
+  assert.equal(normal.limited,true);
+  const readable=optimizedFlowSizes(0.3,13,2,true,true);
+  assert.ok(readable.font*0.3*1.6>=12);
+  assert.ok(readable.thickness*0.3>=1.5);
+  assert.equal(readable.limited,false);
+  assert.deepEqual(optimizedFlowSizes(0.1,22,4,false,false),{font:22,thickness:4,limited:false});
+  const tiny=optimizedFlowSizes(0.01,13,2,true,true);
+  assert.equal(tiny.font,96);
+  assert.equal(tiny.thickness,6);
+  assert.equal(tiny.limited,true);
 });
 
 test('compact layouts require a meaningful area gain without excessive conflicts', () => {

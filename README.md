@@ -132,7 +132,10 @@ leur flux. Une forte densité peut néanmoins nécessiter un zoom ou le survol.
 L'optimisation augmente les polices d'applications, de domaines et de flux,
 l'épaisseur des flux ainsi que la taille des applications uniquement lorsque ces valeurs sont
 encore à leurs valeurs par défaut. Les valeurs personnalisées restent
-inchangées. Les espacements prennent aussi en compte la hauteur mesurée des
+inchangées. Pour les flux, les valeurs automatiques tiennent compte du zoom
+de la carte entière et visent 12 pixels pour les étiquettes et 1,5 pixel pour
+les traits, dans les limites des réglages disponibles. Un avertissement invite
+à zoomer lorsque ces limites ne suffisent pas. Les espacements prennent aussi en compte la hauteur mesurée des
 étiquettes de flux, y compris celles sur plusieurs lignes.
 L'optimisation et « Recentrer » cadrent toute la carte. L'annulation restaure
 les valeurs automatiquement modifiées, sauf si elles ont été changées depuis.
@@ -158,6 +161,7 @@ une nouvelle optimisation pour limiter les chevauchements.
 
 Après optimisation, « Recentrer » cadre toute la carte sans déplacer les
 applications ; l'annulation restaure également le zoom et la position précédents.
+Le pourcentage de zoom peut être saisi dans la barre de zoom, entre 1 et 250 %.
 Les éventuels messages d'erreur sont affichés au-dessus de la zone de dessin ;
 « Recentrer » tient compte des bordures et en-têtes des domaines et catégories.
 Les modifications de positions suivent les

@@ -12,7 +12,7 @@ import './ImportMapping.css';
 import WidgetHeader from './WidgetHeader';
 import DashboardInsights, { healthScore } from './DashboardInsights';
 import { routeFlows, pathToD, curvedFlowPath, placeLabels, straightFlowPath, flowLabelSpec, evaluateFlowLayout } from './flowRouting';
-import { placeMostConnectedFirst, gridOffsets, repositionFixedBounds, preserveDomainSize, optimizedSpacing, fitBounds, DEFAULT_LAYOUT_SPACING, compactLayoutEligible, compactLayoutAcceptable, denseDefaultSizes } from './layoutDensity';
+import { placeMostConnectedFirst, gridOffsets, repositionFixedBounds, preserveDomainSize, optimizedSpacing, fitBounds, DEFAULT_LAYOUT_SPACING, compactLayoutEligible, compactLayoutAcceptable, denseDefaultSizes, optimizedFlowSizes } from './layoutDensity';
 import ViewsMenu from './ViewsMenu';
 import ExportModal from './ExportModal';
 import OptionListsEditor from './OptionListsEditor';
@@ -560,6 +560,11 @@ function App({ initialSnapshot, onSave, wsMessage, projectId, onThemeChange, top
   const [flowCtx,setFlowCtx]=useState(null);// context menu {flow, x, y}
   const [layoutUndo,setLayoutUndo]=useState(null);
   const [layoutReport,setLayoutReport]=useState(null);
+  const autoFlowSizes=useRef({font:null,thickness:null});
+  const [optimizing,setOptimizing]=useState(false);
+  const optimizingRef=useRef(false);
+  const optimizationTimer=useRef(null);
+  useEffect(()=>()=>{if(optimizationTimer.current!==null)clearTimeout(optimizationTimer.current);},[]);
   const pendingOptimizedFrame=useRef(false);
   const [drag,setDrag]=useState(null); // {id,ox,oy} for app or {domain,ox,oy,appIds} for domain group
   const routeCacheRef=useRef({sig:"",paths:null});
@@ -592,6 +597,17 @@ function App({ initialSnapshot, onSave, wsMessage, projectId, onThemeChange, top
   const [zm,setZm]=useState(function(){
     try{var s=localStorage.getItem(_stateKey);if(s){var d=JSON.parse(s);if(d.zm)return d.zm;}}catch(e){}return 1;
   });
+  const [zoomDraft,setZoomDraft]=useState(null);
+  const [zoomError,setZoomError]=useState("");
+  const commitZoomInput=()=>{
+    const value=Number(zoomDraft);
+    if(zoomDraft===null)return;
+    if(String(zoomDraft).trim()===""||!Number.isFinite(value)||value<1||value>250){
+      setZoomError("Zoom : saisissez une valeur entre 1 et 250 %.");
+      return;
+    }
+    setZm(value/100);setZoomError("");setZoomDraft(null);
+  };
   const [pan,setPan]=useState(false);
   const pRef=useRef({x:0,y:0});
   const zmRef=useRef(1); // always-current zoom for document-level handlers
@@ -1195,6 +1211,8 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     var layoutApps=sourceApps||apps;
     if(layoutApps.length===0)return;
     const adjusted=denseDefaultSizes(interactive,appFontScale,domainFontScale,globalScale,flowFontSize,flowThickness);
+    const autoFont=flowFontSize===13||autoFlowSizes.current.font===flowFontSize;
+    const autoThickness=flowThickness===2||autoFlowSizes.current.thickness===flowThickness;
     const sizes={app:adjusted.app,domain:adjusted.domain,category:categoryFontScale,flow:adjusted.flow};
     const baseWidth=220*Math.max(1,sizes.app/2.4),baseHeight=84*Math.max(1,sizes.app/2.4);
     const layoutScale=adjusted.scale;
@@ -1370,7 +1388,8 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     const evaluateCandidate=candidate=>{
       const options={sizes,categoryBounds:candidate.catBounds,domainPads:candidate.domPads};
       const geometry=getCanvasFrame(candidate.apps,layoutCard,options);
-      const report=evaluateFlowLayout(candidate.apps.map(layoutCard),flows,sizes.flow,geometry.zoom,flowShape,measureLabels);
+      const flowSizes=optimizedFlowSizes(geometry.zoom,flowFontSize,flowThickness,autoFont,autoThickness);
+      const report=evaluateFlowLayout(candidate.apps.map(layoutCard),flows,flowSizes.font,geometry.zoom,flowShape,measureLabels);
       const frame=getCanvasFrame(candidate.apps,layoutCard,options),bounds=frame.bounds;
       const domainBoxes={};
       candidate.apps.forEach(a=>{
@@ -1421,7 +1440,13 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       setLayoutReport(null);
     }
     if(interactive){
-      setLayoutUndo({positions:Object.fromEntries(apps.map(a=>[a.id,[a.x,a.y]])),catBounds,domPads,zoom:zm,offset:off,autoSizes:{app:sizes.app!==appFontScale?{before:appFontScale,after:sizes.app}:null,domain:sizes.domain!==domainFontScale?{before:domainFontScale,after:sizes.domain}:null,flow:sizes.flow!==flowFontSize?{before:flowFontSize,after:sizes.flow}:null,thickness:adjusted.thickness!==flowThickness?{before:flowThickness,after:adjusted.thickness}:null,scale:layoutScale!==globalScale?{before:globalScale,after:layoutScale}:null}});
+      const finalFrame=getCanvasFrame(best.apps,layoutCard,{sizes,categoryBounds:best.catBounds,domainPads:best.domPads});
+      const finalFlow=optimizedFlowSizes(finalFrame.zoom,flowFontSize,flowThickness,autoFont,autoThickness);
+      sizes.flow=finalFlow.font;
+      adjusted.thickness=finalFlow.thickness;
+      if(flows.length&&finalFlow.limited)setLayoutReport({flowLimited:true});
+      setLayoutUndo({positions:Object.fromEntries(apps.map(a=>[a.id,[a.x,a.y]])),catBounds,domPads,zoom:zm,offset:off,previousAutoFlow:{...autoFlowSizes.current},autoSizes:{app:sizes.app!==appFontScale?{before:appFontScale,after:sizes.app}:null,domain:sizes.domain!==domainFontScale?{before:domainFontScale,after:sizes.domain}:null,flow:sizes.flow!==flowFontSize?{before:flowFontSize,after:sizes.flow}:null,thickness:adjusted.thickness!==flowThickness?{before:flowThickness,after:adjusted.thickness}:null,scale:layoutScale!==globalScale?{before:globalScale,after:layoutScale}:null}});
+      autoFlowSizes.current={font:autoFont?sizes.flow:null,thickness:autoThickness?adjusted.thickness:null};
       setAppFontScale(sizes.app);setDomainFontScale(sizes.domain);setFlowFontSize(sizes.flow);setFlowThickness(adjusted.thickness);setGlobalScale(layoutScale);
       pendingOptimizedFrame.current=true;
     }
@@ -1429,6 +1454,17 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     setCatBounds(best.catBounds);
     setDomPads(best.domPads);
     if(!interactive)setTimeout(function(){fitCanvas(best.apps);},50);
+  };
+  const runOptimization=()=>{
+    if(optimizingRef.current||!apps.length)return;
+    optimizingRef.current=true;
+    setOptimizing(true);
+    optimizationTimer.current=setTimeout(()=>{
+      optimizationTimer.current=null;
+      try{applyStarLayout(undefined,true);}
+      catch(err){console.error("Optimisation de la disposition",err);setLayoutReport({error:true});}
+      finally{optimizingRef.current=false;setOptimizing(false);}
+    },50);
   };
 
   const getCanvasFrame=(layoutApps,getCard=cardDims,options={})=>{
@@ -1587,6 +1623,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   };
   const applyViewState=(st)=>{
     if(!st)return;
+    autoFlowSizes.current={font:null,thickness:null};
     if(st.positions)setApps(p=>p.map(a=>st.positions[a.id]?{...a,x:st.positions[a.id][0],y:st.positions[a.id][1]}:a));
     viewSettings.forEach(t=>{if(st[t[0]]!==undefined)t[2](st[t[0]]);});
     if(st.flowArrowStyle===undefined)setFlowArrowStyle("triangle");
@@ -2981,7 +3018,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       <div style={{marginBottom:20}}>
         <h3 style={{fontSize:13,color:T.fgMuted,marginBottom:8}}>Épaisseur des flux</h3>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
-          <input type="range" min="1" max="6" step="0.5" value={flowThickness} onChange={function(e){setFlowThickness(parseFloat(e.target.value));}} style={{width:180}}/>
+          <input type="range" min="1" max="6" step="0.5" value={flowThickness} onChange={function(e){autoFlowSizes.current.thickness=null;setFlowThickness(parseFloat(e.target.value));}} style={{width:180}}/>
           <span style={{fontSize:12,color:T.fg}}>{flowThickness}px</span>
         </div>
       </div>
@@ -3864,8 +3901,8 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
         </div>;})}
       {activeFilters&&<button onMouseDown={e=>{e.stopPropagation();setSelDom([]);setSelCat([]);setSelCrit([]);setSelHost([]);setSelAType([]);setSelEos([]);setSelD1("");setSelD2("");setSelStatut("");setFlowDir("");}} style={{...B,padding:"4px 8px",fontSize:11,background:"#FF525220",color:"#FF5252",borderRadius:4}}>✕</button>}
       <div style={{flex:1}}/>
-      {!readOnly&&<button className="mapping-trigger mapping-trigger-primary" onMouseDown={e=>{e.stopPropagation();applyStarLayout(undefined,true);}} title="Rapproche les applications et domaines connectés et adapte les espacements." style={{...B,padding:"7px 11px",fontSize:9.5,background:"linear-gradient(120deg,#4F46E5,#6366F1 58%,#0EA5E9)",color:"#fff",border:"1px solid rgba(165,180,252,.45)",borderRadius:11,display:"flex",alignItems:"center",gap:6,fontWeight:800,boxShadow:"0 6px 16px rgba(79,70,229,.28)"}}><span style={{fontSize:13}}>✦</span> Optimiser la disposition</button>}
-      {!readOnly&&layoutUndo&&<button type="button" className="mapping-trigger" onClick={function(){pendingOptimizedFrame.current=false;setApps(current=>current.map(a=>layoutUndo.positions[a.id]?{...a,x:layoutUndo.positions[a.id][0],y:layoutUndo.positions[a.id][1]}:a));setCatBounds(layoutUndo.catBounds);setDomPads(layoutUndo.domPads);if(layoutUndo.autoSizes.app)setAppFontScale(current=>current===layoutUndo.autoSizes.app.after?layoutUndo.autoSizes.app.before:current);if(layoutUndo.autoSizes.domain)setDomainFontScale(current=>current===layoutUndo.autoSizes.domain.after?layoutUndo.autoSizes.domain.before:current);if(layoutUndo.autoSizes.flow)setFlowFontSize(current=>current===layoutUndo.autoSizes.flow.after?layoutUndo.autoSizes.flow.before:current);if(layoutUndo.autoSizes.thickness)setFlowThickness(current=>current===layoutUndo.autoSizes.thickness.after?layoutUndo.autoSizes.thickness.before:current);if(layoutUndo.autoSizes.scale)setGlobalScale(current=>current===layoutUndo.autoSizes.scale.after?layoutUndo.autoSizes.scale.before:current);setZm(layoutUndo.zoom);setOff(layoutUndo.offset);setLayoutUndo(null);setLayoutReport(null);}} style={{...B,padding:"7px 10px",fontSize:10,background:toolbarSurface,color:T.fg,border:"1px solid "+T.border}}>Annuler l'optimisation</button>}
+      {!readOnly&&<button type="button" className="mapping-trigger mapping-trigger-primary" disabled={optimizing} onClick={runOptimization} title="Rapproche les applications et domaines connectés et adapte les espacements." style={{...B,padding:"7px 11px",fontSize:9.5,background:"linear-gradient(120deg,#4F46E5,#6366F1 58%,#0EA5E9)",color:"#fff",border:"1px solid rgba(165,180,252,.45)",borderRadius:11,display:"flex",alignItems:"center",gap:6,fontWeight:800,boxShadow:"0 6px 16px rgba(79,70,229,.28)"}}><span style={{fontSize:13}}>✦</span> Optimiser la disposition</button>}
+      {!readOnly&&layoutUndo&&<button type="button" className="mapping-trigger" onClick={function(){pendingOptimizedFrame.current=false;setApps(current=>current.map(a=>layoutUndo.positions[a.id]?{...a,x:layoutUndo.positions[a.id][0],y:layoutUndo.positions[a.id][1]}:a));setCatBounds(layoutUndo.catBounds);setDomPads(layoutUndo.domPads);if(layoutUndo.autoSizes.app)setAppFontScale(current=>current===layoutUndo.autoSizes.app.after?layoutUndo.autoSizes.app.before:current);if(layoutUndo.autoSizes.domain)setDomainFontScale(current=>current===layoutUndo.autoSizes.domain.after?layoutUndo.autoSizes.domain.before:current);if(layoutUndo.autoSizes.flow)setFlowFontSize(current=>current===layoutUndo.autoSizes.flow.after?layoutUndo.autoSizes.flow.before:current);if(layoutUndo.autoSizes.thickness)setFlowThickness(current=>current===layoutUndo.autoSizes.thickness.after?layoutUndo.autoSizes.thickness.before:current);if(autoFlowSizes.current.font!==null)autoFlowSizes.current.font=layoutUndo.previousAutoFlow.font;if(autoFlowSizes.current.thickness!==null)autoFlowSizes.current.thickness=layoutUndo.previousAutoFlow.thickness;if(layoutUndo.autoSizes.scale)setGlobalScale(current=>current===layoutUndo.autoSizes.scale.after?layoutUndo.autoSizes.scale.before:current);setZm(layoutUndo.zoom);setOff(layoutUndo.offset);setLayoutUndo(null);setLayoutReport(null);}} style={{...B,padding:"7px 10px",fontSize:10,background:toolbarSurface,color:T.fg,border:"1px solid "+T.border}}>Annuler l'optimisation</button>}
       {/* ── Création menu ── */}
       {!readOnly&&<div className="mapping-trigger-anchor" style={{position:"relative"}}>
         <button className="mapping-trigger" aria-haspopup="true" aria-expanded={openMenu==="create"} onClick={function(){setOpenMenu(openMenu==="create"?null:"create");}} style={{...B,background:openMenu==="create"?"linear-gradient(135deg,#6366F126,#8B5CF618)":cMode?"linear-gradient(135deg,#EF44442E,#F9731618)":toolbarSurface,color:cMode?"#FB7185":T.fgMuted,border:"1px solid "+(cMode?"#EF444466":openMenu==="create"?"#8B5CF655":T.border),padding:"7px 11px",fontSize:10,borderRadius:10,display:"flex",alignItems:"center",gap:7,boxShadow:cMode?"0 4px 14px rgba(239,68,68,.14)":"0 3px 10px rgba(0,0,0,.12)"}}>
@@ -3979,12 +4016,12 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
           </div>
           <div className="mapping-menu-section-title">Épaisseur des flux</div>
           <div style={{display:"flex",alignItems:"center",gap:6,padding:"4px 8px"}}>
-            <input type="range" min="1" max="6" step="0.5" value={flowThickness} onChange={function(e){setFlowThickness(parseFloat(e.target.value));}} style={{flex:1,cursor:"pointer"}}/>
+            <input aria-label="Épaisseur des flux" type="range" min="1" max="6" step="0.5" value={flowThickness} onChange={function(e){autoFlowSizes.current.thickness=null;setFlowThickness(parseFloat(e.target.value));}} style={{flex:1,cursor:"pointer"}}/>
             <span style={{fontSize:10,color:T.fg,minWidth:24}}>{flowThickness}px</span>
           </div>
           <div className="mapping-menu-section-title">Taille des libellés</div>
           <div style={{display:"flex",alignItems:"center",gap:6,padding:"4px 8px"}}>
-            <input aria-label="Police étiquettes de flux" type="range" min="8" max="96" step="1" value={flowFontSize} onChange={function(e){setFlowFontSize(parseInt(e.target.value));}} style={{flex:1,cursor:"pointer"}}/>
+            <input aria-label="Police étiquettes de flux" type="range" min="8" max="96" step="1" value={flowFontSize} onChange={function(e){autoFlowSizes.current.font=null;setFlowFontSize(parseInt(e.target.value));}} style={{flex:1,cursor:"pointer"}}/>
             <span style={{fontSize:10,color:T.fg,minWidth:24}}>{flowFontSize}pt</span>
           </div>
           <div className="mapping-menu-section-title">Style de trait</div>
@@ -4024,7 +4061,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
     <div style={{flex:1,display:"flex",flexDirection:"column",minHeight:0,overflow:"hidden",position:"relative"}}>
       {layoutReport&&<div role="alert" style={{flexShrink:0,maxHeight:"30%",overflowY:"auto",padding:"8px 12px",background:T.bgCard,borderBottom:"1px solid "+T.border,fontSize:11,color:T.fg}}>
         <button type="button" aria-label="Fermer le message d'optimisation" onClick={()=>setLayoutReport(null)} style={{...B,float:"right",padding:"0 4px",background:"transparent",color:T.fg}}>✕</button>
-        {layoutReport.error?<div>Échec de l'évaluation : la disposition n'a pas été modifiée.</div>:<div>Aucune disposition compatible avec les dimensions actuelles des domaines et catégories n'a été trouvée. Agrandissez-les ou réduisez les espacements avant de réessayer.</div>}
+        {layoutReport.error?<div>Échec de l'évaluation : la disposition n'a pas été modifiée.</div>:layoutReport.flowLimited?<div>La taille maximale des flux est atteinte ; zoomez pour améliorer leur lisibilité.</div>:<div>Aucune disposition compatible avec les dimensions actuelles des domaines et catégories n'a été trouvée. Agrandissez-les ou réduisez les espacements avant de réessayer.</div>}
       </div>}
       <div style={{flex:1,minHeight:0,minWidth:0,display:"flex",overflow:"hidden"}}>
       <div ref={cvRef} style={{flex:1,minHeight:0,minWidth:0,overflow:"hidden",position:"relative",background:isDark?"#0B0B14":"#FFFFFF",cursor:pan?"grabbing":cMode?"crosshair":selMode?"default":"grab"}} onMouseDown={function(e){if(openMenu)setOpenMenu(null);const onBackground=!e.target.closest?.('[data-app]')&&!e.target.closest?.('.flow-layer');if(onBackground){setFocusApp(null);setSelFlow(null);setFlowSuppressed(true);}onCD(e);}} onMouseMove={function(e){if(!e.target.closest?.('[data-app]')&&!e.target.closest?.('[data-panel]')&&!e.target.closest?.('.flow-layer')){if(flowDisplayMode==='dynamic'){setFlowSuppressed(true);if(focusApp&&!panelOpen)setFocusApp(null);if(selFlow&&!panelOpen)setSelFlow(null);}}onCM(e);}} onMouseUp={onCU} onMouseLeave={function(e){onCU(e);const enteringPanel=e.relatedTarget?.closest?.('[data-panel]');if(!enteringPanel&&flowDisplayMode==='dynamic'){setFlowSuppressed(true);setFocusApp(null);setSelFlow(null);}}} onWheel={onWh} onContextMenu={e=>e.preventDefault()}>
@@ -4034,14 +4071,18 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
         {lasso&&<div style={{position:"absolute",left:Math.min(lasso.x0,lasso.x1),top:Math.min(lasso.y0,lasso.y1),width:Math.abs(lasso.x1-lasso.x0),height:Math.abs(lasso.y1-lasso.y0),border:(1.5/zm)+"px dashed #34D399",background:"rgba(52,211,153,.10)",borderRadius:6/zm,pointerEvents:"none",zIndex:50}}/>}
       </div>
       <div data-app="1" style={{position:"absolute",bottom:16,right:16,display:"flex",alignItems:"center",gap:6,padding:6,borderRadius:13,background:isDark?"rgba(19,19,42,.92)":"rgba(255,255,255,.94)",border:"1px solid "+T.border,boxShadow:"0 10px 30px rgba(0,0,0,.2)",backdropFilter:"blur(12px)",color:T.fgMuted}}>
-        <button title="Dézoomer" onMouseDown={function(e){e.stopPropagation();setZm(function(z){return Math.max(.01,+(z-(z<.2?.02:.1)).toFixed(2));});}} style={{...B,width:30,height:30,padding:0,background:T.bgHover,color:T.fg,borderRadius:8,fontSize:17}}>−</button>
-        <span style={{minWidth:44,textAlign:"center",fontSize:10,fontWeight:800,color:T.fg,fontVariantNumeric:"tabular-nums"}}>{Math.round(zm*100)}%</span>
-        <button title="Zoomer" onMouseDown={function(e){e.stopPropagation();setZm(function(z){return Math.min(2.5,+(z+.1).toFixed(2));});}} style={{...B,width:30,height:30,padding:0,background:T.bgHover,color:T.fg,borderRadius:8,fontSize:17}}>+</button>
+        <button type="button" title="Dézoomer" onMouseDown={function(e){e.stopPropagation();if(e.button===0)setZm(z=>Math.max(.01,Math.round((z-(z<.2?.02:.1))*10000)/10000));}} onClick={function(e){e.stopPropagation();if(e.detail===0)setZm(z=>Math.max(.01,Math.round((z-(z<.2?.02:.1))*10000)/10000));}} style={{...B,width:30,height:30,padding:0,background:T.bgHover,color:T.fg,borderRadius:8,fontSize:17}}>−</button>
+        <label style={{display:"flex",alignItems:"center",gap:2,fontSize:10,color:T.fg}}><input aria-label="Zoom en pourcentage" type="number" min="1" max="250" step="1" value={zoomDraft===null?Math.round(zm*100):zoomDraft} onChange={e=>setZoomDraft(e.target.value)} onBlur={commitZoomInput} onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}} style={{width:44,textAlign:"right",fontSize:10,fontWeight:800,color:T.fg,background:T.bgInput,border:"1px solid "+T.border,borderRadius:5,padding:"4px 2px"}}/>%</label>
+        <button type="button" title="Zoomer" onMouseDown={function(e){e.stopPropagation();if(e.button===0)setZm(z=>Math.min(2.5,Math.round((z+.1)*10000)/10000));}} onClick={function(e){e.stopPropagation();if(e.detail===0)setZm(z=>Math.min(2.5,Math.round((z+.1)*10000)/10000));}} style={{...B,width:30,height:30,padding:0,background:T.bgHover,color:T.fg,borderRadius:8,fontSize:17}}>+</button>
         <span style={{width:1,height:22,background:T.border,margin:"0 2px"}}/>
         <button title="Recentrer toute la cartographie sans déplacer les applications" onMouseDown={function(e){e.stopPropagation();if(e.button===0)fitCanvas();}} onClick={function(e){e.stopPropagation();if(e.detail===0)fitCanvas();}} style={{...B,padding:"7px 10px",background:"#6366F1",color:"#fff",borderRadius:8,fontSize:10,whiteSpace:"nowrap"}}>⌖ Recentrer</button>
         <span style={{width:1,height:22,background:T.border,margin:"0 2px"}}/>
         <span style={{padding:"0 6px",fontSize:9,fontWeight:650,whiteSpace:"nowrap"}}>{activeFilters?filtered.length+" / ":""}{apps.length} apps · {flows.length} flux{activeFilters?" filtrés":""}</span>
       </div>
+      {zoomError&&<div role="alert" style={{position:"absolute",right:16,bottom:64,background:T.bgCard,color:T.fg,border:"1px solid "+T.border,borderRadius:8,padding:"8px 10px",fontSize:11}}>{zoomError}</div>}
+      {optimizing&&<div className="layout-optimizing-overlay" role="status" aria-live="polite">
+        <div className="layout-optimizing-card"><span className="layout-optimizing-spinner" aria-hidden="true"/><div><strong>Optimisation en cours</strong><span>Disposition et lisibilité des flux</span></div></div>
+      </div>}
     </div>
     {selApp&&panelOpen&&!showAM&&<div data-panel="1" style={{width:360,maxWidth:"100%",flexShrink:0,background:T.bgAlt,borderLeft:"1px solid "+T.borderLight,overflowY:"auto",display:"flex",flexDirection:"column",zIndex:10}}>
       {/* Header with domain color accent */}

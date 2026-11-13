@@ -60,6 +60,14 @@ export function denseDefaultSizes(enabled, app, domain, scale, flow, thickness) 
   };
 }
 
+export function optimizedFlowSizes(zoom, font, thickness, autoFont, autoThickness) {
+  const scale=Math.min(1/Math.max(0.08,zoom),1.6);
+  const nextFont=autoFont?Math.min(96,Math.max(32,Math.ceil(12/(zoom*scale)))):font;
+  const nextThickness=autoThickness?Math.min(6,Math.max(3.5,Math.ceil(1.5/zoom*2)/2)):thickness;
+  return {font:nextFont,thickness:nextThickness,
+    limited:(autoFont&&nextFont*zoom*scale<12)||(autoThickness&&nextThickness*zoom<1.5)};
+}
+
 export function compactLayoutAcceptable(base, candidate) {
   const limit=(value)=>value+Math.max(2,Math.floor(value*0.1));
   return candidate.area<=base.area*0.9&&candidate.zoneOverlaps<=base.zoneOverlaps&&
