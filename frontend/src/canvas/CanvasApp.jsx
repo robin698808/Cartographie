@@ -760,16 +760,25 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       return Number.isFinite(saved?.flowThickness)&&saved.flowThickness>=1&&saved.flowThickness<=30?saved.flowThickness:2;
     }catch(err){console.error("Lecture des préférences d'affichage",err);return 2;}
   });
-  const [mapBackground,setMapBackground]=useState(function(){
+  const [mapBackgrounds,setMapBackgrounds]=useState(function(){
     try{
       const saved=JSON.parse(localStorage.getItem(_displayKey)||"null");
-      return typeof saved?.mapBackground==="string"&&/^#[0-9a-f]{6}$/i.test(saved.mapBackground)?saved.mapBackground:null;
-    }catch(err){console.error("Lecture des préférences d'affichage",err);return null;}
+      const validColor=value=>typeof value==="string"&&/^#[0-9a-f]{6}$/i.test(value);
+      if(saved?.mapBackgrounds&&typeof saved.mapBackgrounds==="object"){
+        return {
+          dark:validColor(saved.mapBackgrounds.dark)?saved.mapBackgrounds.dark:null,
+          light:validColor(saved.mapBackgrounds.light)?saved.mapBackgrounds.light:null,
+        };
+      }
+      const legacyBackground=validColor(saved?.mapBackground)?saved.mapBackground:null;
+      return {dark:legacyBackground,light:legacyBackground};
+    }catch(err){console.error("Lecture des préférences d'affichage",err);return {dark:null,light:null};}
   });
+  const mapBackground=mapBackgrounds?.[isDark?"dark":"light"]||null;
   useEffect(function(){
-    try{localStorage.setItem(_displayKey,JSON.stringify({flowThickness,mapBackground}));}
+    try{localStorage.setItem(_displayKey,JSON.stringify({flowThickness,mapBackgrounds}));}
     catch(err){console.error("Enregistrement des préférences d'affichage",err);}
-  },[_displayKey,flowThickness,mapBackground]);
+  },[_displayKey,flowThickness,mapBackgrounds]);
   const [flowFontSize,setFlowFontSize]=useState(13);
   const [panelOpen,setPanelOpen]=useState(false);
   const [flowDisplayMode,setFlowDisplayMode]=useState("dynamic"); // dynamic: au survol, static: tous les flux
@@ -1667,7 +1676,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
 
   const exportCSV=()=>{const h=["Nom","Domaine","Criticité","Éditeur","Version","Responsable","Utilisateurs","Description"];const rows=apps.map(a=>[a.name,a.domain,a.criticality,a.vendor,a.version,a.owner,a.users,a.description].map(v=>'"'+v+'"').join(";"));const blob=new Blob(["\uFEFF"+[h.join(";"),...rows].join("\n")],{type:"text/csv;charset=utf-8;"});const l=document.createElement("a");l.href=URL.createObjectURL(blob);l.download="cartographie.csv";l.click();};
 
-  const viewSettings=[["domScales",domScales,setDomScales],["domPads",domPads,setDomPads],["catPads",catPads,setCatPads],["catBounds",catBounds,setCatBounds],["catColors",catColors,setCatColors],["domColors",domColors,setDomColors],["globalScale",globalScale,setGlobalScale],["fontScale",fontScale,setFontScale],["appFontScale",appFontScale,setAppFontScale],["domainFontScale",domainFontScale,setDomainFontScale],["categoryFontScale",categoryFontScale,setCategoryFontScale],["categoryScale",categoryScale,setCategoryScale],["domainPadding",domainPadding,setDomainPadding],["domBorderW",domBorderW,setDomBorderW],["categoryBorderW",categoryBorderW,setCategoryBorderW],["appSpacing",appSpacing,setAppSpacing],["domainSpacing",domainSpacing,setDomainSpacing],["categorySpacing",categorySpacing,setCategorySpacing],["flowThickness",flowThickness,setFlowThickness],["mapBackground",mapBackground,setMapBackground],["flowFontSize",flowFontSize,setFlowFontSize],["flowDisplayMode",flowDisplayMode,setFlowDisplayMode],["flowDash",flowDash,setFlowDash],["flowShape",flowShape,setFlowShape],["flowArrowStyle",flowArrowStyle,setFlowArrowStyle],["flowColorCustom",flowColorCustom,setFlowColorCustom],["zoom",zm,setZm],["offset",off,setOff]];
+  const viewSettings=[["domScales",domScales,setDomScales],["domPads",domPads,setDomPads],["catPads",catPads,setCatPads],["catBounds",catBounds,setCatBounds],["catColors",catColors,setCatColors],["domColors",domColors,setDomColors],["globalScale",globalScale,setGlobalScale],["fontScale",fontScale,setFontScale],["appFontScale",appFontScale,setAppFontScale],["domainFontScale",domainFontScale,setDomainFontScale],["categoryFontScale",categoryFontScale,setCategoryFontScale],["categoryScale",categoryScale,setCategoryScale],["domainPadding",domainPadding,setDomainPadding],["domBorderW",domBorderW,setDomBorderW],["categoryBorderW",categoryBorderW,setCategoryBorderW],["appSpacing",appSpacing,setAppSpacing],["domainSpacing",domainSpacing,setDomainSpacing],["categorySpacing",categorySpacing,setCategorySpacing],["flowThickness",flowThickness,setFlowThickness],["mapBackgrounds",mapBackgrounds,setMapBackgrounds],["flowFontSize",flowFontSize,setFlowFontSize],["flowDisplayMode",flowDisplayMode,setFlowDisplayMode],["flowDash",flowDash,setFlowDash],["flowShape",flowShape,setFlowShape],["flowArrowStyle",flowArrowStyle,setFlowArrowStyle],["flowColorCustom",flowColorCustom,setFlowColorCustom],["zoom",zm,setZm],["offset",off,setOff]];
   const getViewState=()=>{
     const positions={};apps.forEach(a=>{positions[a.id]=[a.x,a.y];});
     const st={version:1,positions:positions};
@@ -1679,12 +1688,16 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     autoFlowSizes.current={font:null,thickness:null};
     if(st.positions)setApps(p=>p.map(a=>st.positions[a.id]?{...a,x:st.positions[a.id][0],y:st.positions[a.id][1]}:a));
     viewSettings.forEach(t=>{if(st[t[0]]!==undefined)t[2](st[t[0]]);});
+    if(st.mapBackground!==undefined&&st.mapBackgrounds===undefined){
+      const legacyColor=typeof st.mapBackground==="string"&&/^#[0-9a-f]{6}$/i.test(st.mapBackground)?st.mapBackground:null;
+      setMapBackgrounds({dark:legacyColor,light:legacyColor});
+    }
     if(st.flowArrowStyle===undefined)setFlowArrowStyle("triangle");
     if(st.flowShape===undefined)setFlowShape("default");
   };
 
   const saveJSON=()=>{
-    const data={version:2,theme:themeKey,date:new Date().toISOString(),apps,flows,domColors,domScales,domPads,catColors,catPads,catBounds,globalScale,fontScale,flowThickness,mapBackground,zoom:zm,offset:off};
+    const data={version:2,theme:themeKey,date:new Date().toISOString(),apps,flows,domColors,domScales,domPads,catColors,catPads,catBounds,globalScale,fontScale,flowThickness,mapBackgrounds,zoom:zm,offset:off};
     const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
     const l=document.createElement("a");l.href=URL.createObjectURL(blob);
     l.download="cartographie_"+new Date().toISOString().slice(0,10)+".json";l.click();
@@ -1705,7 +1718,13 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
           if(data.catBounds) setCatBounds(data.catBounds);
           if(data.globalScale) setGlobalScale(data.globalScale);
           if(Number.isFinite(data.flowThickness))setFlowThickness(Math.max(1,Math.min(30,data.flowThickness)));
-          if(Object.prototype.hasOwnProperty.call(data,"mapBackground"))setMapBackground(typeof data.mapBackground==="string"&&/^#[0-9a-f]{6}$/i.test(data.mapBackground)?data.mapBackground:null);
+          if(data.mapBackgrounds&&typeof data.mapBackgrounds==="object"){
+            const validColor=value=>typeof value==="string"&&/^#[0-9a-f]{6}$/i.test(value);
+            setMapBackgrounds({dark:validColor(data.mapBackgrounds.dark)?data.mapBackgrounds.dark:null,light:validColor(data.mapBackgrounds.light)?data.mapBackgrounds.light:null});
+          }else if(Object.prototype.hasOwnProperty.call(data,"mapBackground")){
+            const legacyColor=typeof data.mapBackground==="string"&&/^#[0-9a-f]{6}$/i.test(data.mapBackground)?data.mapBackground:null;
+            setMapBackgrounds({dark:legacyColor,light:legacyColor});
+          }
           if(data.fontScale) setFontScale(data.fontScale);
           if(data.zoom) setZm(data.zoom);
           if(data.offset) setOff(data.offset);
@@ -4028,11 +4047,15 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
           </div>;})}
           <div className="mapping-menu-subtitle" style={{padding:"0 6px 6px"}}>Après agrandissement, optimisez la disposition si les éléments se chevauchent.</div>
           <div className="mapping-menu-section-title">Fond de la cartographie</div>
-          <div style={{display:"flex",alignItems:"center",gap:8,padding:"4px 6px 8px"}}>
-            <input aria-label="Couleur de fond de la cartographie" type="color" value={mapBackground|| (isDark?"#0B0B14":"#FFFFFF")} onChange={function(e){setMapBackground(e.target.value);}} style={{width:32,height:28,border:"1px solid "+T.border,borderRadius:6,cursor:"pointer",padding:2,background:T.bgAlt}}/>
-            <span style={{fontSize:10,color:T.fg,flex:1}}>{mapBackground||"Couleur du thème"}</span>
-            {mapBackground&&<button type="button" onClick={function(){setMapBackground(null);}} style={{...B,padding:"4px 8px",fontSize:10,background:T.bgAlt,color:T.fg,border:"1px solid "+T.border}}>Réinitialiser</button>}
-          </div>
+          {[{mode:"dark",label:"Mode nuit",fallback:"#0B0B14"},{mode:"light",label:"Mode jour",fallback:"#FFFFFF"}].map(function(item){
+            const color=mapBackgrounds?.[item.mode]||null;
+            return <div key={item.mode} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 6px"}}>
+              <span style={{fontSize:10,color:T.fgMuted,width:62,flexShrink:0}}>{item.label}</span>
+              <input aria-label={"Fond "+item.label.toLowerCase()} type="color" value={color||item.fallback} onChange={function(e){setMapBackgrounds(current=>({...current,[item.mode]:e.target.value}));}} style={{width:32,height:28,border:"1px solid "+T.border,borderRadius:6,cursor:"pointer",padding:2,background:T.bgAlt}}/>
+              <span style={{fontSize:10,color:T.fg,flex:1,fontFamily:"monospace"}}>{color||"Thème"}</span>
+              {color&&<button type="button" aria-label={"Réinitialiser "+item.label.toLowerCase()} onClick={function(){setMapBackgrounds(current=>({...current,[item.mode]:null}));}} style={{...B,padding:"4px 8px",fontSize:10,background:T.bgAlt,color:T.fg,border:"1px solid "+T.border}}>Réinitialiser</button>}
+            </div>;
+          })}
           <div style={{height:1,background:T.border,margin:"3px 4px 8px"}}/>
           <div className="mapping-menu-section-title">Mise en évidence</div>
           <div style={{display:"flex",gap:5,padding:"3px 4px 8px"}}>
