@@ -507,6 +507,7 @@ var AppCtx=React.createContext(null);
 
 function App({ initialSnapshot, onSave, wsMessage, projectId, onThemeChange, topOffset = 0, projectType = "deal", viewsSlot = null, isAdmin = false, readOnly = false }) {
   var _stateKey = projectId ? "carto_state_" + projectId : "carto_state";
+  var _displayKey = projectId ? "carto_display_" + projectId : "carto_display";
   var snapshotApplied = useRef(false);
   var [canvasReady, setCanvasReady] = useState(false);
   var [appliedSnapshot, setAppliedSnapshot] = useState(null);
@@ -753,7 +754,22 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   const [flowCrit,setFlowCrit]=useState("");
   const [flowDir,setFlowDir]=useState(""); // "" | "in" | "out" | "bi"
   const [showFluxListModal,setShowFluxListModal]=useState(null);
-  const [flowThickness,setFlowThickness]=useState(2);
+  const [flowThickness,setFlowThickness]=useState(function(){
+    try{
+      const saved=JSON.parse(localStorage.getItem(_displayKey)||"null");
+      return Number.isFinite(saved?.flowThickness)&&saved.flowThickness>=1&&saved.flowThickness<=30?saved.flowThickness:2;
+    }catch(err){console.error("Lecture des préférences d'affichage",err);return 2;}
+  });
+  const [mapBackground,setMapBackground]=useState(function(){
+    try{
+      const saved=JSON.parse(localStorage.getItem(_displayKey)||"null");
+      return typeof saved?.mapBackground==="string"&&/^#[0-9a-f]{6}$/i.test(saved.mapBackground)?saved.mapBackground:null;
+    }catch(err){console.error("Lecture des préférences d'affichage",err);return null;}
+  });
+  useEffect(function(){
+    try{localStorage.setItem(_displayKey,JSON.stringify({flowThickness,mapBackground}));}
+    catch(err){console.error("Enregistrement des préférences d'affichage",err);}
+  },[_displayKey,flowThickness,mapBackground]);
   const [flowFontSize,setFlowFontSize]=useState(13);
   const [panelOpen,setPanelOpen]=useState(false);
   const [flowDisplayMode,setFlowDisplayMode]=useState("dynamic"); // dynamic: au survol, static: tous les flux
@@ -1651,7 +1667,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
 
   const exportCSV=()=>{const h=["Nom","Domaine","Criticité","Éditeur","Version","Responsable","Utilisateurs","Description"];const rows=apps.map(a=>[a.name,a.domain,a.criticality,a.vendor,a.version,a.owner,a.users,a.description].map(v=>'"'+v+'"').join(";"));const blob=new Blob(["\uFEFF"+[h.join(";"),...rows].join("\n")],{type:"text/csv;charset=utf-8;"});const l=document.createElement("a");l.href=URL.createObjectURL(blob);l.download="cartographie.csv";l.click();};
 
-  const viewSettings=[["domScales",domScales,setDomScales],["domPads",domPads,setDomPads],["catPads",catPads,setCatPads],["catBounds",catBounds,setCatBounds],["catColors",catColors,setCatColors],["domColors",domColors,setDomColors],["globalScale",globalScale,setGlobalScale],["fontScale",fontScale,setFontScale],["appFontScale",appFontScale,setAppFontScale],["domainFontScale",domainFontScale,setDomainFontScale],["categoryFontScale",categoryFontScale,setCategoryFontScale],["categoryScale",categoryScale,setCategoryScale],["domainPadding",domainPadding,setDomainPadding],["domBorderW",domBorderW,setDomBorderW],["categoryBorderW",categoryBorderW,setCategoryBorderW],["appSpacing",appSpacing,setAppSpacing],["domainSpacing",domainSpacing,setDomainSpacing],["categorySpacing",categorySpacing,setCategorySpacing],["flowThickness",flowThickness,setFlowThickness],["flowFontSize",flowFontSize,setFlowFontSize],["flowDisplayMode",flowDisplayMode,setFlowDisplayMode],["flowDash",flowDash,setFlowDash],["flowShape",flowShape,setFlowShape],["flowArrowStyle",flowArrowStyle,setFlowArrowStyle],["flowColorCustom",flowColorCustom,setFlowColorCustom],["zoom",zm,setZm],["offset",off,setOff]];
+  const viewSettings=[["domScales",domScales,setDomScales],["domPads",domPads,setDomPads],["catPads",catPads,setCatPads],["catBounds",catBounds,setCatBounds],["catColors",catColors,setCatColors],["domColors",domColors,setDomColors],["globalScale",globalScale,setGlobalScale],["fontScale",fontScale,setFontScale],["appFontScale",appFontScale,setAppFontScale],["domainFontScale",domainFontScale,setDomainFontScale],["categoryFontScale",categoryFontScale,setCategoryFontScale],["categoryScale",categoryScale,setCategoryScale],["domainPadding",domainPadding,setDomainPadding],["domBorderW",domBorderW,setDomBorderW],["categoryBorderW",categoryBorderW,setCategoryBorderW],["appSpacing",appSpacing,setAppSpacing],["domainSpacing",domainSpacing,setDomainSpacing],["categorySpacing",categorySpacing,setCategorySpacing],["flowThickness",flowThickness,setFlowThickness],["mapBackground",mapBackground,setMapBackground],["flowFontSize",flowFontSize,setFlowFontSize],["flowDisplayMode",flowDisplayMode,setFlowDisplayMode],["flowDash",flowDash,setFlowDash],["flowShape",flowShape,setFlowShape],["flowArrowStyle",flowArrowStyle,setFlowArrowStyle],["flowColorCustom",flowColorCustom,setFlowColorCustom],["zoom",zm,setZm],["offset",off,setOff]];
   const getViewState=()=>{
     const positions={};apps.forEach(a=>{positions[a.id]=[a.x,a.y];});
     const st={version:1,positions:positions};
@@ -1668,7 +1684,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   };
 
   const saveJSON=()=>{
-    const data={version:2,theme:themeKey,date:new Date().toISOString(),apps,flows,domColors,domScales,domPads,catColors,catPads,catBounds,globalScale,fontScale,zoom:zm,offset:off};
+    const data={version:2,theme:themeKey,date:new Date().toISOString(),apps,flows,domColors,domScales,domPads,catColors,catPads,catBounds,globalScale,fontScale,flowThickness,mapBackground,zoom:zm,offset:off};
     const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
     const l=document.createElement("a");l.href=URL.createObjectURL(blob);
     l.download="cartographie_"+new Date().toISOString().slice(0,10)+".json";l.click();
@@ -1688,6 +1704,8 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
           if(data.catPads) setCatPads(data.catPads);
           if(data.catBounds) setCatBounds(data.catBounds);
           if(data.globalScale) setGlobalScale(data.globalScale);
+          if(Number.isFinite(data.flowThickness))setFlowThickness(Math.max(1,Math.min(30,data.flowThickness)));
+          if(Object.prototype.hasOwnProperty.call(data,"mapBackground"))setMapBackground(typeof data.mapBackground==="string"&&/^#[0-9a-f]{6}$/i.test(data.mapBackground)?data.mapBackground:null);
           if(data.fontScale) setFontScale(data.fontScale);
           if(data.zoom) setZm(data.zoom);
           if(data.offset) setOff(data.offset);
@@ -1906,8 +1924,8 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         var spec=specsById[f.id]||flowLabelSpec(f,labelFont,zm,measureFlowText);
         var lblW=spec.width,lblH=spec.height;
         return {id:f.id,line:<g>
-          {flowArrowStyle!=="none"&&<defs><marker id={arrowId} viewBox="0 0 10 7" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><FlowArrowShape style={flowArrowStyle} color={flowColor}/></marker></defs>}
-          <path d={pathD} stroke="transparent" strokeWidth={Math.max(16,flowThickness*4)} fill="none" style={{cursor:"pointer",pointerEvents:"stroke"}}
+          {flowArrowStyle!=="none"&&<defs><marker id={arrowId} viewBox="0 0 10 7" markerUnits="userSpaceOnUse" markerWidth={Math.max(10,flowThickness*1.5)} markerHeight={Math.max(7,flowThickness)} refX="10" refY="3.5" orient="auto"><FlowArrowShape style={flowArrowStyle} color={flowColor}/></marker></defs>}
+          <path d={pathD} stroke="transparent" strokeWidth={Math.max(16,Math.min(32,flowThickness+12))} fill="none" style={{cursor:"pointer",pointerEvents:"stroke"}}
             onClick={function(e){e.stopPropagation();setFlowSuppressed(false);setSelFlow(selFlow===f.id?null:f.id);setFocusApp(f.from===focusApp?focusApp:f.to===focusApp?focusApp:selApp?.id||f.from);setFlowCtx(null);}}
             onDoubleClick={function(e){e.stopPropagation();if(!readOnly){setEFlow(Object.assign({},f));setShowFM(true);setSelFlow(null);}}}
             onContextMenu={function(e){e.preventDefault();e.stopPropagation();if(!readOnly){setFlowCtx({flow:f,x:e.clientX,y:e.clientY});setSelFlow(f.id);}}}/>
@@ -1915,7 +1933,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
             onClick={function(e){e.stopPropagation();setFlowSuppressed(false);setSelFlow(selFlow===f.id?null:f.id);setFocusApp(f.from===focusApp?focusApp:f.to===focusApp?focusApp:selApp?.id||f.from);setFlowCtx(null);}}
             onDoubleClick={function(e){e.stopPropagation();if(!readOnly){setEFlow(Object.assign({},f));setShowFM(true);setSelFlow(null);}}}
             onContextMenu={function(e){e.preventDefault();e.stopPropagation();if(!readOnly){setFlowCtx({flow:f,x:e.clientX,y:e.clientY});setSelFlow(f.id);}}}/>
-          <circle cx={ep.x} cy={ep.y} r={Math.max(3,flowThickness+1)} fill={flowColor} fillOpacity={flowOpacity}/>
+          <circle cx={ep.x} cy={ep.y} r={Math.max(3,flowThickness*0.65)} fill={flowColor} fillOpacity={flowOpacity}/>
           {!staticMode&&flowIndex<16&&<circle r="3.2" fill={flowColor} opacity={flowOpacity} style={{filter:"drop-shadow(0 0 4px "+flowColor+")",pointerEvents:"none"}}><animateMotion path={pathD} dur={(1.5+(flowIndex%4)*0.22)+"s"} begin={(flowIndex%8)*0.13+"s"} repeatCount="indefinite"/></circle>}
         </g>,label:txt&&<g>
           <g opacity={flowLabelOpacity} transform={"translate("+labelX+" "+labelY+") scale("+lblScale+") translate("+(-labelX)+" "+(-labelY)+")"}>
@@ -3055,7 +3073,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       <div style={{marginBottom:20}}>
         <h3 style={{fontSize:13,color:T.fgMuted,marginBottom:8}}>Épaisseur des flux</h3>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
-          <input type="range" min="1" max="6" step="0.5" value={flowThickness} onChange={function(e){autoFlowSizes.current.thickness=null;setFlowThickness(parseFloat(e.target.value));}} style={{width:180}}/>
+          <input aria-label="Épaisseur des flux" type="range" min="1" max="30" step="0.5" value={flowThickness} onChange={function(e){autoFlowSizes.current.thickness=null;setFlowThickness(parseFloat(e.target.value));}} style={{width:180}}/>
           <span style={{fontSize:12,color:T.fg}}>{flowThickness}px</span>
         </div>
       </div>
@@ -4009,6 +4027,12 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
             <input aria-label={"Taille "+item.label} type="range" min={item.min} max={item.max} step={item.step} value={item.value} onChange={function(e){item.set(parseFloat(e.target.value));}} style={{width:"100%",cursor:"pointer"}}/>
           </div>;})}
           <div className="mapping-menu-subtitle" style={{padding:"0 6px 6px"}}>Après agrandissement, optimisez la disposition si les éléments se chevauchent.</div>
+          <div className="mapping-menu-section-title">Fond de la cartographie</div>
+          <div style={{display:"flex",alignItems:"center",gap:8,padding:"4px 6px 8px"}}>
+            <input aria-label="Couleur de fond de la cartographie" type="color" value={mapBackground|| (isDark?"#0B0B14":"#FFFFFF")} onChange={function(e){setMapBackground(e.target.value);}} style={{width:32,height:28,border:"1px solid "+T.border,borderRadius:6,cursor:"pointer",padding:2,background:T.bgAlt}}/>
+            <span style={{fontSize:10,color:T.fg,flex:1}}>{mapBackground||"Couleur du thème"}</span>
+            {mapBackground&&<button type="button" onClick={function(){setMapBackground(null);}} style={{...B,padding:"4px 8px",fontSize:10,background:T.bgAlt,color:T.fg,border:"1px solid "+T.border}}>Réinitialiser</button>}
+          </div>
           <div style={{height:1,background:T.border,margin:"3px 4px 8px"}}/>
           <div className="mapping-menu-section-title">Mise en évidence</div>
           <div style={{display:"flex",gap:5,padding:"3px 4px 8px"}}>
@@ -4053,8 +4077,8 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
           </div>
           <div className="mapping-menu-section-title">Épaisseur des flux</div>
           <div style={{display:"flex",alignItems:"center",gap:6,padding:"4px 8px"}}>
-            <input aria-label="Épaisseur des flux" type="range" min="1" max="6" step="0.5" value={flowThickness} onChange={function(e){autoFlowSizes.current.thickness=null;setFlowThickness(parseFloat(e.target.value));}} style={{flex:1,cursor:"pointer"}}/>
-            <span style={{fontSize:10,color:T.fg,minWidth:24}}>{flowThickness}px</span>
+            <input aria-label="Épaisseur des flux" type="range" min="1" max="30" step="0.5" value={flowThickness} onChange={function(e){autoFlowSizes.current.thickness=null;setFlowThickness(parseFloat(e.target.value));}} style={{flex:1,cursor:"pointer"}}/>
+            <span style={{fontSize:10,color:T.fg,minWidth:36,textAlign:"right"}}>{flowThickness}px / 30</span>
           </div>
           <div className="mapping-menu-section-title">Taille des libellés</div>
           <div style={{display:"flex",alignItems:"center",gap:6,padding:"4px 8px"}}>
@@ -4101,8 +4125,8 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
         {layoutReport.error?<div>Échec de l'évaluation : la disposition n'a pas été modifiée.</div>:layoutReport.flowLimited?<div>La taille maximale des flux est atteinte ; zoomez pour améliorer leur lisibilité.</div>:<div>Aucune disposition compatible avec les dimensions actuelles des domaines et catégories n'a été trouvée. Agrandissez-les ou réduisez les espacements avant de réessayer.</div>}
       </div>}
       <div style={{flex:1,minHeight:0,minWidth:0,display:"flex",overflow:"hidden"}}>
-      <div ref={cvRef} style={{flex:1,minHeight:0,minWidth:0,overflow:"hidden",position:"relative",background:isDark?"#0B0B14":"#FFFFFF",cursor:pan?"grabbing":cMode?"crosshair":selMode?"default":"grab"}} onMouseDown={function(e){if(openMenu)setOpenMenu(null);const onBackground=!e.target.closest?.('[data-app]')&&!e.target.closest?.('.flow-layer');if(onBackground){setFocusApp(null);setSelFlow(null);setFlowSuppressed(true);}onCD(e);}} onMouseMove={function(e){if(!e.target.closest?.('[data-app]')&&!e.target.closest?.('[data-panel]')&&!e.target.closest?.('.flow-layer')){if(flowDisplayMode==='dynamic'){setFlowSuppressed(true);if(focusApp&&!panelOpen)setFocusApp(null);if(selFlow&&!panelOpen)setSelFlow(null);}}onCM(e);}} onMouseUp={onCU} onMouseLeave={function(e){onCU(e);const enteringPanel=e.relatedTarget?.closest?.('[data-panel]');if(!enteringPanel&&flowDisplayMode==='dynamic'){setFlowSuppressed(true);setFocusApp(null);setSelFlow(null);}}} onWheel={onWh} onContextMenu={e=>e.preventDefault()}>
-        <div className="cbg" style={{position:"absolute",inset:0,backgroundColor:T.bg,backgroundImage:isDark?"radial-gradient(circle,rgba(148,163,184,.24) 1.15px,transparent 1.15px), radial-gradient(ellipse at 54% 46%,rgba(99,102,241,.08),transparent 68%)":"radial-gradient(circle,rgba(71,85,105,.16) 1px,transparent 1px), radial-gradient(ellipse at 18% 14%,rgba(99,102,241,.08),transparent 52%), radial-gradient(ellipse at 84% 86%,rgba(34,211,238,.08),transparent 56%)",backgroundSize:isDark?"34px 34px,100% 100%":"32px 32px,100% 100%,100% 100%"}}/>
+      <div ref={cvRef} style={{flex:1,minHeight:0,minWidth:0,overflow:"hidden",position:"relative",background:mapBackground||(isDark?"#0B0B14":"#FFFFFF"),cursor:pan?"grabbing":cMode?"crosshair":selMode?"default":"grab"}} onMouseDown={function(e){if(openMenu)setOpenMenu(null);const onBackground=!e.target.closest?.('[data-app]')&&!e.target.closest?.('.flow-layer');if(onBackground){setFocusApp(null);setSelFlow(null);setFlowSuppressed(true);}onCD(e);}} onMouseMove={function(e){if(!e.target.closest?.('[data-app]')&&!e.target.closest?.('[data-panel]')&&!e.target.closest?.('.flow-layer')){if(flowDisplayMode==='dynamic'){setFlowSuppressed(true);if(focusApp&&!panelOpen)setFocusApp(null);if(selFlow&&!panelOpen)setSelFlow(null);}}onCM(e);}} onMouseUp={onCU} onMouseLeave={function(e){onCU(e);const enteringPanel=e.relatedTarget?.closest?.('[data-panel]');if(!enteringPanel&&flowDisplayMode==='dynamic'){setFlowSuppressed(true);setFocusApp(null);setSelFlow(null);}}} onWheel={onWh} onContextMenu={e=>e.preventDefault()}>
+        <div className="cbg" style={{position:"absolute",inset:0,backgroundColor:mapBackground||(isDark?"#0B0B14":"#FFFFFF"),backgroundImage:isDark?"radial-gradient(circle,rgba(148,163,184,.24) 1.15px,transparent 1.15px), radial-gradient(ellipse at 54% 46%,rgba(99,102,241,.08),transparent 68%)":"radial-gradient(circle,rgba(71,85,105,.16) 1px,transparent 1px), radial-gradient(ellipse at 18% 14%,rgba(99,102,241,.08),transparent 52%), radial-gradient(ellipse at 84% 86%,rgba(34,211,238,.08),transparent 56%)",backgroundSize:isDark?"34px 34px,100% 100%":"32px 32px,100% 100%,100% 100%"}}/>
       <div style={{transform:`translate(${off.x}px,${off.y}px) scale(${zm})`,transformOrigin:"0 0",position:"absolute",top:0,left:0,width:5000,height:4000}}>
         <CategoryZones/><DomainZones/><FlowLines/>{filtered.map(a=><AppNode key={a.id} app={a}/>)}
         {lasso&&<div style={{position:"absolute",left:Math.min(lasso.x0,lasso.x1),top:Math.min(lasso.y0,lasso.y1),width:Math.abs(lasso.x1-lasso.x0),height:Math.abs(lasso.y1-lasso.y0),border:(1.5/zm)+"px dashed #34D399",background:"rgba(52,211,153,.10)",borderRadius:6/zm,pointerEvents:"none",zIndex:50}}/>}

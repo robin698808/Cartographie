@@ -171,8 +171,12 @@ ne peut pas être garantie.
 Dans **Affichage**, la police générale peut atteindre 400 %, les polices des
 applications, domaines et catégories 600 %, les applications 800 %, la marge
 des domaines 1 000 px et la taille des catégories 400 %. Dans **Flux**, les
-libellés peuvent atteindre 96 points. Les grandes tailles peuvent nécessiter
-une nouvelle optimisation pour limiter les chevauchements.
+libellés peuvent atteindre 96 points et l'épaisseur des traits 30 px. Le
+réglage du fond de la cartographie est disponible dans **Affichage** ; il est
+mémorisé localement par projet et inclus dans les vues nommées et les exports
+JSON. Le bouton de réinitialisation rétablit le fond associé au thème. Les
+grandes tailles peuvent nécessiter une nouvelle optimisation pour limiter les
+chevauchements.
 
 Après optimisation, « Recentrer » cadre toute la carte sans déplacer les
 applications ; l'annulation restaure également le zoom et la position précédents.
