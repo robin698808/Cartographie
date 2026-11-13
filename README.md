@@ -116,6 +116,15 @@ selon les conflits de tracé et d'étiquettes. Au-delà, elle utilise une
 disposition aérée sans évaluation détaillée. Les croisements ne peuvent pas
 toujours être éliminés.
 
+À chaque ouverture d'une cartographie, cette optimisation est lancée
+automatiquement après le chargement des données. Dans un projet modifiable,
+les nouvelles positions suivent la sauvegarde automatique habituelle ; le
+bouton « Annuler l'optimisation » permet de revenir à la disposition précédente.
+Cette annulation devient indisponible si les applications sont modifiées par
+un autre utilisateur, afin de ne pas écraser ses changements.
+En lecture seule, la disposition optimisée reste temporaire et n'est pas
+enregistrée dans le projet.
+
 Avec au plus 120 flux et les trois espacements à leurs valeurs par défaut,
 l'optimisation compare également une disposition compacte. Elle la retient si
 elle réduit la surface de la carte d'au moins 10 %, sans augmenter les flux

@@ -509,6 +509,7 @@ function App({ initialSnapshot, onSave, wsMessage, projectId, onThemeChange, top
   var _stateKey = projectId ? "carto_state_" + projectId : "carto_state";
   var snapshotApplied = useRef(false);
   var [canvasReady, setCanvasReady] = useState(false);
+  var [appliedSnapshot, setAppliedSnapshot] = useState(null);
   var _tk=useState(getMode);
   var themeKey=_tk[0],setThemeKey=_tk[1];
   var T=THEMES[themeKey]||THEMES.dark;
@@ -560,10 +561,12 @@ function App({ initialSnapshot, onSave, wsMessage, projectId, onThemeChange, top
   const [flowCtx,setFlowCtx]=useState(null);// context menu {flow, x, y}
   const [layoutUndo,setLayoutUndo]=useState(null);
   const [layoutReport,setLayoutReport]=useState(null);
+  const openingOptimizationStarted=useRef(false);
   const autoFlowSizes=useRef({font:null,thickness:null});
   const [optimizing,setOptimizing]=useState(false);
   const optimizingRef=useRef(false);
   const optimizationTimer=useRef(null);
+  const optimizationWork=useRef(null);
   useEffect(()=>()=>{if(optimizationTimer.current!==null)clearTimeout(optimizationTimer.current);},[]);
   const pendingOptimizedFrame=useRef(false);
   const [drag,setDrag]=useState(null); // {id,ox,oy} for app or {domain,ox,oy,appIds} for domain group
@@ -642,6 +645,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         if(initialSnapshot.dom_colors) setDomColors(initialSnapshot.dom_colors);
         if(initialSnapshot.apps.length || readOnly) setView("mapping");
       }
+      setAppliedSnapshot(initialSnapshot);
     }
     setCanvasReady(true);
   }, [initialSnapshot,readOnly]);
@@ -650,7 +654,10 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   useEffect(function(){
     if(!wsMessage) return;
     if(wsMessage.type==="apps_update" && wsMessage.payload?.payload){
-      setApps(wsMessage.payload.payload.apps||apps);
+      if(wsMessage.payload.payload.apps){
+        setApps(wsMessage.payload.payload.apps);
+        setLayoutUndo(null);
+      }
     }
     if(wsMessage.type==="flows_update" && wsMessage.payload?.payload){
       setFlows(wsMessage.payload.payload.flows||flows);
@@ -1455,13 +1462,14 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     setDomPads(best.domPads);
     if(!interactive)setTimeout(function(){fitCanvas(best.apps);},50);
   };
+  optimizationWork.current=()=>applyStarLayout(undefined,true);
   const runOptimization=()=>{
     if(optimizingRef.current||!apps.length)return;
     optimizingRef.current=true;
     setOptimizing(true);
     optimizationTimer.current=setTimeout(()=>{
       optimizationTimer.current=null;
-      try{applyStarLayout(undefined,true);}
+      try{optimizationWork.current();}
       catch(err){console.error("Optimisation de la disposition",err);setLayoutReport({error:true});}
       finally{optimizingRef.current=false;setOptimizing(false);}
     },50);
@@ -1513,12 +1521,12 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   },[apps,layoutReport,appFontScale,domainFontScale,categoryFontScale,flowFontSize]);
 
   useEffect(function(){
-    if(readOnly||!initialSnapshot||!initialSnapshot.apps||!initialSnapshot.apps.length)return;
-    var migrationKey=_stateKey+"_dense_layout_v6";
-    try{if(localStorage.getItem(migrationKey)==="done")return;}catch(e){}
-    try{localStorage.setItem(migrationKey,"done");}catch(e){}
-    applyStarLayout(initialSnapshot.apps);
-  },[apps,initialSnapshot,readOnly]);
+    if(openingOptimizationStarted.current||!canvasReady||view!=="mapping"||!apps.length)return;
+    if(initialSnapshot&&appliedSnapshot!==initialSnapshot)return;
+    if(apps.some(a=>a.category&&!catBounds[a.category]))return;
+    openingOptimizationStarted.current=true;
+    runOptimization();
+  },[canvasReady,view,apps,flows,initialSnapshot,appliedSnapshot,catBounds]);
 
 
   const exportXLSX=async()=>{
@@ -3902,7 +3910,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
       {activeFilters&&<button onMouseDown={e=>{e.stopPropagation();setSelDom([]);setSelCat([]);setSelCrit([]);setSelHost([]);setSelAType([]);setSelEos([]);setSelD1("");setSelD2("");setSelStatut("");setFlowDir("");}} style={{...B,padding:"4px 8px",fontSize:11,background:"#FF525220",color:"#FF5252",borderRadius:4}}>✕</button>}
       <div style={{flex:1}}/>
       {!readOnly&&<button type="button" className="mapping-trigger mapping-trigger-primary" disabled={optimizing} onClick={runOptimization} title="Rapproche les applications et domaines connectés et adapte les espacements." style={{...B,padding:"7px 11px",fontSize:9.5,background:"linear-gradient(120deg,#4F46E5,#6366F1 58%,#0EA5E9)",color:"#fff",border:"1px solid rgba(165,180,252,.45)",borderRadius:11,display:"flex",alignItems:"center",gap:6,fontWeight:800,boxShadow:"0 6px 16px rgba(79,70,229,.28)"}}><span style={{fontSize:13}}>✦</span> Optimiser la disposition</button>}
-      {!readOnly&&layoutUndo&&<button type="button" className="mapping-trigger" onClick={function(){pendingOptimizedFrame.current=false;setApps(current=>current.map(a=>layoutUndo.positions[a.id]?{...a,x:layoutUndo.positions[a.id][0],y:layoutUndo.positions[a.id][1]}:a));setCatBounds(layoutUndo.catBounds);setDomPads(layoutUndo.domPads);if(layoutUndo.autoSizes.app)setAppFontScale(current=>current===layoutUndo.autoSizes.app.after?layoutUndo.autoSizes.app.before:current);if(layoutUndo.autoSizes.domain)setDomainFontScale(current=>current===layoutUndo.autoSizes.domain.after?layoutUndo.autoSizes.domain.before:current);if(layoutUndo.autoSizes.flow)setFlowFontSize(current=>current===layoutUndo.autoSizes.flow.after?layoutUndo.autoSizes.flow.before:current);if(layoutUndo.autoSizes.thickness)setFlowThickness(current=>current===layoutUndo.autoSizes.thickness.after?layoutUndo.autoSizes.thickness.before:current);if(autoFlowSizes.current.font!==null)autoFlowSizes.current.font=layoutUndo.previousAutoFlow.font;if(autoFlowSizes.current.thickness!==null)autoFlowSizes.current.thickness=layoutUndo.previousAutoFlow.thickness;if(layoutUndo.autoSizes.scale)setGlobalScale(current=>current===layoutUndo.autoSizes.scale.after?layoutUndo.autoSizes.scale.before:current);setZm(layoutUndo.zoom);setOff(layoutUndo.offset);setLayoutUndo(null);setLayoutReport(null);}} style={{...B,padding:"7px 10px",fontSize:10,background:toolbarSurface,color:T.fg,border:"1px solid "+T.border}}>Annuler l'optimisation</button>}
+      {layoutUndo&&<button type="button" className="mapping-trigger" onClick={function(){pendingOptimizedFrame.current=false;setApps(current=>current.map(a=>layoutUndo.positions[a.id]?{...a,x:layoutUndo.positions[a.id][0],y:layoutUndo.positions[a.id][1]}:a));setCatBounds(layoutUndo.catBounds);setDomPads(layoutUndo.domPads);if(layoutUndo.autoSizes.app)setAppFontScale(current=>current===layoutUndo.autoSizes.app.after?layoutUndo.autoSizes.app.before:current);if(layoutUndo.autoSizes.domain)setDomainFontScale(current=>current===layoutUndo.autoSizes.domain.after?layoutUndo.autoSizes.domain.before:current);if(layoutUndo.autoSizes.flow)setFlowFontSize(current=>current===layoutUndo.autoSizes.flow.after?layoutUndo.autoSizes.flow.before:current);if(layoutUndo.autoSizes.thickness)setFlowThickness(current=>current===layoutUndo.autoSizes.thickness.after?layoutUndo.autoSizes.thickness.before:current);if(autoFlowSizes.current.font!==null)autoFlowSizes.current.font=layoutUndo.previousAutoFlow.font;if(autoFlowSizes.current.thickness!==null)autoFlowSizes.current.thickness=layoutUndo.previousAutoFlow.thickness;if(layoutUndo.autoSizes.scale)setGlobalScale(current=>current===layoutUndo.autoSizes.scale.after?layoutUndo.autoSizes.scale.before:current);setZm(layoutUndo.zoom);setOff(layoutUndo.offset);setLayoutUndo(null);setLayoutReport(null);}} style={{...B,padding:"7px 10px",fontSize:10,background:toolbarSurface,color:T.fg,border:"1px solid "+T.border}}>Annuler l'optimisation</button>}
       {/* ── Création menu ── */}
       {!readOnly&&<div className="mapping-trigger-anchor" style={{position:"relative"}}>
         <button className="mapping-trigger" aria-haspopup="true" aria-expanded={openMenu==="create"} onClick={function(){setOpenMenu(openMenu==="create"?null:"create");}} style={{...B,background:openMenu==="create"?"linear-gradient(135deg,#6366F126,#8B5CF618)":cMode?"linear-gradient(135deg,#EF44442E,#F9731618)":toolbarSurface,color:cMode?"#FB7185":T.fgMuted,border:"1px solid "+(cMode?"#EF444466":openMenu==="create"?"#8B5CF655":T.border),padding:"7px 11px",fontSize:10,borderRadius:10,display:"flex",alignItems:"center",gap:7,boxShadow:cMode?"0 4px 14px rgba(239,68,68,.14)":"0 3px 10px rgba(0,0,0,.12)"}}>
