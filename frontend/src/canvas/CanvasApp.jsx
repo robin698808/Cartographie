@@ -6,12 +6,13 @@ import ItemsChart from './ChartKit';
 import { PaletteContext, useWidgetPalettes } from '../utils/chartPalettes';
 import PaletteSelect from '../components/PaletteSelect';
 import { LogoMark } from '../components/Logo';
-import { Network, Boxes, ChartNoAxesCombined, ListChecks, PanelLeftClose, PanelLeftOpen, Layers3 } from 'lucide-react';
+import { Network, Boxes, ChartNoAxesCombined, ListChecks, PanelLeftClose, PanelLeftOpen, Layers3, CheckCircle2, FileSpreadsheet, ArrowLeft, ArrowRight, Eye } from 'lucide-react';
 import './Sidebar.css';
+import './ImportMapping.css';
 import WidgetHeader from './WidgetHeader';
 import DashboardInsights, { healthScore } from './DashboardInsights';
 import { routeFlows, pathToD, curvedFlowPath, placeLabels, straightFlowPath, flowLabelSpec, evaluateFlowLayout } from './flowRouting';
-import { placeMostConnectedFirst, gridOffsets, optimizedAppScale, optimizedSpacing, fitBounds } from './layoutDensity';
+import { placeMostConnectedFirst, gridOffsets, repositionFixedBounds, preserveDomainSize, optimizedSpacing, fitBounds, DEFAULT_LAYOUT_SPACING, compactLayoutEligible, compactLayoutAcceptable } from './layoutDensity';
 import ViewsMenu from './ViewsMenu';
 import ExportModal from './ExportModal';
 import OptionListsEditor from './OptionListsEditor';
@@ -733,9 +734,9 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   const [flowFontSize,setFlowFontSize]=useState(13);
   const [panelOpen,setPanelOpen]=useState(false);
   const [flowDisplayMode,setFlowDisplayMode]=useState("dynamic"); // dynamic: au survol, static: tous les flux
-  const [appSpacing,setAppSpacing]=useState(2);
-  const [domainSpacing,setDomainSpacing]=useState(44);
-  const [categorySpacing,setCategorySpacing]=useState(30);
+  const [appSpacing,setAppSpacing]=useState(DEFAULT_LAYOUT_SPACING.app);
+  const [domainSpacing,setDomainSpacing]=useState(DEFAULT_LAYOUT_SPACING.domain);
+  const [categorySpacing,setCategorySpacing]=useState(DEFAULT_LAYOUT_SPACING.category);
   const [domainPadding,setDomainPadding]=useState(18);
   const [categoryScale,setCategoryScale]=useState(1);
   const [categoryBorderW,setCategoryBorderW]=useState(2.5);
@@ -1188,28 +1189,17 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     if(layoutApps.length===0)return;
     const sizes={app:appFontScale,domain:domainFontScale,category:categoryFontScale,flow:flowFontSize};
     const baseWidth=220*Math.max(1,sizes.app/2.4),baseHeight=84*Math.max(1,sizes.app/2.4);
-    const measureContext=interactive?document.createElement("canvas").getContext("2d"):null;
-    if(interactive&&!measureContext){console.error("Impossible de mesurer les textes pour optimiser la disposition");setLayoutReport({error:true});return;}
-    const fontFamily=interactive?getComputedStyle(cvRef.current).fontFamily:"sans-serif";
-    const measure=(text,size,weight)=>{measureContext.font=weight+" "+Math.round(size)+"px "+fontFamily;return measureContext.measureText(text||"").width;};
-    const requirements=interactive?layoutApps.map(a=>{
-      const ds=domScales[a.domain]||1,fsD=fontScale*ds,scale=ds*Math.max(0.7,fontScale);
-      const criticality=a.criticality==="Standalone temporaire"?"Stand.":a.criticality||"";
-      const criticalWidth=Math.max(measure(criticality,9*fsD*sizes.app,850),15*fsD*sizes.app);
-      const secondary=a.vendor||a.category||"";
-      const d2=projectType==="deal"&&a.statusD2?"D2 · "+(a.statusD2==="Clone & Clean"?"Clone":a.statusD2):"";
-      const textWidth=Math.max(measure(a.name,15*fsD*sizes.app,900),measure(secondary,11*fsD*sizes.app,600),d2?measure(d2,8*fsD*sizes.app,800)+12:0);
-      const status=projectType==="deal"?a.statusD1:a.statut;
-      const statusHeight=status?(sizes.app>2.4?Math.max(10,Math.round(7.5*fsD*sizes.app)):Math.max(10,Math.round(9*fsD))):0;
-      return {baseWidth:baseWidth*scale,baseHeight:baseHeight*scale,width:textWidth+criticalWidth+32,height:15*fsD*sizes.app*1.12+11*fsD*sizes.app*1.2+(d2?8*fsD*sizes.app*1.35+6:0)+statusHeight+10};
-    }):[];
-    const layoutScale=interactive?optimizedAppScale(globalScale,requirements):globalScale;
-    const sizeLimited=requirements.some(item=>item.width>item.baseWidth*layoutScale||item.height>item.baseHeight*layoutScale);
-    const layoutCard=a=>({id:a.id,x:a.x,y:a.y,w:baseWidth*layoutScale*(domScales[a.domain]||1)*Math.max(0.7,fontScale),h:baseHeight*layoutScale*(domScales[a.domain]||1)*Math.max(0.7,fontScale)});
-    const makeLayout=(extraGap,orderByConnections=false)=>{
+    const layoutScale=globalScale;
+    const layoutCard=a=>({id:a.id,x:a.x,y:a.y,w:Math.round(baseWidth*layoutScale*(domScales[a.domain]||1)*Math.max(0.7,fontScale)),h:Math.round(baseHeight*layoutScale*(domScales[a.domain]||1)*Math.max(0.7,fontScale))});
+    const originalDomains={};
+    if(interactive)layoutApps.forEach(a=>{
+      const card=layoutCard(a),b=originalDomains[a.domain]||(originalDomains[a.domain]={x1:Infinity,y1:Infinity,x2:-Infinity,y2:-Infinity});
+      b.x1=Math.min(b.x1,card.x);b.y1=Math.min(b.y1,card.y);b.x2=Math.max(b.x2,card.x+card.w);b.y2=Math.max(b.y2,card.y+card.h);
+    });
+    const makeLayout=(extraGap,orderByConnections=false,compact=false)=>{
     const central=orderByConnections==="central";
-    const cW=Math.round(baseWidth*layoutScale*Math.max(0.7,fontScale));
-    const cH=Math.round(baseHeight*layoutScale*Math.max(0.7,fontScale));
+    const cW=baseWidth*layoutScale*Math.max(0.7,fontScale);
+    const cH=baseHeight*layoutScale*Math.max(0.7,fontScale);
     const hasFlowsToRoute=flows.length>0;
     const domPad=44,domSide=22,domGap=domainSpacing;
     const spacingFor=(width,height)=>optimizedSpacing({
@@ -1220,7 +1210,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       categoryTop:Math.max(Math.round(30*categoryScale),38+Math.round(28*fontScale)+24,domainPadding+Math.round(24*fontScale*sizes.domain)+14),
       categoryBottom:Math.round(32*categoryScale),
       categoryBar:Math.max(Math.round(38*fontScale*categoryScale*sizes.category),Math.ceil(34/0.35)),
-      domainInsetX:2*domSide,domainInsetY:domPad+26,
+      domainInsetX:2*domSide,domainInsetY:domPad+26,compact,
     });
     // 1. Compter les flux inter-domaines
     const domFlows={};
@@ -1265,7 +1255,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         var cols=Math.max(1,Math.min(3,Math.ceil(Math.sqrt(groupApps.length))));
         var rows=Math.ceil(groupApps.length/cols);
         if(central)groupApps=placeMostConnectedFirst(groupApps,cols,appConn);
-        var grid=gridOffsets(groupApps,cols,appW,appH,cGx,cGy,appConn,central?4:0);
+        var grid=gridOffsets(groupApps,cols,appW,appH,cGx,cGy,appConn,central?(compact?2:4):0);
         return{category:category,apps:groupApps,cols:cols,rows:rows,w:grid.w,h:grid.h,xOffsets:grid.x,yOffsets:grid.y};
       }).sort(function(a,b){return b.apps.length-a.apps.length;});
       var categoryCols=Math.max(1,Math.min(3,Math.ceil(Math.sqrt(layouts.length))));
@@ -1279,9 +1269,10 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       rowHeights.forEach(function(height,i){yOffsets[i]=cursor;cursor+=height+(i<rowHeights.length-1?categoryGapY:0);});
       var contentH=cursor;
       layouts.forEach(function(layout,i){layout.x=xOffsets[i%categoryCols];layout.y=yOffsets[Math.floor(i/categoryCols)];});
-      const headerWidth=interactive?measure(dom.toUpperCase(),13*fontScale*sizes.domain,850)+dom.length+72:0;
-      const extraWidth=Math.max(0,headerWidth-(contentW+2*domainPadding));
-      return{w:contentW+domSide*2+extraWidth,h:contentH+domPad+26,layouts:layouts,appW:appW,appH:appH,extraWidth:extraWidth};
+      const original=originalDomains[dom],pad=domPads[dom];
+      const fixedWidth=interactive&&pad?original.x2-original.x1+pad.w:contentW;
+      const fixedHeight=interactive&&pad?original.y2-original.y1+pad.h:contentH;
+      return{w:Math.max(contentW,fixedWidth)+domSide*2,h:Math.max(contentH,fixedHeight)+domPad+26,layouts:layouts,appW:appW,appH:appH};
     };
     // 4. Ordonner les domaines par proximité réelle des flux, puis les placer en grille compacte.
     var pendingDomains=doms.slice();
@@ -1323,9 +1314,9 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     // Couloirs proportionnels au nombre de flux qui traversent chaque fronti?re.
     var crossing=function(axis,boundary){var c=0;for(var i=0;i<domainLayouts.length;i++)for(var j=i+1;j<domainLayouts.length;j++){var w=pairFlows[[domainLayouts[i].domain,domainLayouts[j].domain].sort().join("\x00")]||0;if(!w)continue;var ai=axis===0?i%domainCols:Math.floor(i/domainCols),aj=axis===0?j%domainCols:Math.floor(j/domainCols);if(Math.min(ai,aj)<=boundary&&Math.max(ai,aj)>boundary)c+=w;}return c;};
     var colOffsets=[],rowOffsets=[],offset=0;
-    colWidths.forEach(function(width,index){colOffsets[index]=offset;offset+=width+(index<colWidths.length-1?domainGapX+crossing(0,index)*8:0);});
+    colWidths.forEach(function(width,index){colOffsets[index]=offset;offset+=width+(index<colWidths.length-1?domainGapX+crossing(0,index)*(compact?4:8):0);});
     offset=0;
-    rowHeights.forEach(function(height,index){rowOffsets[index]=offset;offset+=height+(index<rowHeights.length-1?domainGapY+crossing(1,index)*8:0);});
+    rowHeights.forEach(function(height,index){rowOffsets[index]=offset;offset+=height+(index<rowHeights.length-1?domainGapY+crossing(1,index)*(compact?4:8):0);});
     // 5. Positionner les applications par domaine, puis par catégorie.
     var na=layoutApps.map(function(a){return Object.assign({},a);});
     domainLayouts.forEach(function(item,index){
@@ -1338,44 +1329,88 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       });});
     });
     // Compute category bounds from their own applications so groups stay distinct.
-    var newCatBounds={},newDomPads={};
-    domainLayouts.forEach(function(item){if(item.size.extraWidth>0)newDomPads[item.domain]={w:item.size.extraWidth,h:0};});
+    var newCatBounds={},newDomPads=interactive?{...domPads}:{};
+    let compatible=true;
+    const newDomains={};
     na.forEach(function(a){
+      const card=layoutCard(a),domain=newDomains[a.domain]||(newDomains[a.domain]={x1:Infinity,y1:Infinity,x2:-Infinity,y2:-Infinity});
+      domain.x1=Math.min(domain.x1,card.x);domain.y1=Math.min(domain.y1,card.y);domain.x2=Math.max(domain.x2,card.x+card.w);domain.y2=Math.max(domain.y2,card.y+card.h);
       var cat=a.category;if(!cat)return;
       if(!newCatBounds[cat])newCatBounds[cat]={x1:Infinity,y1:Infinity,x2:-Infinity,y2:-Infinity};
-      var appW=layoutCard(a).w;
-      var appH=layoutCard(a).h;
+      var appW=card.w;
+      var appH=card.h;
       newCatBounds[cat].x1=Math.min(newCatBounds[cat].x1,a.x);
       newCatBounds[cat].y1=Math.min(newCatBounds[cat].y1,a.y);
       newCatBounds[cat].x2=Math.max(newCatBounds[cat].x2,a.x+appW);
       newCatBounds[cat].y2=Math.max(newCatBounds[cat].y2,a.y+appH);
     });
-    return {apps:na,catBounds:newCatBounds,domPads:newDomPads};
+    if(interactive)domainLayouts.forEach(function(item){
+      if(!domPads[item.domain])return;
+      const pad=preserveDomainSize(originalDomains[item.domain],domPads[item.domain],newDomains[item.domain]);
+      if(pad)newDomPads[item.domain]=pad;else compatible=false;
+    });
+    if(interactive)Object.entries(newCatBounds).forEach(function([cat,content]){
+      if(!catBounds[cat])return;
+      const fixed=repositionFixedBounds(catBounds[cat],content);
+      if(fixed)newCatBounds[cat]=fixed;else compatible=false;
+    });
+    return {apps:na,catBounds:newCatBounds,domPads:newDomPads,compatible};
     };
-    let best=makeLayout(interactive&&flows.length>120?250:0,interactive&&flows.length>120?"central":false),bestReport=null;
-    if(interactive&&flows.length&&flows.length<=120){
-      const attempts=layoutApps.length<=100?[[0,"central"],[120,"central"],[300,"central"],[550,"central"]]:[[0,"central"],[250,"central"]];
+    const evaluateCandidate=candidate=>{
+      const options={sizes,categoryBounds:candidate.catBounds,domainPads:candidate.domPads};
+      const geometry=getOptimizedFrame(candidate.apps,layoutCard,options);
+      const report=evaluateFlowLayout(candidate.apps.map(layoutCard),flows,sizes.flow,geometry.zoom,flowShape);
+      const frame=getCanvasFrame(candidate.apps,layoutCard,options),bounds=frame.bounds;
+      const domainBoxes={};
+      candidate.apps.forEach(a=>{
+        const c=layoutCard(a),b=domainBoxes[a.domain]||(domainBoxes[a.domain]={x1:Infinity,y1:Infinity,x2:-Infinity,y2:-Infinity});
+        b.x1=Math.min(b.x1,c.x);b.y1=Math.min(b.y1,c.y);b.x2=Math.max(b.x2,c.x+c.w);b.y2=Math.max(b.y2,c.y+c.h);
+      });
+      const domains=Object.entries(domainBoxes).map(([name,b])=>{
+        const pad=candidate.domPads[name]||{w:0,h:0};
+        return {x1:b.x1-domainPadding,y1:b.y1-domainPadding-Math.round(24*fontScale*sizes.domain),x2:b.x2+domainPadding+pad.w,y2:b.y2+domainPadding+pad.h};
+      });
+      const side=Math.round(30*categoryScale),bottom=Math.round(32*categoryScale);
+      const top=Math.max(side,38+Math.round(28*fontScale)+24,domainPadding+Math.round(24*fontScale*sizes.domain)+14)+Math.max(Math.round(38*fontScale*categoryScale*sizes.category),Math.ceil(34/0.35));
+      const categories=Object.entries(candidate.catBounds).filter(([name])=>candidate.apps.some(a=>a.category===name)).map(([,b])=>({x1:b.x1-side,y1:b.y1-top,x2:b.x2+side,y2:b.y2+bottom}));
+      const overlaps=boxes=>boxes.reduce((total,a,i)=>total+boxes.slice(0,i).filter(b=>a.x1<b.x2&&a.x2>b.x1&&a.y1<b.y2&&a.y2>b.y1).length,0);
+      return {candidate,report,area:(bounds.x2-bounds.x1)*(bounds.y2-bounds.y1),zoneOverlaps:overlaps(domains)+overlaps(categories)};
+    };
+    let best=makeLayout(interactive&&flows.length>120?250:0,interactive&&flows.length>120?"central":false);
+    const allowCompact=interactive&&compactLayoutEligible(flows.length,appSpacing,domainSpacing,categorySpacing);
+    if(interactive&&((flows.length>0&&flows.length<=120)||allowCompact)){
+      const attempts=flows.length?(layoutApps.length<=100?[[0,"central"],[120,"central"],[300,"central"],[550,"central"]]:[[0,"central"],[250,"central"]]):[[0,false]];
       let bestScore=Infinity;
+      let baseline=null;
+      best=null;
       try{
-        attempts.forEach(function([gap,orderByConnections],index){
+        attempts.forEach(function([gap,orderByConnections]){
           const candidate=makeLayout(gap,orderByConnections);
-          const geometry=getOptimizedFrame(candidate.apps,layoutCard,{sizes,categoryBounds:candidate.catBounds,domainPads:candidate.domPads});
-          const report=evaluateFlowLayout(candidate.apps.map(layoutCard),flows,sizes.flow,geometry.zoom,flowShape);
+          if(!candidate.compatible)return;
+          const evaluated=evaluateCandidate(candidate),report=evaluated.report;
           const score=report.unrouted*100000+(report.labelOverlaps+report.cardOverlaps)*1000+report.flowOverlaps*10+report.flowCrossings*5+report.straightFallbacks;
-          if(score<bestScore){bestScore=score;best=candidate;bestReport={...report,smallLabels:sizes.flow*geometry.zoom*Math.min(1/Math.max(0.08,geometry.zoom),1.6)<10};}
+          if(score<bestScore){bestScore=score;baseline=evaluated;best=candidate;}
         });
+        if(allowCompact&&baseline){
+          const candidate=makeLayout(0,flows.length?"central":false,true);
+          if(candidate.compatible){
+            const evaluated=evaluateCandidate(candidate);
+            if(compactLayoutAcceptable(baseline,evaluated))best=candidate;
+          }
+        }
       }catch(err){
         console.error("Optimisation des flux",err);
         setLayoutReport({error:true});
         return;
       }
-      setLayoutReport({...bestReport,attempts:attempts.length,sizeLimited});
+      if(!best){setLayoutReport({incompatible:true});return;}
+      setLayoutReport(null);
     }else if(interactive){
-      setLayoutReport(flows.length?{skipped:true,sizeLimited}:{empty:true,sizeLimited});
+      if(!best.compatible){setLayoutReport({incompatible:true});return;}
+      setLayoutReport(null);
     }
     if(interactive){
-      setLayoutUndo({positions:Object.fromEntries(apps.map(a=>[a.id,[a.x,a.y]])),catBounds,domPads,zoom:zm,offset:off,globalScale});
-      setGlobalScale(layoutScale);
+      setLayoutUndo({positions:Object.fromEntries(apps.map(a=>[a.id,[a.x,a.y]])),catBounds,domPads,zoom:zm,offset:off});
       pendingOptimizedFrame.current=true;
     }
     setApps(best.apps);
@@ -1410,7 +1445,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         const top=Math.max(side,38+Math.round(28*fontScale)+24,domainPadding+Math.round(24*fontScale*sizes.domain)+14);
         include(box.x1-side,box.y1-top-bar,box.x2+side,box.y2+bottom);
       });
-      frame=fitBounds(bounds,vw,vh,40);
+      frame={...fitBounds(bounds,vw,vh,40),bounds};
       if(Math.abs(frame.zoom-zoom)<0.0001)break;
       zoom=frame.zoom;
     }
@@ -2886,27 +2921,47 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     <button onClick={()=>{setShowSP(false);setView("home");}} style={{...B,background:T.border,marginTop:16}}>← Retour</button>
   </div></div>;
 
-  if(view==="import") return <div style={{height:"100vh",padding:32,overflowY:"auto",boxSizing:"border-box"}}><div style={{maxWidth:800,margin:"0 auto"}}>
-    {/* Status banner */}
-    {loadStatus?.stats&&<div style={{background:"#52B78815",border:"1px solid #52B78840",borderRadius:8,padding:16,marginBottom:24}}>
-      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}><span style={{color:"#52B788",fontSize:16}}>✓</span><span style={{fontSize:13,fontWeight:700,color:"#52B788"}}>Fichier chargé avec succès</span></div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}}>
-        {[{l:"Applications",v:loadStatus.stats.apps,c:"#548CA8"},{l:"Domaines",v:loadStatus.stats.domains,c:"#9D4EDD"},{l:"Flux détectés",v:loadStatus.stats.flows,c:"#52B788"},{l:"Champs mappés",v:loadStatus.stats.mappedFields+"/"+loadStatus.stats.totalFields,c:"#D4A017"}].map(k=>
-          <div key={k.l} style={{textAlign:"center"}}><div style={{fontSize:20,fontWeight:700,color:k.c}}>{k.v}</div><div style={{fontSize:10,color:T.fgMuted,marginTop:2}}>{k.l}</div></div>)}
+  if(view==="import"){
+    const importFields=fieldsFor(projectType);
+    const mappedCount=importFields.filter(field=>cMap[field.key]).length;
+    return <div className={"import-mapping "+(isDark?"import-mapping-dark":"import-mapping-light")}>
+      <div className="import-mapping-scroll">
+        <main className="import-mapping-content">
+          <div className="import-mapping-heading">
+            <div className="import-mapping-heading-icon"><FileSpreadsheet size={22} aria-hidden="true"/></div>
+            <div><h2>Mapping des colonnes</h2><p>{fName&&<><strong>{fName}</strong> · </>}{rawData?.length} lignes · Vérifiez ou ajustez le mapping</p></div>
+          </div>
+          {loadStatus?.stats&&<section className="import-mapping-summary">
+            <div className="import-mapping-success"><CheckCircle2 size={17} aria-hidden="true"/> Fichier chargé avec succès</div>
+            <div className="import-mapping-stats">
+              {[{l:"Applications",v:loadStatus.stats.apps},{l:"Domaines",v:loadStatus.stats.domains},{l:"Flux détectés",v:loadStatus.stats.flows},{l:"Champs mappés",v:mappedCount+"/"+importFields.length}].map(k=><div key={k.l}><strong>{k.v}</strong><span>{k.l}</span></div>)}
+            </div>
+            {loadStatus.stats.domainList&&<div className="import-mapping-domains">{loadStatus.stats.domainList.map(d=>{const c=DC[d]||DC.Autre;return <span key={d} style={{background:c.ac+"20",color:c.ac,borderColor:c.ac+"50"}}>{d} ({rawData?.filter(r=>r[cMap.domain]===d).length||0})</span>;})}</div>}
+            {loadStatus.stats.ignored&&loadStatus.stats.ignored.length>0&&<div className="import-mapping-warning"><strong>Colonnes non utilisées pour ce type de projet :</strong> {loadStatus.stats.ignored.map(x=>x.header).join(", ")}. Elles correspondent à un autre type de projet ({projectType==='deal'?"IT/SI":"Deal IT/TECH"}) et sont ignorées à l'import.</div>}
+          </section>}
+          <section className="import-mapping-panel" aria-label="Mapping des colonnes">
+            <div className="import-mapping-panel-heading"><div><h3>Correspondance des champs</h3><p>Associez chaque champ à une colonne du fichier.</p></div><span className="import-mapping-count">{mappedCount} / {importFields.length}</span></div>
+            <div className="import-mapping-grid">{importFields.map(({key,label,req})=><label key={key} className="import-mapping-field">
+              <span className="import-mapping-field-label">{label}{req&&<span className="import-mapping-required"> *</span>}{cMap[key]&&<CheckCircle2 size={14} className="import-mapping-check" aria-hidden="true"/>}</span>
+              <select value={cMap[key]||""} onChange={e=>setCMap(p=>({...p,[key]:e.target.value}))}>
+                <option value="">— Ignorer —</option>{rawHdr.map(h=><option key={h} value={h}>{h}</option>)}
+              </select>
+            </label>)}</div>
+          </section>
+          <details className="import-mapping-preview">
+            <summary><Eye size={16} aria-hidden="true"/> APERÇU (5 premières lignes)</summary>
+            <div className="import-mapping-table"><table><thead><tr>{rawHdr.map(h=><th key={h}>{h}</th>)}</tr></thead>
+              <tbody>{rawData?.slice(0,5).map((r,i)=><tr key={i}>{rawHdr.map(h=><td key={h}>{r[h]}</td>)}</tr>)}</tbody></table></div>
+          </details>
+        </main>
       </div>
-      {loadStatus.stats.domainList&&<div style={{marginTop:10,display:"flex",gap:6,flexWrap:"wrap"}}>{loadStatus.stats.domainList.map(d=>{const c=DC[d]||DC.Autre;return <span key={d} style={{fontSize:10,padding:"2px 8px",background:c.ac+"20",color:c.ac,borderRadius:4,border:"1px solid "+c.ac+"40"}}>{d} ({rawData?.filter(r=>r[cMap.domain]===d).length||0})</span>;})}</div>}
-      {loadStatus.stats.ignored&&loadStatus.stats.ignored.length>0&&<div style={{marginTop:12,padding:"8px 10px",borderRadius:6,background:"#F59E0B14",border:"1px solid #F59E0B40",fontSize:11,color:T.fgMuted,lineHeight:1.5}}><strong style={{color:"#F59E0B"}}>Colonnes non utilisées pour ce type de projet :</strong> {loadStatus.stats.ignored.map(x=>x.header).join(", ")}. Elles correspondent à un autre type de projet ({projectType==='deal'?"IT/SI":"Deal IT/TECH"}) et sont ignorées à l'import.</div>}
-    </div>}
-    <h2 style={{fontSize:20,fontWeight:700,marginBottom:4}}>Mapping des colonnes</h2>
-    <p style={{color:T.fgMuted,fontSize:12,marginBottom:24}}>{fName&&<><strong style={{color:"#548CA8"}}>{fName}</strong> · </>}{rawData?.length} lignes · Vérifiez ou ajustez le mapping</p>
-    <div style={{background:T.bgCard,borderRadius:8,padding:24}}>{fieldsFor(projectType).map(({key,label,req})=><div key={key} style={{display:"flex",alignItems:"center",marginBottom:12,gap:16}}><div style={{width:200,fontSize:12,color:req?"#E8E8E8":"#888"}}>{label}{req&&<span style={{color:"#E06C75"}}> *</span>}</div><select value={cMap[key]||""} onChange={e=>setCMap(p=>({...p,[key]:e.target.value}))} style={{...I,flex:1,borderColor:cMap[key]?"#52B78860":"#333"}}><option value="">— Ignorer —</option>{rawHdr.map(h=><option key={h} value={h}>{h}</option>)}</select>{cMap[key]&&<span style={{color:"#52B788",fontSize:12}}>✓</span>}</div>)}</div>
-    <div style={{marginTop:24,background:T.bgCard,borderRadius:8,padding:16,overflowX:"auto"}}>
-      <div style={{fontSize:11,fontWeight:700,color:"#548CA8",marginBottom:8}}>APERÇU (5 premières lignes)</div>
-      <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}><thead><tr>{rawHdr.map(h=><th key={h} style={{padding:"4px 8px",textAlign:"left",color:T.fgMuted,borderBottom:"1px solid "+T.border}}>{h}</th>)}</tr></thead>
-        <tbody>{rawData?.slice(0,5).map((r,i)=><tr key={i}>{rawHdr.map(h=><td key={h} style={{padding:"4px 8px",color:T.fg,borderBottom:"1px solid "+T.borderLight}}>{r[h]}</td>)}</tr>)}</tbody></table>
-    </div>
-    <div style={{display:"flex",gap:12,marginTop:24,justifyContent:"flex-end"}}><button onClick={()=>setView("home")} style={{...B,background:T.border}}>Retour</button><button onClick={processImport} style={{...B,background:"#548CA8"}}>Générer la cartographie →</button></div>
-  </div></div>;
+      <div className="import-mapping-footer"><div className="import-mapping-footer-inner">
+        <button type="button" className="import-mapping-back" onClick={()=>setView("home")}><ArrowLeft size={16} aria-hidden="true"/> Retour</button>
+        <span className="import-mapping-footer-hint">* Champs obligatoires</span>
+        <button type="button" className="import-mapping-submit" onClick={processImport}>Générer la cartographie <ArrowRight size={16} aria-hidden="true"/></button>
+      </div></div>
+    </div>;
+  }
 
 
   // ═══ SETTINGS MODAL ═══
@@ -3811,7 +3866,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
       {activeFilters&&<button onMouseDown={e=>{e.stopPropagation();setSelDom([]);setSelCat([]);setSelCrit([]);setSelHost([]);setSelAType([]);setSelEos([]);setSelD1("");setSelD2("");setSelStatut("");setFlowDir("");}} style={{...B,padding:"4px 8px",fontSize:11,background:"#FF525220",color:"#FF5252",borderRadius:4}}>✕</button>}
       <div style={{flex:1}}/>
       {!readOnly&&<button className="mapping-trigger mapping-trigger-primary" onMouseDown={e=>{e.stopPropagation();applyStarLayout(undefined,true);}} title="Rapproche les applications et domaines connectés et adapte les espacements. La carte peut dépasser l'écran ; utilisez Recentrer pour la vue d'ensemble." style={{...B,padding:"7px 11px",fontSize:9.5,background:"linear-gradient(120deg,#4F46E5,#6366F1 58%,#0EA5E9)",color:"#fff",border:"1px solid rgba(165,180,252,.45)",borderRadius:11,display:"flex",alignItems:"center",gap:6,fontWeight:800,boxShadow:"0 6px 16px rgba(79,70,229,.28)"}}><span style={{fontSize:13}}>✦</span> Optimiser la disposition</button>}
-      {!readOnly&&layoutUndo&&<button type="button" className="mapping-trigger" onClick={function(){pendingOptimizedFrame.current=false;setApps(current=>current.map(a=>layoutUndo.positions[a.id]?{...a,x:layoutUndo.positions[a.id][0],y:layoutUndo.positions[a.id][1]}:a));setCatBounds(layoutUndo.catBounds);setDomPads(layoutUndo.domPads);setGlobalScale(layoutUndo.globalScale);setZm(layoutUndo.zoom);setOff(layoutUndo.offset);setLayoutUndo(null);setLayoutReport(null);}} style={{...B,padding:"7px 10px",fontSize:10,background:toolbarSurface,color:T.fg,border:"1px solid "+T.border}}>Annuler l'optimisation</button>}
+      {!readOnly&&layoutUndo&&<button type="button" className="mapping-trigger" onClick={function(){pendingOptimizedFrame.current=false;setApps(current=>current.map(a=>layoutUndo.positions[a.id]?{...a,x:layoutUndo.positions[a.id][0],y:layoutUndo.positions[a.id][1]}:a));setCatBounds(layoutUndo.catBounds);setDomPads(layoutUndo.domPads);setZm(layoutUndo.zoom);setOff(layoutUndo.offset);setLayoutUndo(null);setLayoutReport(null);}} style={{...B,padding:"7px 10px",fontSize:10,background:toolbarSurface,color:T.fg,border:"1px solid "+T.border}}>Annuler l'optimisation</button>}
       {/* ── Création menu ── */}
       {!readOnly&&<div className="mapping-trigger-anchor" style={{position:"relative"}}>
         <button className="mapping-trigger" aria-haspopup="true" aria-expanded={openMenu==="create"} onClick={function(){setOpenMenu(openMenu==="create"?null:"create");}} style={{...B,background:openMenu==="create"?"linear-gradient(135deg,#6366F126,#8B5CF618)":cMode?"linear-gradient(135deg,#EF44442E,#F9731618)":toolbarSurface,color:cMode?"#FB7185":T.fgMuted,border:"1px solid "+(cMode?"#EF444466":openMenu==="create"?"#8B5CF655":T.border),padding:"7px 11px",fontSize:10,borderRadius:10,display:"flex",alignItems:"center",gap:7,boxShadow:cMode?"0 4px 14px rgba(239,68,68,.14)":"0 3px 10px rgba(0,0,0,.12)"}}>
@@ -3968,20 +4023,9 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
       </div>
     </div>
     <div style={{flex:1,display:"flex",flexDirection:"column",minHeight:0,overflow:"hidden",position:"relative"}}>
-      {layoutReport&&<div role={layoutReport.error?"alert":"status"} style={{flexShrink:0,maxHeight:"30%",overflowY:"auto",padding:"8px 12px",background:T.bgCard,borderBottom:"1px solid "+T.border,fontSize:11,color:T.fg}}>
-        <button type="button" aria-label="Fermer le bilan d'optimisation" onClick={()=>setLayoutReport(null)} style={{...B,float:"right",padding:"0 4px",background:"transparent",color:T.fg}}>✕</button>
-        {layoutReport.error?<div>Échec de l'évaluation : la disposition n'a pas été modifiée.</div>:layoutReport.skipped?<div>Disposition calculée. L'analyse des flux n'est pas disponible au-delà de 120 flux.</div>:layoutReport.empty?<div>Disposition calculée. Aucun flux à analyser.</div>:<>
-          <div style={{fontWeight:700}}>Bilan de l'optimisation</div>
-          <div>{layoutReport.unrouted} flux non routés · {layoutReport.labelOverlaps} chevauchements d'étiquettes · {layoutReport.cardOverlaps} étiquettes sur des applications · {layoutReport.flowOverlaps} étiquettes sur d'autres flux</div>
-          <div>{layoutReport.flowCrossings} croisements de flux détectés</div>
-          {layoutReport.straightFallbacks>0&&<div>{layoutReport.straightFallbacks} tracés droits utilisent le tracé automatique à cause d'un obstacle.</div>}
-          <div>{layoutReport.attempts} dispositions évaluées.</div>
-          {layoutReport.smallLabels&&<div>Les étiquettes peuvent nécessiter un zoom pour être lisibles.</div>}
-        </>}
-        {(appFiltered.length!==apps.length||flowFilterActive||search)&&<div>Des filtres ou une recherche masquent des éléments ; le bilan porte sur tous les flux.</div>}
-        {!layoutReport.error&&<div>Utilisez « Recentrer » pour afficher toute la carte.</div>}
-        {layoutReport.sizeLimited&&<div>Certains textes restent trop longs pour la taille maximale des applications.</div>}
-        {flowDisplayMode!=="static"&&<div>Les flux restent affichés au survol.</div>}
+      {layoutReport&&<div role="alert" style={{flexShrink:0,maxHeight:"30%",overflowY:"auto",padding:"8px 12px",background:T.bgCard,borderBottom:"1px solid "+T.border,fontSize:11,color:T.fg}}>
+        <button type="button" aria-label="Fermer le message d'optimisation" onClick={()=>setLayoutReport(null)} style={{...B,float:"right",padding:"0 4px",background:"transparent",color:T.fg}}>✕</button>
+        {layoutReport.error?<div>Échec de l'évaluation : la disposition n'a pas été modifiée.</div>:<div>Aucune disposition compatible avec les dimensions actuelles des domaines et catégories n'a été trouvée. Agrandissez-les ou réduisez les espacements avant de réessayer.</div>}
       </div>}
       <div style={{flex:1,minHeight:0,minWidth:0,display:"flex",overflow:"hidden"}}>
       <div ref={cvRef} style={{flex:1,minHeight:0,minWidth:0,overflow:"hidden",position:"relative",background:isDark?"#0B0B14":"#FFFFFF",cursor:pan?"grabbing":cMode?"crosshair":selMode?"default":"grab"}} onMouseDown={function(e){if(openMenu)setOpenMenu(null);const onBackground=!e.target.closest?.('[data-app]')&&!e.target.closest?.('.flow-layer');if(onBackground){setFocusApp(null);setSelFlow(null);setFlowSuppressed(true);}onCD(e);}} onMouseMove={function(e){if(!e.target.closest?.('[data-app]')&&!e.target.closest?.('[data-panel]')&&!e.target.closest?.('.flow-layer')){if(flowDisplayMode==='dynamic'){setFlowSuppressed(true);if(focusApp&&!panelOpen)setFocusApp(null);if(selFlow&&!panelOpen)setSelFlow(null);}}onCM(e);}} onMouseUp={onCU} onMouseLeave={function(e){onCU(e);const enteringPanel=e.relatedTarget?.closest?.('[data-panel]');if(!enteringPanel&&flowDisplayMode==='dynamic'){setFlowSuppressed(true);setFocusApp(null);setSelFlow(null);}}} onWheel={onWh} onContextMenu={e=>e.preventDefault()}>

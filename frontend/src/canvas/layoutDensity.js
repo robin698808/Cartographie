@@ -30,14 +30,39 @@ export function gridOffsets(items, columns, width, height, gapX, gapY, connectio
   return {x,y,w:x[columns-1]+width,h:y[rows-1]+height};
 }
 
-export function optimizedAppScale(currentScale, requirements) {
-  const required=requirements.reduce((scale,item)=>Math.max(scale,item.width/item.baseWidth,item.height/item.baseHeight),currentScale);
-  return Math.min(8,Math.ceil(required*10-1e-9)/10);
+export function repositionFixedBounds(original, content) {
+  const width=original.x2-original.x1,height=original.y2-original.y1;
+  if(content.x2-content.x1>width+1e-6||content.y2-content.y1>height+1e-6)return null;
+  const x1=(content.x1+content.x2-width)/2,y1=(content.y1+content.y2-height)/2;
+  return {x1,y1,x2:x1+width,y2:y1+height};
 }
 
-export function optimizedSpacing({cardWidth,cardHeight,flowFontSize,hasFlows,appSpacing,domainSpacing,categorySpacing,domainPadding,domainHeader,categorySide,categoryTop,categoryBottom,categoryBar,domainInsetX,domainInsetY}) {
-  const corridorX=Math.max(40,cardWidth*0.15,hasFlows?flowFontSize*2:0);
-  const corridorY=Math.max(40,cardHeight*0.3,hasFlows?flowFontSize*2:0);
+export function preserveDomainSize(original, pad, content) {
+  const width=original.x2-original.x1+pad.w,height=original.y2-original.y1+pad.h;
+  const newWidth=content.x2-content.x1,newHeight=content.y2-content.y1;
+  if(newWidth>width+1e-6||newHeight>height+1e-6)return null;
+  return {w:Math.max(0,width-newWidth),h:Math.max(0,height-newHeight)};
+}
+
+export const DEFAULT_LAYOUT_SPACING={app:2,domain:44,category:30};
+
+export function compactLayoutEligible(flowCount, appSpacing, domainSpacing, categorySpacing) {
+  return flowCount<100&&appSpacing===DEFAULT_LAYOUT_SPACING.app&&domainSpacing===DEFAULT_LAYOUT_SPACING.domain&&categorySpacing===DEFAULT_LAYOUT_SPACING.category;
+}
+
+export function compactLayoutAcceptable(base, candidate) {
+  const limit=(value)=>value+Math.max(2,Math.floor(value*0.1));
+  return candidate.area<=base.area*0.9&&candidate.zoneOverlaps<=base.zoneOverlaps&&
+    candidate.report.unrouted<=base.report.unrouted&&candidate.report.cardOverlaps<=base.report.cardOverlaps&&
+    candidate.report.labelOverlaps<=limit(base.report.labelOverlaps)&&
+    candidate.report.flowOverlaps<=limit(base.report.flowOverlaps)&&
+    candidate.report.flowCrossings<=limit(base.report.flowCrossings)&&
+    candidate.report.straightFallbacks<=base.report.straightFallbacks;
+}
+
+export function optimizedSpacing({cardWidth,cardHeight,flowFontSize,hasFlows,appSpacing,domainSpacing,categorySpacing,domainPadding,domainHeader,categorySide,categoryTop,categoryBottom,categoryBar,domainInsetX,domainInsetY,compact=false}) {
+  const corridorX=compact?Math.max(24,cardWidth*0.08,hasFlows?flowFontSize*1.5:0):Math.max(40,cardWidth*0.15,hasFlows?flowFontSize*2:0);
+  const corridorY=compact?Math.max(24,cardHeight*0.15,hasFlows?flowFontSize*1.5:0):Math.max(40,cardHeight*0.3,hasFlows?flowFontSize*2:0);
   return {
     appX:Math.ceil(Math.max(18+appSpacing,corridorX)),
     appY:Math.ceil(Math.max(14+appSpacing,corridorY)),

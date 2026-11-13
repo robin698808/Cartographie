@@ -116,12 +116,23 @@ selon les conflits de tracé et d'étiquettes. Au-delà, elle utilise une
 disposition aérée sans évaluation détaillée. Les croisements ne peuvent pas
 toujours être éliminés.
 
+Avec moins de 100 flux et les trois espacements à leurs valeurs par défaut,
+l'optimisation compare également une disposition compacte. Elle la retient si
+elle réduit la surface de la carte d'au moins 10 %, sans augmenter les flux
+non routés, les étiquettes sur les applications, les recouvrements de zones
+ou les tracés droits de remplacement. Les autres chevauchements d'étiquettes
+et croisements peuvent augmenter au maximum de 10 % ou de deux occurrences.
+Les espacements personnalisés désactivent cette variante.
+
 L'optimisation conserve les polices choisies pour les applications, domaines,
-catégories et flux. Elle agrandit si nécessaire les applications pour leurs
-textes, dans la limite de 800 %, et adapte la largeur des domaines à leurs
-en-têtes. Elle adapte aussi les espaces entre applications, catégories et
-domaines aux dimensions des éléments, aux en-têtes et aux étiquettes de flux.
-Un avertissement signale les textes qui dépassent la limite de taille.
+catégories et flux ainsi que les tailles et autres réglages d'affichage.
+Elle adapte les espaces entre applications, catégories et domaines aux
+dimensions existantes, aux en-têtes et aux étiquettes de flux. Les dimensions
+manuelles des domaines et les dimensions des catégories sont conservées.
+Si aucune disposition évaluée ne peut les respecter tout en contenant leurs
+applications, l'optimisation ne déplace rien et invite à agrandir les zones
+ou à réduire les espacements. Les domaines sans redimensionnement manuel
+continuent à s'ajuster au contenu.
 Selon le zoom et la densité, la lisibilité de tous les éléments simultanément
 ne peut pas être garantie.
 
@@ -134,10 +145,10 @@ une nouvelle optimisation pour limiter les chevauchements.
 Après optimisation, la vue conserve un zoom lisible et cadre l'application la
 plus connectée et ses voisins proches si la carte ne tient pas à l'écran. Utiliser
 « Recentrer » pour cadrer toute la carte ; l'annulation restaure également le
-zoom, la position et la taille des applications précédents, sans modifier les
-polices. Le bilan d'optimisation est affiché
-au-dessus de la zone de dessin ; « Recentrer » tient compte des bordures et
-en-têtes des domaines et catégories. Les modifications de positions suivent les
+zoom et la position précédents, sans modifier les tailles ni les polices.
+Les éventuels messages d'erreur sont affichés au-dessus de la zone de dessin ;
+« Recentrer » tient compte des bordures et en-têtes des domaines et catégories.
+Les modifications de positions suivent les
 règles habituelles de sauvegarde du projet.
 
 En affichage statique comme au survol, les flux restent individuels. Le routage
