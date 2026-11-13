@@ -12,7 +12,7 @@ import './ImportMapping.css';
 import WidgetHeader from './WidgetHeader';
 import DashboardInsights, { healthScore } from './DashboardInsights';
 import { routeFlows, pathToD, curvedFlowPath, placeLabels, straightFlowPath, flowLabelSpec, evaluateFlowLayout } from './flowRouting';
-import { DEFAULT_FLOW_DIRECTION_COLORS, normalizeFlowDirectionColors, flowDirectionColor } from './flowColors';
+import { DEFAULT_FLOW_DIRECTION_COLORS, normalizeFlowDirectionColors, flowDirectionColor, defaultFlowColor, flowStrokeOpacity } from './flowColors';
 import { placeMostConnectedFirst, placeAppsByDomainAffinity, gridOffsets, repositionFixedBounds, preserveDomainSize, optimizedSpacing, fitBounds, DEFAULT_LAYOUT_SPACING, compactLayoutEligible, compactLayoutAcceptable, denseDefaultSizes, optimizedFlowSizes } from './layoutDensity';
 import ViewsMenu from './ViewsMenu';
 import ExportModal from './ExportModal';
@@ -753,7 +753,6 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   },[apps.map(a=>a.id+a.category).join(',')]); // only when app list / categories change
 
   const [ctxMenu,setCtxMenu]=useState(null); // {x,y,type,target} for right-click menus
-  const [presMode,setPresMode]=useState(false);
   const [focusApp,setFocusApp]=useState(null);
   const [flowSuppressed,setFlowSuppressed]=useState(false);
   const [flowDomFilter,setFlowDomFilter]=useState("");
@@ -832,7 +831,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   const [domPos,setDomPos]=useState({});
   const [domWidths,setDomWidths]=useState({});
   const [domDrag,setDomDrag]=useState(null);
-  const [showSettings,setShowSettings]=useState(false); // presentation mode
+  const [showSettings,setShowSettings]=useState(false);
   const [showExportModal,setShowExportModal]=useState(false);
   const [exportOpts,setExportOpts]=useState({
     inclExecSlides:true,
@@ -855,9 +854,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   // Keyboard shortcuts
   React.useEffect(()=>{
     const handleKey=e=>{
-      if(e.key==="Escape"&&presMode) setPresMode(false);
-      if(e.key==="Escape"&&!presMode&&multiSel.length>0){setMultiSel([]);return;}
-      if(e.key==="p"&&e.ctrlKey){e.preventDefault();setPresMode(p=>!p);}
+      if(e.key==="Escape"&&multiSel.length>0){setMultiSel([]);return;}
       if(!readOnly&&multiSel.length>0&&["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.key)){
         e.preventDefault();
         const step=e.shiftKey?20:5;
@@ -883,7 +880,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     };
     window.addEventListener("keydown",handleKey);
     return ()=>window.removeEventListener("keydown",handleKey);
-  },[presMode,multiSel,selFlow,readOnly]);
+  },[multiSel,selFlow,readOnly]);
 
   const autoMap=(hds)=>{
     const m={};
@@ -1807,7 +1804,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     var cards=apps.map(cardDims);
     return straightFlowPath(cards.find(c=>c.id===f.from),cards.find(c=>c.id===f.to),cards);
   };
-  const AppNode=({app})=>{const c=DC[app.domain]||DC.Autre;const sel=selApp?.id===app.id;
+  const renderAppNode=(app)=>{const c=DC[app.domain]||DC.Autre;const sel=selApp?.id===app.id;
     const msel=multiSel.includes(app.id);
     const crC=CC[app.criticality]||"#999";
     // En mode jour, les tuiles ne réutilisent plus le fond sombre pensé pour le mode nuit —
@@ -1833,7 +1830,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     var d1BgTint=app.statusD1==="Abandon"?"#EF444412":app.statusD1==="Transfert TSA"?"#F59E0B0E":null;
     var crLabel=app.criticality==="Haute"?"●":app.criticality==="Basse"?"○":"◐";
     var appGlow=highlightApps?Math.round(highlightStrength*0.55):0;
-    return <div style={{position:"absolute",left:app.x,top:app.y,width:aw,height:ah,background:cardBg,border:`${msel?"2.5px":"1.5px"} solid ${msel?"#4ECDC4":sel?T.accent:cardColor+"88"}`,borderRadius:10,cursor:cMode?"crosshair":selMode?"pointer":msel?"move":"grab",boxShadow:msel?"0 0 16px #4ECDC480":sel?`0 0 18px ${cardColor}80`:appGlow?`0 3px 10px ${cardColor}${Math.min(99,Math.round(appGlow*0.45)).toString(16).padStart(2,"0")}, 0 0 ${appGlow}px ${cardColor}${Math.min(99,Math.round(appGlow*0.25)).toString(16).padStart(2,"0")}`:isDark?"0 9px 22px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.045)":"0 7px 18px rgba(15,23,42,0.12)",userSelect:"none",zIndex:sel?10:1,overflow:"hidden",opacity:appOpacity,transform:"translateZ(0)",transition:"opacity 0.15s, box-shadow 0.2s, border-color 0.2s, transform 0.16s cubic-bezier(.2,.8,.2,1)"}}
+    return <div key={app.id} style={{position:"absolute",left:app.x,top:app.y,width:aw,height:ah,background:cardBg,border:`${msel?"2.5px":"1.5px"} solid ${msel?"#4ECDC4":sel?T.accent:cardColor+"88"}`,borderRadius:10,cursor:cMode?"crosshair":selMode?"pointer":msel?"move":"grab",boxShadow:msel?"0 0 16px #4ECDC480":sel?`0 0 18px ${cardColor}80`:appGlow?`0 3px 10px ${cardColor}${Math.min(99,Math.round(appGlow*0.45)).toString(16).padStart(2,"0")}, 0 0 ${appGlow}px ${cardColor}${Math.min(99,Math.round(appGlow*0.25)).toString(16).padStart(2,"0")}`:isDark?"0 9px 22px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.045)":"0 7px 18px rgba(15,23,42,0.12)",userSelect:"none",zIndex:sel?10:1,overflow:"hidden",opacity:appOpacity,transform:"translateZ(0)",transition:"opacity 0.15s, box-shadow 0.2s, border-color 0.2s, transform 0.16s cubic-bezier(.2,.8,.2,1)"}}
       data-app="1" className="app-card"
       onContextMenu={function(e){e.preventDefault();e.stopPropagation();if(!readOnly)setCtxMenu({x:e.clientX,y:e.clientY,type:"app",target:app.id});}}
       onMouseEnter={function(e){e.currentTarget.style.transform="translateY(-2px) scale(1.025)";e.currentTarget.style.zIndex="20";e.currentTarget.style.boxShadow="0 12px 28px "+cardColor+"55, 0 0 0 1px "+cardColor+"55";setFlowSuppressed(false);if(flowDisplayMode==="dynamic"&&!drag&&!cMode&&!selMode){setFocusApp(app.id);if(selFlow)setSelFlow(null);}}}
@@ -1884,8 +1881,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     var visFlows=computeVisFlows(refApp);
     if(refApp){visFlows=visFlows.filter(function(f){return f.from===refApp||f.to===refApp;});}
     if(selFlow){visFlows=visFlows.filter(function(f){return f.id===selFlow;});}
-    var defCol=staticMode?(isDark?"#B9C4FF":"#334155"):(isDark?"#548CA8":"#3D7A9E");
-    var lineCol=flowColorCustom||defCol;
+    var lineCol=flowColorCustom||defaultFlowColor(isDark);
     var dashVal=flowDash==="dashed"?"8 4":flowDash==="dotted"?"3 3":"none";
     var domainFlowCounts={};
     visFlows.forEach(function(f){var fa=apps.find(function(a){return a.id===f.from;}),ta=apps.find(function(a){return a.id===f.to;});if(fa&&ta){domainFlowCounts[fa.domain]=(domainFlowCounts[fa.domain]||0)+1;domainFlowCounts[ta.domain]=(domainFlowCounts[ta.domain]||0)+1;}});
@@ -1934,8 +1930,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         var renderedFlows=visFlows.map(function(f,flowIndex){var fa=apps.find(function(a){return a.id===f.from;}),ta=apps.find(function(a){return a.id===f.to;});if(!fa||!ta)return null;
             var flowColor=flowDirectionColor(f,refApp,flowDirectionColors,lineCol);
             var flowIsSelected=selFlow===f.id;
-            var flowOpacity=staticMode?0.82:selFlow?(flowIsSelected?1:0.07):0.65;
-            var flowLabelOpacity=staticMode?1:selFlow?(flowIsSelected?1:0.10):1;
+            var flowOpacity=flowStrokeOpacity(flowIsSelected);
             var arrowId="ah-"+String(f.id).replace(/[^a-zA-Z0-9_-]/g,"");
             var aw=AW_BASE*globalScale*(domScales[fa.domain]||1)*Math.max(0.7,fontScale),ah=AH_BASE*globalScale*(domScales[fa.domain]||1)*Math.max(0.7,fontScale);
             var bw=AW_BASE*globalScale*(domScales[ta.domain]||1)*Math.max(0.7,fontScale),bh=AH_BASE*globalScale*(domScales[ta.domain]||1)*Math.max(0.7,fontScale);
@@ -1956,7 +1951,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         var spec=specsById[f.id]||flowLabelSpec(f,labelFont,zm,measureFlowText);
         var lblW=spec.width,lblH=spec.height;
         return {id:f.id,line:<g>
-          {flowArrowStyle!=="none"&&<defs><marker id={arrowId} viewBox="0 0 10 7" markerUnits="userSpaceOnUse" markerWidth={Math.max(10,flowThickness*1.5)} markerHeight={Math.max(7,flowThickness)} refX="10" refY="3.5" orient="auto"><FlowArrowShape style={flowArrowStyle} color={flowColor}/></marker></defs>}
+          {flowArrowStyle!=="none"&&<defs><marker id={arrowId} viewBox="0 0 10 7" markerUnits="userSpaceOnUse" markerWidth={Math.max(12,flowThickness*1.8)} markerHeight={Math.max(8.4,flowThickness*1.2)} refX="10" refY="3.5" orient="auto"><FlowArrowShape style={flowArrowStyle} color={flowColor}/></marker></defs>}
           <path d={pathD} stroke="transparent" strokeWidth={Math.max(16,Math.min(32,flowThickness+12))} fill="none" style={{cursor:"pointer",pointerEvents:"stroke"}}
             onClick={function(e){e.stopPropagation();setFlowSuppressed(false);setSelFlow(selFlow===f.id?null:f.id);setFocusApp(f.from===focusApp?focusApp:f.to===focusApp?focusApp:selApp?.id||f.from);setFlowCtx(null);}}
             onDoubleClick={function(e){e.stopPropagation();if(!readOnly){setEFlow(Object.assign({},f));setShowFM(true);setSelFlow(null);}}}
@@ -1968,7 +1963,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
           <circle cx={ep.x} cy={ep.y} r={Math.max(3,flowThickness*0.65)} fill={flowColor} fillOpacity={flowOpacity}/>
           {!staticMode&&flowIndex<16&&<circle r="3.2" fill={flowColor} opacity={flowOpacity} style={{filter:"drop-shadow(0 0 4px "+flowColor+")",pointerEvents:"none"}}><animateMotion path={pathD} dur={(1.5+(flowIndex%4)*0.22)+"s"} begin={(flowIndex%8)*0.13+"s"} repeatCount="indefinite"/></circle>}
         </g>,label:txt&&<g>
-          <g opacity={flowLabelOpacity} transform={"translate("+labelX+" "+labelY+") scale("+lblScale+") translate("+(-labelX)+" "+(-labelY)+")"}>
+          <g transform={"translate("+labelX+" "+labelY+") scale("+lblScale+") translate("+(-labelX)+" "+(-labelY)+")"}>
             <rect x={labelX-lblW/2} y={labelY-lblH/2} width={lblW} height={lblH} rx="4" fill={T.bgCard} fillOpacity="0.96" stroke={flowColor} strokeWidth="0.8" strokeOpacity="0.55"/>
             <text x={labelX} y={labelY-(spec.lines.length-1)*labelFont*0.6+labelFont*0.35} fill={flowColor} fontSize={labelFont} textAnchor="middle" fontFamily="inherit" fontWeight="600" style={{pointerEvents:"none"}}>{spec.lines.map((line,i)=><tspan key={i} x={labelX} dy={i?labelFont*1.2:0}>{line}</tspan>)}</text>
           </g>
@@ -4039,7 +4034,6 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
             <button aria-pressed={flowDisplayMode==="dynamic"} onClick={function(){setFlowDisplayMode("dynamic");setFlowSuppressed(false);setFocusApp(null);setSelFlow(null);}} style={{...B,flex:1,padding:"8px 10px",fontSize:11,background:flowDisplayMode==="dynamic"?"linear-gradient(135deg,#2563EB,#0EA5E9)":"transparent",color:flowDisplayMode==="dynamic"?"#fff":T.fgMuted,border:flowDisplayMode==="dynamic"?"1px solid #38BDF8":"1px solid transparent",borderRadius:8}}>Au survol</button>
             <button aria-pressed={flowDisplayMode==="static"} onClick={function(){setFlowDisplayMode("static");setFlowSuppressed(false);setFocusApp(null);setSelFlow(null);setFlowProto("");setFlowCrit("");if(!layoutUndo)setTimeout(function(){fitCanvas();},80);}} style={{...B,flex:1,padding:"8px 10px",fontSize:11,background:flowDisplayMode==="static"?"linear-gradient(135deg,#2563EB,#0EA5E9)":"transparent",color:flowDisplayMode==="static"?"#fff":T.fgMuted,border:flowDisplayMode==="static"?"1px solid #38BDF8":"1px solid transparent",borderRadius:8}}>Statique</button>
           </div>
-          <button type="button" className="mapping-menu-action" onClick={function(){setPresMode(true);setOpenMenu(null);}} style={{display:"block",width:"calc(100% - 4px)",textAlign:"left"}}>▶ Lancer le mode présentation</button>
           <div style={{height:1,background:T.border,margin:"3px 4px 8px"}}/>
           <div className="mapping-menu-section-title">Taille des textes</div>
           <div style={{display:"flex",alignItems:"center",gap:7,padding:"2px 6px 8px"}}>
@@ -4148,7 +4142,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
           </div>
           <div className="mapping-menu-section-title">Couleur du flux</div>
           <div style={{display:"flex",alignItems:"center",gap:6,padding:"4px 8px"}}>
-            <MapColorPicker label="Couleur du flux" value={flowColorCustom||(flowDisplayMode==="static"?(isDark?"#B9C4FF":"#334155"):(isDark?"#548CA8":"#3D7A9E"))} onChange={function(e){setFlowColorCustom(e.target.value);}}/>
+            <MapColorPicker label="Couleur du flux" value={flowColorCustom||defaultFlowColor(isDark)} onChange={function(e){setFlowColorCustom(e.target.value);}}/>
             <span style={{fontSize:10,color:T.fg}}>{flowColorCustom||"Auto"}</span>
             {flowColorCustom&&<button onClick={function(){setFlowColorCustom("");}} style={{...B,padding:"2px 8px",fontSize:11,background:T.border}}>Réinitialiser</button>}
           </div>
@@ -4175,7 +4169,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
       <div ref={cvRef} style={{flex:1,minHeight:0,minWidth:0,overflow:"hidden",position:"relative",background:mapBackground||(isDark?"#0B0B14":"#FFFFFF"),cursor:pan?"grabbing":cMode?"crosshair":selMode?"default":"grab"}} onMouseDown={function(e){if(openMenu)setOpenMenu(null);const onBackground=!e.target.closest?.('[data-app]')&&!e.target.closest?.('.flow-layer');if(onBackground){setFocusApp(null);setSelFlow(null);setFlowSuppressed(true);}onCD(e);}} onMouseMove={function(e){if(!e.target.closest?.('[data-app]')&&!e.target.closest?.('[data-panel]')&&!e.target.closest?.('.flow-layer')){if(flowDisplayMode==='dynamic'){setFlowSuppressed(true);if(focusApp&&!panelOpen)setFocusApp(null);if(selFlow&&!panelOpen)setSelFlow(null);}}onCM(e);}} onMouseUp={onCU} onMouseLeave={function(e){onCU(e);const enteringPanel=e.relatedTarget?.closest?.('[data-panel]');if(!enteringPanel&&flowDisplayMode==='dynamic'){setFlowSuppressed(true);setFocusApp(null);setSelFlow(null);}}} onWheel={onWh} onContextMenu={e=>e.preventDefault()}>
         <div className="cbg" style={{position:"absolute",inset:0,backgroundColor:mapBackground||(isDark?"#0B0B14":"#FFFFFF"),backgroundImage:isDark?"radial-gradient(circle,rgba(148,163,184,.24) 1.15px,transparent 1.15px), radial-gradient(ellipse at 54% 46%,rgba(99,102,241,.08),transparent 68%)":"radial-gradient(circle,rgba(71,85,105,.16) 1px,transparent 1px), radial-gradient(ellipse at 18% 14%,rgba(99,102,241,.08),transparent 52%), radial-gradient(ellipse at 84% 86%,rgba(34,211,238,.08),transparent 56%)",backgroundSize:isDark?"34px 34px,100% 100%":"32px 32px,100% 100%,100% 100%"}}/>
       <div style={{transform:`translate(${off.x}px,${off.y}px) scale(${zm})`,transformOrigin:"0 0",position:"absolute",top:0,left:0,width:5000,height:4000}}>
-        <CategoryZones/><DomainZones/><FlowLines/>{filtered.map(a=><AppNode key={a.id} app={a}/>)}
+        <CategoryZones/><DomainZones/><FlowLines/>{filtered.map(renderAppNode)}
         {lasso&&<div style={{position:"absolute",left:Math.min(lasso.x0,lasso.x1),top:Math.min(lasso.y0,lasso.y1),width:Math.abs(lasso.x1-lasso.x0),height:Math.abs(lasso.y1-lasso.y0),border:(1.5/zm)+"px dashed #34D399",background:"rgba(52,211,153,.10)",borderRadius:6/zm,pointerEvents:"none",zIndex:50}}/>}
       </div>
       <div data-app="1" style={{position:"absolute",bottom:16,right:16,display:"flex",alignItems:"center",gap:6,padding:6,borderRadius:13,background:isDark?"rgba(19,19,42,.92)":"rgba(255,255,255,.94)",border:"1px solid "+T.border,boxShadow:"0 10px 30px rgba(0,0,0,.2)",backdropFilter:"blur(12px)",color:T.fgMuted}}>
@@ -4295,46 +4289,6 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
     </div>}
     </div>
     </div>
-    {/* Presentation mode overlay */}
-    {presMode&&<div style={{position:"fixed",inset:0,zIndex:500,background:isDark?"#0B0B14":"#FFFFFF",display:"flex",flexDirection:"column"}}>
-      {/* Pres toolbar */}
-      <div style={{position:"absolute",top:0,left:0,right:0,height:40,background:T.pres,display:"flex",alignItems:"center",padding:"0 16px",gap:12,zIndex:10,opacity:0.9,transition:"opacity 0.3s"}}
-        onMouseEnter={e=>e.currentTarget.style.opacity=1} onMouseLeave={e=>e.currentTarget.style.opacity=0.3}>
-        <span style={{fontSize:13,color:"#7B78FF",fontWeight:700}}>◈ Mode Présentation</span>
-        <div style={{flex:1}}/>
-        <span style={{fontSize:10,color:T.fgMuted}}>{apps.length} apps · {doms.length} domaines</span>
-        <div style={{display:"flex",gap:2,alignItems:"center"}}>
-          <span style={{fontSize:11,color:T.fgDim}}>Zoom</span>
-          <button onMouseDown={e=>{e.stopPropagation();setZm(z=>Math.max(0.15,z-0.1));}} style={{...B,padding:"3px 8px",fontSize:11,background:T.bgHover}}>−</button>
-          <span style={{fontSize:10,color:"#aaa",minWidth:36,textAlign:"center"}}>{Math.round(zm*100)}%</span>
-          <button onMouseDown={e=>{e.stopPropagation();setZm(z=>Math.min(3,z+0.1));}} style={{...B,padding:"3px 8px",fontSize:11,background:T.bgHover}}>+</button>
-          <button onMouseDown={e=>{e.stopPropagation();
-            const maxX=Math.max(...apps.map(a=>a.x+AW),100);const maxY=Math.max(...apps.map(a=>a.y+AH),100);
-            const vw=window.innerWidth||1400;const vh=window.innerHeight-40;
-            setZm(Math.min(vw/(maxX+60),vh/(maxY+60),2));setOff({x:20,y:20});
-          }} style={{...B,padding:"3px 8px",fontSize:11,background:T.border}}>Recentrer</button>
-        </div>
-        <div style={{display:"flex",gap:2,alignItems:"center"}}>
-          <span style={{fontSize:11,color:T.fgDim}}>Police</span>
-          <button onMouseDown={e=>{e.stopPropagation();setFontScale(s=>Math.max(0.6,+(s-0.15).toFixed(2)));}} style={{...B,padding:"3px 8px",fontSize:11,background:T.bgHover}}>A−</button>
-          <span style={{fontSize:10,color:"#aaa",minWidth:32,textAlign:"center"}}>{Math.round(fontScale*100)}%</span>
-          <button onMouseDown={e=>{e.stopPropagation();setFontScale(s=>Math.min(3,+(s+0.15).toFixed(2)));}} style={{...B,padding:"3px 8px",fontSize:11,background:T.bgHover}}>A+</button>
-        </div>
-        <button onMouseDown={e=>{e.stopPropagation();setPresMode(false);}} style={{...B,padding:"3px 12px",background:"#E06C75",fontSize:11}}>✕ Quitter</button>
-      </div>
-      {/* Pres canvas */}
-      <div style={{flex:1,overflow:"hidden",position:"relative",cursor:pan?"grabbing":"grab",marginTop:40}} onMouseDown={e=>{setPan(true);pRef.current={x:e.clientX-off.x,y:e.clientY-off.y};}} onMouseMove={e=>{if(pan)setOff({x:e.clientX-pRef.current.x,y:e.clientY-pRef.current.y});}} onMouseUp={()=>setPan(false)} onMouseLeave={()=>setPan(false)}
-        onWheel={e=>{e.preventDefault();if(e.ctrlKey||e.metaKey)setZm(z=>Math.max(0.15,Math.min(3,z-e.deltaY*0.003)));else setOff(o=>({x:o.x-e.deltaX*0.8,y:o.y-e.deltaY*0.8}));}}>
-        <div style={{position:"absolute",inset:0,backgroundColor:isDark?"#0B0B14":"#FFFFFF",backgroundImage:"radial-gradient(circle,"+(isDark?"#292941":"#D6DCE8")+" 1px,transparent 1px)",backgroundSize:"30px 30px"}}/>
-        <div style={{transform:`translate(${off.x}px,${off.y}px) scale(${zm})`,transformOrigin:"0 0",position:"absolute",top:0,left:0,width:8000,height:6000}}>
-          <CategoryZones/><DomainZones/><FlowLines/>{filtered.map(a=><AppNode key={a.id} app={a}/>)}
-        </div>
-      </div>
-      {/* Keyboard hint */}
-      <div style={{position:"absolute",bottom:12,left:"50%",transform:"translateX(-50%)",background:T.bgCard,borderRadius:8,padding:"4px 16px",fontSize:11,color:T.fgFaint}}>
-        Molette = déplacer · Ctrl+Molette = zoom · Échap = quitter
-      </div>
-    </div>}
     {listsEditor&&isAdmin&&<OptionListsEditor T={T} I={I} B={B} apps={apps} lists={currentLists()} initialTab={listsEditor} onSave={saveOptionLists} onClose={function(){setListsEditor(null);}}/>}
       {!readOnly&&showAM&&eApp&&<div className="moverlay" style={{position:"fixed",inset:0,background:T.overlay,display:"flex",alignItems:"center",justifyContent:"center",zIndex:200}} onClick={()=>setShowAM(false)}><div style={{background:T.bgCard,borderRadius:8,padding:24,width:420,maxHeight:"80vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
       <h3 style={{fontSize:16,fontWeight:700,marginBottom:16}}>{eApp.id&&apps.find(a=>a.id===eApp.id)?"Modifier":"Nouvelle"} application</h3>

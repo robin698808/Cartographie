@@ -28,6 +28,8 @@ test('recent interface labels and accessibility attributes are translated to Eng
     ['Libellé anglais', 'English label'],
     ['Correspondance', 'Mapping'],
     ['Tableau de bord', 'Dashboard'],
+    ['Applications', 'Applications'],
+    ['applications', 'applications'],
     ['Partagées par l’équipe (', 'Shared by the team ('],
     [' lignes · Vérifiez ou ajustez la correspondance', ' rows · Check or adjust the mapping'],
   ];
