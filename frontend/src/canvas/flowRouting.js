@@ -387,14 +387,30 @@ export function placeLabels(paths,specs,cards,options={}){
   return out;
 }
 
-export function flowLabelSpec(flow, fontSize, zoom) {
+export function flowLabelSpec(flow, fontSize, zoom, measureText) {
   const text=flow.label||'Flux';
   const scale=Math.min(1/Math.max(0.08,zoom),1.6);
   const font=Math.max(8,fontSize);
-  return {id:flow.id,w:Math.max(60,text.length*font*0.55+16)*scale,h:font*1.5*scale};
+  const widthOf=measureText?value=>measureText(value,font):value=>Array.from(value).length*font*0.75;
+  const maxWidth=font*22,lines=[];
+  let line='';
+  for(const word of text.split(/\s+/).filter(Boolean)){
+    const combined=line?line+' '+word:word;
+    if(widthOf(combined)<=maxWidth){line=combined;continue;}
+    if(line){lines.push(line);line='';}
+    for(const char of Array.from(word)){
+      if(line&&widthOf(line+char)>maxWidth){lines.push(line);line='';}
+      line+=char;
+    }
+  }
+  if(line)lines.push(line);
+  if(!lines.length)lines.push(text);
+  const width=Math.max(60,...lines.map(widthOf).map(w=>w+20));
+  const height=font*(lines.length*1.2+0.4);
+  return {id:flow.id,w:width*scale,h:height*scale,width,height,lines};
 }
 
-export function evaluateFlowLayout(cards, flows, fontSize, zoom, flowShape='default') {
+export function evaluateFlowLayout(cards, flows, fontSize, zoom, flowShape='default', measureText) {
   const byId=new Map(cards.map(c=>[c.id,c]));
   const valid=flows.filter(f=>byId.has(f.from)&&byId.has(f.to)&&f.from!==f.to);
   const paths=routeFlows(cards,valid.map(f=>({id:f.id,from:f.from,to:f.to}))).paths;
@@ -407,7 +423,7 @@ export function evaluateFlowLayout(cards, flows, fontSize, zoom, flowShape='defa
     }
     if(flowShape==='curved'&&paths[f.id])paths[f.id]=curvedFlowPath(paths[f.id],cards,f.from,f.to).points;
   });
-  const specs=valid.filter(f=>paths[f.id]).map(f=>flowLabelSpec(f,fontSize,zoom));
+  const specs=valid.filter(f=>paths[f.id]).map(f=>flowLabelSpec(f,fontSize,zoom,measureText));
   const labels=placeLabels(paths,specs,cards,{verticesOnly:flowShape==='curved'});
   const rects=specs.filter(s=>labels[s.id]).map(s=>({id:s.id,x:labels[s.id].x-s.w/2,y:labels[s.id].y-s.h/2,w:s.w,h:s.h}));
   let labelOverlaps=0,cardOverlaps=0,flowOverlaps=0,flowCrossings=0;

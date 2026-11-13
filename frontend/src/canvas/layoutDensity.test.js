@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { centralSlots, placeMostConnectedFirst, gridOffsets, repositionFixedBounds, preserveDomainSize, optimizedSpacing, fitBounds, compactLayoutEligible, compactLayoutAcceptable } from './layoutDensity.js';
+import { centralSlots, placeMostConnectedFirst, gridOffsets, repositionFixedBounds, preserveDomainSize, optimizedSpacing, fitBounds, focusFrame, readableFocusZoom, compactLayoutEligible, compactLayoutAcceptable, denseDefaultSizes } from './layoutDensity.js';
 import { evaluateFlowLayout } from './flowRouting.js';
 
 test('most connected applications occupy central slots deterministically', () => {
@@ -76,6 +76,9 @@ test('optimized spacing reserves corridors around scaled cards and zone headers'
   assert.ok(compact.appX<spacing.appX);
   assert.ok(compact.categoryY>=options.categoryTop+options.categoryBar+options.categoryBottom+30);
   assert.ok(compact.domainY+options.domainInsetY>=options.categoryTop+options.categoryBar+options.categoryBottom+30);
+  const withLabel=optimizedSpacing({...options,compact:true,labelHeight:240});
+  assert.ok(withLabel.appX>=240&&withLabel.appY>=240);
+  assert.ok(withLabel.domainX+options.domainInsetX-2*options.domainPadding>=240);
 });
 
 test('compact layouts are limited to fewer than 100 flows and default spacings', () => {
@@ -85,6 +88,35 @@ test('compact layouts are limited to fewer than 100 flows and default spacings',
   assert.equal(compactLayoutEligible(1,7,44,30),false);
   assert.equal(compactLayoutEligible(1,2,64,30),false);
   assert.equal(compactLayoutEligible(1,2,44,40),false);
+});
+
+test('automatic sizing increases only default values and preserves custom choices', () => {
+  assert.deepEqual(denseDefaultSizes(true,1.6,1.5,1,13),{app:2.4,domain:2.3,scale:1.5,flow:24});
+  assert.deepEqual(denseDefaultSizes(true,3,1.5,2,35),{app:3,domain:2.3,scale:2,flow:35});
+  assert.deepEqual(denseDefaultSizes(false,1.6,1.5,1,13),{app:1.6,domain:1.5,scale:1,flow:13});
+});
+
+test('readable framing targets screen text sizes while respecting a bounded zoom', () => {
+  const zoom=readableFocusZoom(1,2.4,2.3,1);
+  assert.equal(zoom,0.85);
+  assert.ok(Math.round(15*2.4)*zoom>=18);
+  assert.ok(Math.round(13*2.3)*zoom>=18);
+  assert.ok(24*Math.min(1/zoom,1.6)*zoom>=16);
+  assert.equal(readableFocusZoom(1,1.6,1.5,0.5),1.5);
+  assert.equal(readableFocusZoom(1,1.6,1.5,1),18/20);
+});
+
+test('focused frame keeps the hub centered if neighbors cannot fit at readable zoom', () => {
+  const hub={x:1000,y:2000,w:300,h:150};
+  const far={x:4000,y:5000,w:300,h:150};
+  const {zoom,offset}=focusFrame(hub,[far],800,600,0.85);
+  assert.equal(zoom,0.85);
+  assert.equal((hub.x+hub.w/2)*zoom+offset.x,400);
+  assert.equal((hub.y+hub.h/2)*zoom+offset.y,300);
+  const nearby={x:1350,y:2000,w:300,h:150};
+  const frame=focusFrame(hub,[nearby],1200,600,0.85);
+  assert.ok(hub.x*frame.zoom+frame.offset.x>=40);
+  assert.ok((nearby.x+nearby.w)*frame.zoom+frame.offset.x<=1160);
 });
 
 test('compact layouts require a meaningful area gain without excessive conflicts', () => {

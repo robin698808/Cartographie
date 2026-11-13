@@ -5,6 +5,18 @@ import { routeFlows, straightFlowPath, pathToD, curvedFlowPath, placeLabels, flo
 const card = (id, x, y) => ({ id, x, y, w: 140, h: 80 });
 const link = (id, from, to) => ({ id, from, to });
 
+test('long flow labels wrap without truncating and include measured line dimensions', () => {
+  const text='Synchronisation des données financières et informations applicatives';
+  const measure=(value,size)=>Array.from(value).length*size;
+  const spec=flowLabelSpec({id:'f',label:text},10,0.5,measure);
+  assert.ok(spec.lines.length>1);
+  assert.equal(spec.lines.join(' '),text);
+  assert.ok(spec.lines.every(line=>measure(line,10)+20<=spec.width));
+  assert.equal(spec.h,spec.height*1.6);
+  const long=flowLabelSpec({id:'x',label:'ABCDEFGHIJKLMNOPQRSTUVWXYZ'},10,1,measure);
+  assert.equal(long.lines.join(''),'ABCDEFGHIJKLMNOPQRSTUVWXYZ');
+});
+
 test('aligned horizontal ports stay straight when another flow shares the source', () => {
   const cards = [card('a', 0, 0), card('b', 400, 0), card('c', 400, 200)];
   const { paths } = routeFlows(cards, [link('ab', 'a', 'b'), link('ac', 'a', 'c')]);

@@ -12,7 +12,7 @@ import './ImportMapping.css';
 import WidgetHeader from './WidgetHeader';
 import DashboardInsights, { healthScore } from './DashboardInsights';
 import { routeFlows, pathToD, curvedFlowPath, placeLabels, straightFlowPath, flowLabelSpec, evaluateFlowLayout } from './flowRouting';
-import { placeMostConnectedFirst, gridOffsets, repositionFixedBounds, preserveDomainSize, optimizedSpacing, fitBounds, DEFAULT_LAYOUT_SPACING, compactLayoutEligible, compactLayoutAcceptable } from './layoutDensity';
+import { placeMostConnectedFirst, gridOffsets, repositionFixedBounds, preserveDomainSize, optimizedSpacing, fitBounds, focusFrame, readableFocusZoom, DEFAULT_LAYOUT_SPACING, compactLayoutEligible, compactLayoutAcceptable, denseDefaultSizes } from './layoutDensity';
 import ViewsMenu from './ViewsMenu';
 import ExportModal from './ExportModal';
 import OptionListsEditor from './OptionListsEditor';
@@ -1184,16 +1184,28 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   };
 
   var ctxValue={view,setView,isDark,T,apps,flows,sidebarOpen,setSidebarOpen,projectType};
+  const labelMeasure=()=>{
+    const context=document.createElement("canvas").getContext("2d");
+    if(!context)throw new Error("Mesure du texte des flux indisponible");
+    const family=getComputedStyle(cvRef.current||document.body).fontFamily;
+    return (text,size)=>{context.font="600 "+size+"px "+family;return context.measureText(text).width;};
+  };
   const applyStarLayout=(sourceApps,interactive=false)=>{
     var layoutApps=sourceApps||apps;
     if(layoutApps.length===0)return;
-    const sizes={app:appFontScale,domain:domainFontScale,category:categoryFontScale,flow:flowFontSize};
+    const dense=interactive&&flows.length<100;
+    const adjusted=denseDefaultSizes(interactive,appFontScale,domainFontScale,globalScale,flowFontSize);
+    const sizes={app:adjusted.app,domain:adjusted.domain,category:categoryFontScale,flow:adjusted.flow};
+    const readable=interactive&&(sizes.app!==appFontScale||sizes.domain!==domainFontScale||sizes.flow!==flowFontSize||adjusted.scale!==globalScale);
     const baseWidth=220*Math.max(1,sizes.app/2.4),baseHeight=84*Math.max(1,sizes.app/2.4);
-    const layoutScale=globalScale;
+    const layoutScale=adjusted.scale;
+    let measureLabels;
+    try{if(interactive)measureLabels=labelMeasure();}catch(err){console.error("Mesure des étiquettes",err);setLayoutReport({error:true});return;}
+    const labelHeight=interactive&&flows.length?Math.max(...flows.map(f=>flowLabelSpec(f,sizes.flow,0.65,measureLabels).h))+16:0;
     const layoutCard=a=>({id:a.id,x:a.x,y:a.y,w:Math.round(baseWidth*layoutScale*(domScales[a.domain]||1)*Math.max(0.7,fontScale)),h:Math.round(baseHeight*layoutScale*(domScales[a.domain]||1)*Math.max(0.7,fontScale))});
     const originalDomains={};
     if(interactive)layoutApps.forEach(a=>{
-      const card=layoutCard(a),b=originalDomains[a.domain]||(originalDomains[a.domain]={x1:Infinity,y1:Infinity,x2:-Infinity,y2:-Infinity});
+      const card=cardDims(a),b=originalDomains[a.domain]||(originalDomains[a.domain]={x1:Infinity,y1:Infinity,x2:-Infinity,y2:-Infinity});
       b.x1=Math.min(b.x1,card.x);b.y1=Math.min(b.y1,card.y);b.x2=Math.max(b.x2,card.x+card.w);b.y2=Math.max(b.y2,card.y+card.h);
     });
     const makeLayout=(extraGap,orderByConnections=false,compact=false)=>{
@@ -1210,7 +1222,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       categoryTop:Math.max(Math.round(30*categoryScale),38+Math.round(28*fontScale)+24,domainPadding+Math.round(24*fontScale*sizes.domain)+14),
       categoryBottom:Math.round(32*categoryScale),
       categoryBar:Math.max(Math.round(38*fontScale*categoryScale*sizes.category),Math.ceil(34/0.35)),
-      domainInsetX:2*domSide,domainInsetY:domPad+26,compact,
+      domainInsetX:2*domSide,domainInsetY:domPad+26,compact,labelHeight,
     });
     // 1. Compter les flux inter-domaines
     const domFlows={};
@@ -1358,8 +1370,8 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     };
     const evaluateCandidate=candidate=>{
       const options={sizes,categoryBounds:candidate.catBounds,domainPads:candidate.domPads};
-      const geometry=getOptimizedFrame(candidate.apps,layoutCard,options);
-      const report=evaluateFlowLayout(candidate.apps.map(layoutCard),flows,sizes.flow,geometry.zoom,flowShape);
+      const geometry=getOptimizedFrame(candidate.apps,layoutCard,{...options,dense,readable});
+      const report=evaluateFlowLayout(candidate.apps.map(layoutCard),flows,sizes.flow,geometry.zoom,flowShape,measureLabels);
       const frame=getCanvasFrame(candidate.apps,layoutCard,options),bounds=frame.bounds;
       const domainBoxes={};
       candidate.apps.forEach(a=>{
@@ -1391,11 +1403,11 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
           const score=report.unrouted*100000+(report.labelOverlaps+report.cardOverlaps)*1000+report.flowOverlaps*10+report.flowCrossings*5+report.straightFallbacks;
           if(score<bestScore){bestScore=score;baseline=evaluated;best=candidate;}
         });
-        if(allowCompact&&baseline){
+        if(allowCompact){
           const candidate=makeLayout(0,flows.length?"central":false,true);
           if(candidate.compatible){
             const evaluated=evaluateCandidate(candidate);
-            if(compactLayoutAcceptable(baseline,evaluated))best=candidate;
+            if(!baseline||compactLayoutAcceptable(baseline,evaluated))best=candidate;
           }
         }
       }catch(err){
@@ -1410,8 +1422,9 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       setLayoutReport(null);
     }
     if(interactive){
-      setLayoutUndo({positions:Object.fromEntries(apps.map(a=>[a.id,[a.x,a.y]])),catBounds,domPads,zoom:zm,offset:off});
-      pendingOptimizedFrame.current=true;
+      setLayoutUndo({positions:Object.fromEntries(apps.map(a=>[a.id,[a.x,a.y]])),catBounds,domPads,zoom:zm,offset:off,autoSizes:{app:sizes.app!==appFontScale?{before:appFontScale,after:sizes.app}:null,domain:sizes.domain!==domainFontScale?{before:domainFontScale,after:sizes.domain}:null,flow:sizes.flow!==flowFontSize?{before:flowFontSize,after:sizes.flow}:null,scale:layoutScale!==globalScale?{before:globalScale,after:layoutScale}:null}});
+      setAppFontScale(sizes.app);setDomainFontScale(sizes.domain);setFlowFontSize(sizes.flow);setGlobalScale(layoutScale);
+      pendingOptimizedFrame.current=dense?"dense":readable?"readable":true;
     }
     setApps(best.apps);
     setCatBounds(best.catBounds);
@@ -1453,7 +1466,10 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   };
   const getOptimizedFrame=(layoutApps,getCard=cardDims,options={})=>{
     const frame=getCanvasFrame(layoutApps,getCard,options);
-    if(frame.zoom>=0.6)return frame;
+    const sizes=options.sizes||{app:appFontScale,domain:domainFontScale};
+    const minDomainScale=Math.min(...layoutApps.map(a=>domScales[a.domain]||1));
+    const minZoom=options.dense?readableFocusZoom(fontScale,sizes.app,sizes.domain,minDomainScale):options.readable?0.65:0.35;
+    if(frame.zoom>=(options.dense?minZoom:0.6))return frame;
     const connections={};
     flows.forEach(f=>{connections[f.from]=(connections[f.from]||0)+1;connections[f.to]=(connections[f.to]||0)+1;});
     const hub=layoutApps.slice().sort((a,b)=>(connections[b.id]||0)-(connections[a.id]||0)||String(a.id).localeCompare(String(b.id)))[0];
@@ -1461,11 +1477,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     const vw=rect?.width||window.innerWidth||1400,vh=rect?.height||((window.innerHeight||800)-100);
     const neighborIds=new Set(flows.flatMap(f=>f.from===hub.id?[f.to]:f.to===hub.id?[f.from]:[]));
     const neighbors=layoutApps.filter(a=>neighborIds.has(a.id)).map(getCard).sort((a,b)=>Math.hypot(a.x+a.w/2-card.x-card.w/2,a.y+a.h/2-card.y-card.h/2)-Math.hypot(b.x+b.w/2-card.x-card.w/2,b.y+b.h/2-card.y-card.h/2)).slice(0,2);
-    const focus=[card,...neighbors];
-    const x1=Math.min(...focus.map(c=>c.x)),x2=Math.max(...focus.map(c=>c.x+c.w));
-    const y1=Math.min(...focus.map(c=>c.y)),y2=Math.max(...focus.map(c=>c.y+c.h));
-    const zoom=Math.max(0.35,Math.min(0.75,(vw-80)/(x2-x1+100),(vh-80)/(y2-y1+100)));
-    return {zoom,offset:{x:vw/2-(x1+x2)/2*zoom,y:vh/2-(y1+y2)/2*zoom}};
+    return focusFrame(card,neighbors,vw,vh,minZoom,options.dense?1.5:0.75);
   };
   const fitCanvas=(layoutApps=filtered)=>{
     if(!layoutApps.length)return;
@@ -1476,8 +1488,9 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
 
   useLayoutEffect(()=>{
     if(!pendingOptimizedFrame.current||!apps.length)return;
+    const dense=pendingOptimizedFrame.current==="dense",readable=pendingOptimizedFrame.current==="readable";
     pendingOptimizedFrame.current=false;
-    const frame=getOptimizedFrame(apps);
+    const frame=getOptimizedFrame(apps,cardDims,{dense,readable});
     setZm(frame.zoom);setOff(frame.offset);
   },[apps,layoutReport,appFontScale,domainFontScale,categoryFontScale,flowFontSize]);
 
@@ -1801,7 +1814,10 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       }
     });
     var lf=Math.max(8,flowFontSize);
-    var specs=visFlows.filter(function(f){return routed[f.id]&&shortTxt(f);}).map(function(f){return flowLabelSpec(f,lf,zm);});
+    var measureFlowText;
+    try{measureFlowText=labelMeasure();}catch(err){console.error("Mesure des étiquettes",err);}
+    var specs=visFlows.filter(function(f){return routed[f.id]&&shortTxt(f);}).map(function(f){return flowLabelSpec(f,lf,zm,measureFlowText);});
+    var specsById=Object.fromEntries(specs.map(spec=>[spec.id,spec]));
     var labelSig=JSON.stringify([routed,specs,cards,flowShape]);
     if(labelCacheRef.current.sig===labelSig)labelPos=labelCacheRef.current.positions;
     else{
@@ -1831,7 +1847,8 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         if(rt&&labelPos[f.id]){labelX=labelPos[f.id].x;labelY=labelPos[f.id].y;}
         var txt=shortTxt(f);
         var labelFont=Math.max(8,flowFontSize);
-        var lblW=Math.max(60,txt.length*labelFont*0.55+16);
+        var spec=specsById[f.id]||flowLabelSpec(f,labelFont,zm,measureFlowText);
+        var lblW=spec.width,lblH=spec.height;
         return {id:f.id,line:<g>
           {flowArrowStyle!=="none"&&<defs><marker id={arrowId} viewBox="0 0 10 7" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><FlowArrowShape style={flowArrowStyle} color={flowColor}/></marker></defs>}
           <path d={pathD} stroke="transparent" strokeWidth={Math.max(16,flowThickness*4)} fill="none" style={{cursor:"pointer",pointerEvents:"stroke"}}
@@ -1846,8 +1863,8 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
           {!staticMode&&flowIndex<16&&<circle r="3.2" fill={flowColor} opacity={flowOpacity} style={{filter:"drop-shadow(0 0 4px "+flowColor+")",pointerEvents:"none"}}><animateMotion path={pathD} dur={(1.5+(flowIndex%4)*0.22)+"s"} begin={(flowIndex%8)*0.13+"s"} repeatCount="indefinite"/></circle>}
         </g>,label:txt&&<g>
           <g opacity={flowLabelOpacity} transform={"translate("+labelX+" "+labelY+") scale("+lblScale+") translate("+(-labelX)+" "+(-labelY)+")"}>
-            <rect x={labelX-lblW/2} y={labelY-labelFont*0.75} width={lblW} height={labelFont*1.5} rx="4" fill={T.bgCard} fillOpacity="0.96" stroke={flowColor} strokeWidth="0.8" strokeOpacity="0.55"/>
-            <text x={labelX} y={labelY+labelFont*0.25} fill={flowColor} fontSize={labelFont} textAnchor="middle" fontFamily="inherit" fontWeight="600" style={{pointerEvents:"none"}}>{txt}</text>
+            <rect x={labelX-lblW/2} y={labelY-lblH/2} width={lblW} height={lblH} rx="4" fill={T.bgCard} fillOpacity="0.96" stroke={flowColor} strokeWidth="0.8" strokeOpacity="0.55"/>
+            <text x={labelX} y={labelY-(spec.lines.length-1)*labelFont*0.6+labelFont*0.35} fill={flowColor} fontSize={labelFont} textAnchor="middle" fontFamily="inherit" fontWeight="600" style={{pointerEvents:"none"}}>{spec.lines.map((line,i)=><tspan key={i} x={labelX} dy={i?labelFont*1.2:0}>{line}</tspan>)}</text>
           </g>
         </g>};});
         return <svg className="flow-layer" style={{position:"absolute",top:0,left:0,width:"100%",height:"100%",pointerEvents:"none",overflow:"visible"}}>
@@ -3866,7 +3883,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
       {activeFilters&&<button onMouseDown={e=>{e.stopPropagation();setSelDom([]);setSelCat([]);setSelCrit([]);setSelHost([]);setSelAType([]);setSelEos([]);setSelD1("");setSelD2("");setSelStatut("");setFlowDir("");}} style={{...B,padding:"4px 8px",fontSize:11,background:"#FF525220",color:"#FF5252",borderRadius:4}}>✕</button>}
       <div style={{flex:1}}/>
       {!readOnly&&<button className="mapping-trigger mapping-trigger-primary" onMouseDown={e=>{e.stopPropagation();applyStarLayout(undefined,true);}} title="Rapproche les applications et domaines connectés et adapte les espacements. La carte peut dépasser l'écran ; utilisez Recentrer pour la vue d'ensemble." style={{...B,padding:"7px 11px",fontSize:9.5,background:"linear-gradient(120deg,#4F46E5,#6366F1 58%,#0EA5E9)",color:"#fff",border:"1px solid rgba(165,180,252,.45)",borderRadius:11,display:"flex",alignItems:"center",gap:6,fontWeight:800,boxShadow:"0 6px 16px rgba(79,70,229,.28)"}}><span style={{fontSize:13}}>✦</span> Optimiser la disposition</button>}
-      {!readOnly&&layoutUndo&&<button type="button" className="mapping-trigger" onClick={function(){pendingOptimizedFrame.current=false;setApps(current=>current.map(a=>layoutUndo.positions[a.id]?{...a,x:layoutUndo.positions[a.id][0],y:layoutUndo.positions[a.id][1]}:a));setCatBounds(layoutUndo.catBounds);setDomPads(layoutUndo.domPads);setZm(layoutUndo.zoom);setOff(layoutUndo.offset);setLayoutUndo(null);setLayoutReport(null);}} style={{...B,padding:"7px 10px",fontSize:10,background:toolbarSurface,color:T.fg,border:"1px solid "+T.border}}>Annuler l'optimisation</button>}
+      {!readOnly&&layoutUndo&&<button type="button" className="mapping-trigger" onClick={function(){pendingOptimizedFrame.current=false;setApps(current=>current.map(a=>layoutUndo.positions[a.id]?{...a,x:layoutUndo.positions[a.id][0],y:layoutUndo.positions[a.id][1]}:a));setCatBounds(layoutUndo.catBounds);setDomPads(layoutUndo.domPads);if(layoutUndo.autoSizes.app)setAppFontScale(current=>current===layoutUndo.autoSizes.app.after?layoutUndo.autoSizes.app.before:current);if(layoutUndo.autoSizes.domain)setDomainFontScale(current=>current===layoutUndo.autoSizes.domain.after?layoutUndo.autoSizes.domain.before:current);if(layoutUndo.autoSizes.flow)setFlowFontSize(current=>current===layoutUndo.autoSizes.flow.after?layoutUndo.autoSizes.flow.before:current);if(layoutUndo.autoSizes.scale)setGlobalScale(current=>current===layoutUndo.autoSizes.scale.after?layoutUndo.autoSizes.scale.before:current);setZm(layoutUndo.zoom);setOff(layoutUndo.offset);setLayoutUndo(null);setLayoutReport(null);}} style={{...B,padding:"7px 10px",fontSize:10,background:toolbarSurface,color:T.fg,border:"1px solid "+T.border}}>Annuler l'optimisation</button>}
       {/* ── Création menu ── */}
       {!readOnly&&<div className="mapping-trigger-anchor" style={{position:"relative"}}>
         <button className="mapping-trigger" aria-haspopup="true" aria-expanded={openMenu==="create"} onClick={function(){setOpenMenu(openMenu==="create"?null:"create");}} style={{...B,background:openMenu==="create"?"linear-gradient(135deg,#6366F126,#8B5CF618)":cMode?"linear-gradient(135deg,#EF44442E,#F9731618)":toolbarSurface,color:cMode?"#FB7185":T.fgMuted,border:"1px solid "+(cMode?"#EF444466":openMenu==="create"?"#8B5CF655":T.border),padding:"7px 11px",fontSize:10,borderRadius:10,display:"flex",alignItems:"center",gap:7,boxShadow:cMode?"0 4px 14px rgba(239,68,68,.14)":"0 3px 10px rgba(0,0,0,.12)"}}>
