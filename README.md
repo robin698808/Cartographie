@@ -116,7 +116,7 @@ selon les conflits de tracé et d'étiquettes. Au-delà, elle utilise une
 disposition aérée sans évaluation détaillée. Les croisements ne peuvent pas
 toujours être éliminés.
 
-Avec moins de 100 flux et les trois espacements à leurs valeurs par défaut,
+Avec au plus 120 flux et les trois espacements à leurs valeurs par défaut,
 l'optimisation compare également une disposition compacte. Elle la retient si
 elle réduit la surface de la carte d'au moins 10 %, sans augmenter les flux
 non routés, les étiquettes sur les applications, les recouvrements de zones
@@ -129,23 +129,20 @@ réparties sur plusieurs lignes sans tronquer le texte. La même géométrie ser
 à leur placement et à l'évaluation des dispositions ; elles restent sur
 leur flux. Une forte densité peut néanmoins nécessiter un zoom ou le survol.
 
-L'optimisation augmente les polices d'applications, de domaines et de flux
-ainsi que la taille des applications uniquement lorsque ces valeurs sont
+L'optimisation augmente les polices d'applications, de domaines et de flux,
+l'épaisseur des flux ainsi que la taille des applications uniquement lorsque ces valeurs sont
 encore à leurs valeurs par défaut. Les valeurs personnalisées restent
 inchangées. Les espacements prennent aussi en compte la hauteur mesurée des
 étiquettes de flux, y compris celles sur plusieurs lignes.
-Pour moins de 100 flux, même avec des espacements personnalisés, le cadrage
-privilégie un zoom d'au moins 85 % autour des applications connectées ; il peut
-être augmenté jusqu'à 150 % pour améliorer la lisibilité des polices choisies.
-La carte entière ne reste donc pas nécessairement visible : « Recentrer »
-affiche toute la carte. L'annulation restaure les valeurs automatiquement
-modifiées, sauf si elles ont été changées depuis.
+L'optimisation et « Recentrer » cadrent toute la carte. L'annulation restaure
+les valeurs automatiquement modifiées, sauf si elles ont été changées depuis.
 
 L'optimisation conserve les polices personnalisées, notamment celles des
 catégories et flux, ainsi que les autres réglages d'affichage.
 Elle adapte les espaces entre applications, catégories et domaines aux
 dimensions existantes, aux en-têtes et aux étiquettes de flux. Les dimensions
-manuelles des domaines et les dimensions des catégories sont conservées.
+manuelles des domaines et catégories sont conservées ; les dimensions des
+catégories générées automatiquement s'adaptent au contenu.
 Si aucune disposition évaluée ne peut les respecter tout en contenant leurs
 applications, l'optimisation ne déplace rien et invite à agrandir les zones
 ou à réduire les espacements. Les domaines sans redimensionnement manuel
@@ -159,10 +156,8 @@ des domaines 1 000 px et la taille des catégories 400 %. Dans **Flux**, les
 libellés peuvent atteindre 96 points. Les grandes tailles peuvent nécessiter
 une nouvelle optimisation pour limiter les chevauchements.
 
-Après optimisation, la vue conserve un zoom lisible et cadre l'application la
-plus connectée et ses voisins proches si la carte ne tient pas à l'écran. Utiliser
-« Recentrer » pour cadrer toute la carte ; l'annulation restaure également le
-zoom et la position précédents.
+Après optimisation, « Recentrer » cadre toute la carte sans déplacer les
+applications ; l'annulation restaure également le zoom et la position précédents.
 Les éventuels messages d'erreur sont affichés au-dessus de la zone de dessin ;
 « Recentrer » tient compte des bordures et en-têtes des domaines et catégories.
 Les modifications de positions suivent les

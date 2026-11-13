@@ -47,33 +47,17 @@ export function preserveDomainSize(original, pad, content) {
 export const DEFAULT_LAYOUT_SPACING={app:2,domain:44,category:30};
 
 export function compactLayoutEligible(flowCount, appSpacing, domainSpacing, categorySpacing) {
-  return flowCount<100&&appSpacing===DEFAULT_LAYOUT_SPACING.app&&domainSpacing===DEFAULT_LAYOUT_SPACING.domain&&categorySpacing===DEFAULT_LAYOUT_SPACING.category;
+  return flowCount<=120&&appSpacing===DEFAULT_LAYOUT_SPACING.app&&domainSpacing===DEFAULT_LAYOUT_SPACING.domain&&categorySpacing===DEFAULT_LAYOUT_SPACING.category;
 }
 
-export function denseDefaultSizes(enabled, app, domain, scale, flow) {
+export function denseDefaultSizes(enabled, app, domain, scale, flow, thickness) {
   return {
-    app:enabled&&app===1.6?2.4:app,
-    domain:enabled&&domain===1.5?2.3:domain,
+    app:enabled&&app===1.6?2.8:app,
+    domain:enabled&&domain===1.5?3:domain,
     scale:enabled&&scale===1?1.5:scale,
-    flow:enabled&&flow===13?24:flow,
+    flow:enabled&&flow===13?32:flow,
+    thickness:enabled&&thickness===2?3.5:thickness,
   };
-}
-
-export function readableFocusZoom(fontScale, appFontScale, domainFontScale, minDomainScale) {
-  const appFont=Math.max(1,Math.round(15*fontScale*appFontScale*minDomainScale));
-  const domainFont=Math.max(1,Math.round(13*fontScale*domainFontScale));
-  return Math.min(1.5,Math.max(0.85,18/appFont,18/domainFont));
-}
-
-export function focusFrame(hub, neighbors, width, height, minZoom, maxZoom=1.5) {
-  const focus=[hub,...neighbors];
-  const x1=Math.min(...focus.map(c=>c.x)),x2=Math.max(...focus.map(c=>c.x+c.w));
-  const y1=Math.min(...focus.map(c=>c.y)),y2=Math.max(...focus.map(c=>c.y+c.h));
-  const zoom=Math.max(minZoom,Math.min(maxZoom,(width-80)/(x2-x1+100),(height-80)/(y2-y1+100)));
-  const fits=(x2-x1)*zoom<=width-80&&(y2-y1)*zoom<=height-80;
-  const centerX=fits?(x1+x2)/2:hub.x+hub.w/2;
-  const centerY=fits?(y1+y2)/2:hub.y+hub.h/2;
-  return {zoom,offset:{x:width/2-centerX*zoom,y:height/2-centerY*zoom}};
 }
 
 export function compactLayoutAcceptable(base, candidate) {
@@ -86,7 +70,7 @@ export function compactLayoutAcceptable(base, candidate) {
     candidate.report.straightFallbacks<=base.report.straightFallbacks;
 }
 
-export function optimizedSpacing({cardWidth,cardHeight,flowFontSize,hasFlows,appSpacing,domainSpacing,categorySpacing,domainPadding,domainHeader,categorySide,categoryTop,categoryBottom,categoryBar,domainInsetX,domainInsetY,compact=false,labelHeight=0}) {
+export function optimizedSpacing({cardWidth,cardHeight,flowFontSize,hasFlows,appSpacing,domainSpacing,categorySpacing,domainPadding,domainHeader,categorySide,categoryTop,categoryBottom,categoryBar,domainInsetX,domainInsetY,compact=false,labelHeight=0,hasCategories=true}) {
   const corridorX=Math.max(labelHeight,compact?Math.max(24,cardWidth*0.08,hasFlows?flowFontSize*1.5:0):Math.max(40,cardWidth*0.15,hasFlows?flowFontSize*2:0));
   const corridorY=Math.max(labelHeight,compact?Math.max(24,cardHeight*0.15,hasFlows?flowFontSize*1.5:0):Math.max(40,cardHeight*0.3,hasFlows?flowFontSize*2:0));
   return {
@@ -94,8 +78,8 @@ export function optimizedSpacing({cardWidth,cardHeight,flowFontSize,hasFlows,app
     appY:Math.ceil(Math.max(14+appSpacing,corridorY)),
     categoryX:Math.ceil(Math.max(categorySpacing+appSpacing,2*categorySide+corridorX)),
     categoryY:Math.ceil(Math.max(categorySpacing+28+appSpacing,categoryTop+categoryBar+categoryBottom+corridorY)),
-    domainX:Math.ceil(Math.max(70,domainSpacing,2*domainPadding+corridorX-domainInsetX,2*categorySide+corridorX-domainInsetX)),
-    domainY:Math.ceil(Math.max(70,domainSpacing,2*domainPadding+domainHeader+corridorY-domainInsetY,categoryTop+categoryBar+categoryBottom+corridorY-domainInsetY)),
+    domainX:Math.ceil(Math.max(70,domainSpacing,2*domainPadding+corridorX-domainInsetX,hasCategories?2*categorySide+corridorX-domainInsetX:0)),
+    domainY:Math.ceil(Math.max(70,domainSpacing,2*domainPadding+domainHeader+corridorY-domainInsetY,hasCategories?categoryTop+categoryBar+categoryBottom+corridorY-domainInsetY:0)),
   };
 }
 

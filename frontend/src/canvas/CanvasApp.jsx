@@ -12,7 +12,7 @@ import './ImportMapping.css';
 import WidgetHeader from './WidgetHeader';
 import DashboardInsights, { healthScore } from './DashboardInsights';
 import { routeFlows, pathToD, curvedFlowPath, placeLabels, straightFlowPath, flowLabelSpec, evaluateFlowLayout } from './flowRouting';
-import { placeMostConnectedFirst, gridOffsets, repositionFixedBounds, preserveDomainSize, optimizedSpacing, fitBounds, focusFrame, readableFocusZoom, DEFAULT_LAYOUT_SPACING, compactLayoutEligible, compactLayoutAcceptable, denseDefaultSizes } from './layoutDensity';
+import { placeMostConnectedFirst, gridOffsets, repositionFixedBounds, preserveDomainSize, optimizedSpacing, fitBounds, DEFAULT_LAYOUT_SPACING, compactLayoutEligible, compactLayoutAcceptable, denseDefaultSizes } from './layoutDensity';
 import ViewsMenu from './ViewsMenu';
 import ExportModal from './ExportModal';
 import OptionListsEditor from './OptionListsEditor';
@@ -715,7 +715,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       const next={...prev};
       let changed=false;
       Object.entries(nb).forEach(([cat,b])=>{
-        if(!prev[cat]){next[cat]={...b};changed=true;}
+        if(!prev[cat]){next[cat]={...b,manual:false};changed=true;}
       });
       return changed?next:prev;
     });
@@ -1041,6 +1041,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       impCatBounds[cat].y2=Math.max(impCatBounds[cat].y2,db.y2);
     });
 
+    Object.values(impCatBounds).forEach(b=>{b.manual=false;});
     setCatBounds(impCatBounds);
     setDomPads({});
     setApps(na);setFlows(nf);setOff({x:10,y:10});setZm(Math.max(0.3,Math.min(fitZm,1)));setView("mapping");
@@ -1053,7 +1054,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     const dy=(e.clientY-dr.lastY)/zmRef.current;
     dr.lastX=e.clientX;dr.lastY=e.clientY;
     setApps(p=>p.map(a=>dr.appIds.includes(a.id)?{...a,x:a.x+dx,y:a.y+dy}:a));
-    setCatBounds(p=>{const b=p[dr.cat];if(!b)return p;return{...p,[dr.cat]:{x1:b.x1+dx,y1:b.y1+dy,x2:b.x2+dx,y2:b.y2+dy}};});
+    setCatBounds(p=>{const b=p[dr.cat];if(!b)return p;return{...p,[dr.cat]:{...b,x1:b.x1+dx,y1:b.y1+dy,x2:b.x2+dx,y2:b.y2+dy}};});
   },[]);
   const _catDocUp=useCallback(()=>{
     catDocDragRef.current=null;
@@ -1103,7 +1104,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       if(dr.resizeCat){
         const dx=(e.clientX-dr.lx)/zm,dy=(e.clientY-dr.ly)/zm;
         dr.lx=e.clientX;dr.ly=e.clientY;
-        setCatBounds(p=>{const b=p[dr.resizeCat];if(!b)return p;return{...p,[dr.resizeCat]:{...b,x2:b.x2+dx,y2:b.y2+dy}};});
+        setCatBounds(p=>{const b=p[dr.resizeCat];if(!b)return p;return{...p,[dr.resizeCat]:{...b,x2:b.x2+dx,y2:b.y2+dy,manual:true}};});
         return;
       }
       if(dr.resize){
@@ -1127,7 +1128,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
         // Si c'est un drag de catégorie entière, déplacer aussi les bounds fixes
         if(dr.domain.startsWith("__cat__")){
           const cat=dr.domain.slice(7);
-          setCatBounds(p=>{const b=p[cat];if(!b)return p;return{...p,[cat]:{x1:b.x1+dx,y1:b.y1+dy,x2:b.x2+dx,y2:b.y2+dy}};});
+          setCatBounds(p=>{const b=p[cat];if(!b)return p;return{...p,[cat]:{...b,x1:b.x1+dx,y1:b.y1+dy,x2:b.x2+dx,y2:b.y2+dy}};});
         }
       } else {
         // Single app drag
@@ -1193,10 +1194,8 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
   const applyStarLayout=(sourceApps,interactive=false)=>{
     var layoutApps=sourceApps||apps;
     if(layoutApps.length===0)return;
-    const dense=interactive&&flows.length<100;
-    const adjusted=denseDefaultSizes(interactive,appFontScale,domainFontScale,globalScale,flowFontSize);
+    const adjusted=denseDefaultSizes(interactive,appFontScale,domainFontScale,globalScale,flowFontSize,flowThickness);
     const sizes={app:adjusted.app,domain:adjusted.domain,category:categoryFontScale,flow:adjusted.flow};
-    const readable=interactive&&(sizes.app!==appFontScale||sizes.domain!==domainFontScale||sizes.flow!==flowFontSize||adjusted.scale!==globalScale);
     const baseWidth=220*Math.max(1,sizes.app/2.4),baseHeight=84*Math.max(1,sizes.app/2.4);
     const layoutScale=adjusted.scale;
     let measureLabels;
@@ -1222,7 +1221,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       categoryTop:Math.max(Math.round(30*categoryScale),38+Math.round(28*fontScale)+24,domainPadding+Math.round(24*fontScale*sizes.domain)+14),
       categoryBottom:Math.round(32*categoryScale),
       categoryBar:Math.max(Math.round(38*fontScale*categoryScale*sizes.category),Math.ceil(34/0.35)),
-      domainInsetX:2*domSide,domainInsetY:domPad+26,compact,labelHeight,
+      domainInsetX:2*domSide,domainInsetY:domPad+26,compact,labelHeight,hasCategories:layoutApps.some(a=>a.category),
     });
     // 1. Compter les flux inter-domaines
     const domFlows={};
@@ -1348,7 +1347,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       const card=layoutCard(a),domain=newDomains[a.domain]||(newDomains[a.domain]={x1:Infinity,y1:Infinity,x2:-Infinity,y2:-Infinity});
       domain.x1=Math.min(domain.x1,card.x);domain.y1=Math.min(domain.y1,card.y);domain.x2=Math.max(domain.x2,card.x+card.w);domain.y2=Math.max(domain.y2,card.y+card.h);
       var cat=a.category;if(!cat)return;
-      if(!newCatBounds[cat])newCatBounds[cat]={x1:Infinity,y1:Infinity,x2:-Infinity,y2:-Infinity};
+      if(!newCatBounds[cat])newCatBounds[cat]={x1:Infinity,y1:Infinity,x2:-Infinity,y2:-Infinity,manual:false};
       var appW=card.w;
       var appH=card.h;
       newCatBounds[cat].x1=Math.min(newCatBounds[cat].x1,a.x);
@@ -1362,15 +1361,15 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       if(pad)newDomPads[item.domain]=pad;else compatible=false;
     });
     if(interactive)Object.entries(newCatBounds).forEach(function([cat,content]){
-      if(!catBounds[cat])return;
+      if(!catBounds[cat]||catBounds[cat].manual===false){newCatBounds[cat].manual=false;return;}
       const fixed=repositionFixedBounds(catBounds[cat],content);
-      if(fixed)newCatBounds[cat]=fixed;else compatible=false;
+      if(fixed)newCatBounds[cat]={...fixed,manual:true};else compatible=false;
     });
     return {apps:na,catBounds:newCatBounds,domPads:newDomPads,compatible};
     };
     const evaluateCandidate=candidate=>{
       const options={sizes,categoryBounds:candidate.catBounds,domainPads:candidate.domPads};
-      const geometry=getOptimizedFrame(candidate.apps,layoutCard,{...options,dense,readable});
+      const geometry=getCanvasFrame(candidate.apps,layoutCard,options);
       const report=evaluateFlowLayout(candidate.apps.map(layoutCard),flows,sizes.flow,geometry.zoom,flowShape,measureLabels);
       const frame=getCanvasFrame(candidate.apps,layoutCard,options),bounds=frame.bounds;
       const domainBoxes={};
@@ -1391,7 +1390,7 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     let best=makeLayout(interactive&&flows.length>120?250:0,interactive&&flows.length>120?"central":false);
     const allowCompact=interactive&&compactLayoutEligible(flows.length,appSpacing,domainSpacing,categorySpacing);
     if(interactive&&((flows.length>0&&flows.length<=120)||allowCompact)){
-      const attempts=flows.length?(layoutApps.length<=100?[[0,"central"],[120,"central"],[300,"central"],[550,"central"]]:[[0,"central"],[250,"central"]]):[[0,false]];
+      const attempts=flows.length?(allowCompact?[[0,"central"],[120,"central"]]:layoutApps.length<=100?[[0,"central"],[120,"central"],[300,"central"],[550,"central"]]:[[0,"central"],[250,"central"]]):[[0,false]];
       let bestScore=Infinity;
       let baseline=null;
       best=null;
@@ -1422,9 +1421,9 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
       setLayoutReport(null);
     }
     if(interactive){
-      setLayoutUndo({positions:Object.fromEntries(apps.map(a=>[a.id,[a.x,a.y]])),catBounds,domPads,zoom:zm,offset:off,autoSizes:{app:sizes.app!==appFontScale?{before:appFontScale,after:sizes.app}:null,domain:sizes.domain!==domainFontScale?{before:domainFontScale,after:sizes.domain}:null,flow:sizes.flow!==flowFontSize?{before:flowFontSize,after:sizes.flow}:null,scale:layoutScale!==globalScale?{before:globalScale,after:layoutScale}:null}});
-      setAppFontScale(sizes.app);setDomainFontScale(sizes.domain);setFlowFontSize(sizes.flow);setGlobalScale(layoutScale);
-      pendingOptimizedFrame.current=dense?"dense":readable?"readable":true;
+      setLayoutUndo({positions:Object.fromEntries(apps.map(a=>[a.id,[a.x,a.y]])),catBounds,domPads,zoom:zm,offset:off,autoSizes:{app:sizes.app!==appFontScale?{before:appFontScale,after:sizes.app}:null,domain:sizes.domain!==domainFontScale?{before:domainFontScale,after:sizes.domain}:null,flow:sizes.flow!==flowFontSize?{before:flowFontSize,after:sizes.flow}:null,thickness:adjusted.thickness!==flowThickness?{before:flowThickness,after:adjusted.thickness}:null,scale:layoutScale!==globalScale?{before:globalScale,after:layoutScale}:null}});
+      setAppFontScale(sizes.app);setDomainFontScale(sizes.domain);setFlowFontSize(sizes.flow);setFlowThickness(adjusted.thickness);setGlobalScale(layoutScale);
+      pendingOptimizedFrame.current=true;
     }
     setApps(best.apps);
     setCatBounds(best.catBounds);
@@ -1464,33 +1463,16 @@ const [selMode,setSelMode]=useState(false); // toggle select mode
     }
     return frame;
   };
-  const getOptimizedFrame=(layoutApps,getCard=cardDims,options={})=>{
-    const frame=getCanvasFrame(layoutApps,getCard,options);
-    const sizes=options.sizes||{app:appFontScale,domain:domainFontScale};
-    const minDomainScale=Math.min(...layoutApps.map(a=>domScales[a.domain]||1));
-    const minZoom=options.dense?readableFocusZoom(fontScale,sizes.app,sizes.domain,minDomainScale):options.readable?0.65:0.35;
-    if(frame.zoom>=(options.dense?minZoom:0.6))return frame;
-    const connections={};
-    flows.forEach(f=>{connections[f.from]=(connections[f.from]||0)+1;connections[f.to]=(connections[f.to]||0)+1;});
-    const hub=layoutApps.slice().sort((a,b)=>(connections[b.id]||0)-(connections[a.id]||0)||String(a.id).localeCompare(String(b.id)))[0];
-    const card=getCard(hub),rect=cvRef.current?.getBoundingClientRect();
-    const vw=rect?.width||window.innerWidth||1400,vh=rect?.height||((window.innerHeight||800)-100);
-    const neighborIds=new Set(flows.flatMap(f=>f.from===hub.id?[f.to]:f.to===hub.id?[f.from]:[]));
-    const neighbors=layoutApps.filter(a=>neighborIds.has(a.id)).map(getCard).sort((a,b)=>Math.hypot(a.x+a.w/2-card.x-card.w/2,a.y+a.h/2-card.y-card.h/2)-Math.hypot(b.x+b.w/2-card.x-card.w/2,b.y+b.h/2-card.y-card.h/2)).slice(0,2);
-    return focusFrame(card,neighbors,vw,vh,minZoom,options.dense?1.5:0.75);
-  };
   const fitCanvas=(layoutApps=filtered)=>{
     if(!layoutApps.length)return;
     const frame=getCanvasFrame(layoutApps);
     setZm(frame.zoom);
     setOff(frame.offset);
   };
-
   useLayoutEffect(()=>{
     if(!pendingOptimizedFrame.current||!apps.length)return;
-    const dense=pendingOptimizedFrame.current==="dense",readable=pendingOptimizedFrame.current==="readable";
     pendingOptimizedFrame.current=false;
-    const frame=getOptimizedFrame(apps,cardDims,{dense,readable});
+    const frame=getCanvasFrame(apps,cardDims);
     setZm(frame.zoom);setOff(frame.offset);
   },[apps,layoutReport,appFontScale,domainFontScale,categoryFontScale,flowFontSize]);
 
@@ -3882,8 +3864,8 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
         </div>;})}
       {activeFilters&&<button onMouseDown={e=>{e.stopPropagation();setSelDom([]);setSelCat([]);setSelCrit([]);setSelHost([]);setSelAType([]);setSelEos([]);setSelD1("");setSelD2("");setSelStatut("");setFlowDir("");}} style={{...B,padding:"4px 8px",fontSize:11,background:"#FF525220",color:"#FF5252",borderRadius:4}}>✕</button>}
       <div style={{flex:1}}/>
-      {!readOnly&&<button className="mapping-trigger mapping-trigger-primary" onMouseDown={e=>{e.stopPropagation();applyStarLayout(undefined,true);}} title="Rapproche les applications et domaines connectés et adapte les espacements. La carte peut dépasser l'écran ; utilisez Recentrer pour la vue d'ensemble." style={{...B,padding:"7px 11px",fontSize:9.5,background:"linear-gradient(120deg,#4F46E5,#6366F1 58%,#0EA5E9)",color:"#fff",border:"1px solid rgba(165,180,252,.45)",borderRadius:11,display:"flex",alignItems:"center",gap:6,fontWeight:800,boxShadow:"0 6px 16px rgba(79,70,229,.28)"}}><span style={{fontSize:13}}>✦</span> Optimiser la disposition</button>}
-      {!readOnly&&layoutUndo&&<button type="button" className="mapping-trigger" onClick={function(){pendingOptimizedFrame.current=false;setApps(current=>current.map(a=>layoutUndo.positions[a.id]?{...a,x:layoutUndo.positions[a.id][0],y:layoutUndo.positions[a.id][1]}:a));setCatBounds(layoutUndo.catBounds);setDomPads(layoutUndo.domPads);if(layoutUndo.autoSizes.app)setAppFontScale(current=>current===layoutUndo.autoSizes.app.after?layoutUndo.autoSizes.app.before:current);if(layoutUndo.autoSizes.domain)setDomainFontScale(current=>current===layoutUndo.autoSizes.domain.after?layoutUndo.autoSizes.domain.before:current);if(layoutUndo.autoSizes.flow)setFlowFontSize(current=>current===layoutUndo.autoSizes.flow.after?layoutUndo.autoSizes.flow.before:current);if(layoutUndo.autoSizes.scale)setGlobalScale(current=>current===layoutUndo.autoSizes.scale.after?layoutUndo.autoSizes.scale.before:current);setZm(layoutUndo.zoom);setOff(layoutUndo.offset);setLayoutUndo(null);setLayoutReport(null);}} style={{...B,padding:"7px 10px",fontSize:10,background:toolbarSurface,color:T.fg,border:"1px solid "+T.border}}>Annuler l'optimisation</button>}
+      {!readOnly&&<button className="mapping-trigger mapping-trigger-primary" onMouseDown={e=>{e.stopPropagation();applyStarLayout(undefined,true);}} title="Rapproche les applications et domaines connectés et adapte les espacements." style={{...B,padding:"7px 11px",fontSize:9.5,background:"linear-gradient(120deg,#4F46E5,#6366F1 58%,#0EA5E9)",color:"#fff",border:"1px solid rgba(165,180,252,.45)",borderRadius:11,display:"flex",alignItems:"center",gap:6,fontWeight:800,boxShadow:"0 6px 16px rgba(79,70,229,.28)"}}><span style={{fontSize:13}}>✦</span> Optimiser la disposition</button>}
+      {!readOnly&&layoutUndo&&<button type="button" className="mapping-trigger" onClick={function(){pendingOptimizedFrame.current=false;setApps(current=>current.map(a=>layoutUndo.positions[a.id]?{...a,x:layoutUndo.positions[a.id][0],y:layoutUndo.positions[a.id][1]}:a));setCatBounds(layoutUndo.catBounds);setDomPads(layoutUndo.domPads);if(layoutUndo.autoSizes.app)setAppFontScale(current=>current===layoutUndo.autoSizes.app.after?layoutUndo.autoSizes.app.before:current);if(layoutUndo.autoSizes.domain)setDomainFontScale(current=>current===layoutUndo.autoSizes.domain.after?layoutUndo.autoSizes.domain.before:current);if(layoutUndo.autoSizes.flow)setFlowFontSize(current=>current===layoutUndo.autoSizes.flow.after?layoutUndo.autoSizes.flow.before:current);if(layoutUndo.autoSizes.thickness)setFlowThickness(current=>current===layoutUndo.autoSizes.thickness.after?layoutUndo.autoSizes.thickness.before:current);if(layoutUndo.autoSizes.scale)setGlobalScale(current=>current===layoutUndo.autoSizes.scale.after?layoutUndo.autoSizes.scale.before:current);setZm(layoutUndo.zoom);setOff(layoutUndo.offset);setLayoutUndo(null);setLayoutReport(null);}} style={{...B,padding:"7px 10px",fontSize:10,background:toolbarSurface,color:T.fg,border:"1px solid "+T.border}}>Annuler l'optimisation</button>}
       {/* ── Création menu ── */}
       {!readOnly&&<div className="mapping-trigger-anchor" style={{position:"relative"}}>
         <button className="mapping-trigger" aria-haspopup="true" aria-expanded={openMenu==="create"} onClick={function(){setOpenMenu(openMenu==="create"?null:"create");}} style={{...B,background:openMenu==="create"?"linear-gradient(135deg,#6366F126,#8B5CF618)":cMode?"linear-gradient(135deg,#EF44442E,#F9731618)":toolbarSurface,color:cMode?"#FB7185":T.fgMuted,border:"1px solid "+(cMode?"#EF444466":openMenu==="create"?"#8B5CF655":T.border),padding:"7px 11px",fontSize:10,borderRadius:10,display:"flex",alignItems:"center",gap:7,boxShadow:cMode?"0 4px 14px rgba(239,68,68,.14)":"0 3px 10px rgba(0,0,0,.12)"}}>
@@ -4056,7 +4038,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
         <span style={{minWidth:44,textAlign:"center",fontSize:10,fontWeight:800,color:T.fg,fontVariantNumeric:"tabular-nums"}}>{Math.round(zm*100)}%</span>
         <button title="Zoomer" onMouseDown={function(e){e.stopPropagation();setZm(function(z){return Math.min(2.5,+(z+.1).toFixed(2));});}} style={{...B,width:30,height:30,padding:0,background:T.bgHover,color:T.fg,borderRadius:8,fontSize:17}}>+</button>
         <span style={{width:1,height:22,background:T.border,margin:"0 2px"}}/>
-        <button title="Cadrer toute la cartographie sans déplacer les applications" onMouseDown={function(e){e.stopPropagation();fitCanvas();}} style={{...B,padding:"7px 10px",background:"#6366F1",color:"#fff",borderRadius:8,fontSize:10,whiteSpace:"nowrap"}}>⌖ Recentrer</button>
+        <button title="Recentrer toute la cartographie sans déplacer les applications" onMouseDown={function(e){e.stopPropagation();if(e.button===0)fitCanvas();}} onClick={function(e){e.stopPropagation();if(e.detail===0)fitCanvas();}} style={{...B,padding:"7px 10px",background:"#6366F1",color:"#fff",borderRadius:8,fontSize:10,whiteSpace:"nowrap"}}>⌖ Recentrer</button>
         <span style={{width:1,height:22,background:T.border,margin:"0 2px"}}/>
         <span style={{padding:"0 6px",fontSize:9,fontWeight:650,whiteSpace:"nowrap"}}>{activeFilters?filtered.length+" / ":""}{apps.length} apps · {flows.length} flux{activeFilters?" filtrés":""}</span>
       </div>
