@@ -44,6 +44,12 @@ function FlowArrowShape({ style, color }) {
   return <polygon points="0,0 10,3.5 0,7" fill={color}/>;
 }
 
+function MapColorPicker({ id, label, value, onChange }) {
+  return <span className="mapping-color-picker" style={{backgroundColor:value}}>
+    <input id={id} aria-label={label} type="color" value={value} onChange={onChange}/>
+  </span>;
+}
+
 // Dynamic imports — these heavy libs (XLSX ~816KB, ) load only when
 /*
     if(!urbZone){
@@ -4058,7 +4064,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
             const color=mapBackgrounds?.[item.mode]||null;
             return <div key={item.mode} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 6px"}}>
               <span style={{fontSize:10,color:T.fgMuted,width:62,flexShrink:0}}>{item.label}</span>
-              <input aria-label={"Fond "+item.label.toLowerCase()} type="color" value={color||item.fallback} onChange={function(e){setMapBackgrounds(current=>({...current,[item.mode]:e.target.value}));}} style={{width:32,height:28,border:"1px solid "+T.border,borderRadius:6,cursor:"pointer",padding:2,background:T.bgAlt}}/>
+              <MapColorPicker label={"Fond "+item.label.toLowerCase()} value={color||item.fallback} onChange={function(e){setMapBackgrounds(current=>({...current,[item.mode]:e.target.value}));}}/>
               <span style={{fontSize:10,color:T.fg,flex:1,fontFamily:"monospace"}}>{color||"Thème"}</span>
               {color&&<button type="button" aria-label={"Réinitialiser "+item.label.toLowerCase()} onClick={function(){setMapBackgrounds(current=>({...current,[item.mode]:null}));}} style={{...B,padding:"4px 8px",fontSize:10,background:T.bgAlt,color:T.fg,border:"1px solid "+T.border}}>Réinitialiser</button>}
             </div>;
@@ -4142,7 +4148,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
           </div>
           <div className="mapping-menu-section-title">Couleur du flux</div>
           <div style={{display:"flex",alignItems:"center",gap:6,padding:"4px 8px"}}>
-            <input type="color" value={flowColorCustom||"#548CA8"} onChange={function(e){setFlowColorCustom(e.target.value);}} style={{width:24,height:24,border:"none",borderRadius:4,cursor:"pointer",padding:0}}/>
+            <MapColorPicker label="Couleur du flux" value={flowColorCustom||(flowDisplayMode==="static"?(isDark?"#B9C4FF":"#334155"):(isDark?"#548CA8":"#3D7A9E"))} onChange={function(e){setFlowColorCustom(e.target.value);}}/>
             <span style={{fontSize:10,color:T.fg}}>{flowColorCustom||"Auto"}</span>
             {flowColorCustom&&<button onClick={function(){setFlowColorCustom("");}} style={{...B,padding:"2px 8px",fontSize:11,background:T.border}}>Reset</button>}
           </div>
@@ -4152,7 +4158,7 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
             const color=flowDirectionColors[item.key];
             return <div key={item.key} style={{display:"flex",alignItems:"center",gap:6,padding:"4px 8px"}}>
               <label htmlFor={"flow-color-"+item.key} style={{fontSize:10,color:T.fgMuted,flex:1}}>{item.label}</label>
-              <input id={"flow-color-"+item.key} aria-label={"Couleur "+item.label.toLowerCase()} type="color" value={color} onChange={function(e){const value=e.target.value;setFlowDirectionColors(current=>({...current,[item.key]:value}));}} style={{width:28,height:26,border:"1px solid "+T.border,borderRadius:4,cursor:"pointer",padding:1,background:T.bgAlt}}/>
+              <MapColorPicker id={"flow-color-"+item.key} label={"Couleur "+item.label.toLowerCase()} value={color} onChange={function(e){const value=e.target.value;setFlowDirectionColors(current=>({...current,[item.key]:value}));}}/>
               <span style={{fontSize:10,color:T.fg,fontFamily:"monospace"}}>{color}</span>
               <button type="button" aria-label={"Réinitialiser "+item.label.toLowerCase()} onClick={function(){setFlowDirectionColors(current=>({...current,[item.key]:DEFAULT_FLOW_DIRECTION_COLORS[item.key]}));}} style={{...B,padding:"3px 6px",fontSize:10,background:T.bgAlt,color:T.fg,border:"1px solid "+T.border}}>↺</button>
             </div>;
@@ -4395,9 +4401,9 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
       </div>
       <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
         <span style={{fontSize:11,color:T.fgMuted}}>Personnalisée :</span>
-        <input type="color" value={(domColors[showDomEdit]||{ac:"#9E9E9E"}).ac}
+        <MapColorPicker label="Couleur personnalisée du domaine" value={(domColors[showDomEdit]||{ac:"#9E9E9E"}).ac}
           onChange={e=>{setDomColors(prev=>{const n={...prev};n[showDomEdit]=acToPalette(e.target.value);return n;});}}
-          style={{width:48,height:32,border:"1px solid #555",borderRadius:4,background:T.bg,cursor:"pointer",padding:2}}/>
+        />
         <span style={{fontSize:11,color:T.fgDim,fontFamily:"monospace"}}>{(domColors[showDomEdit]||{ac:"#9E9E9E"}).ac}</span>
       </div>
       <div style={{padding:"10px 14px",borderRadius:8,background:(domColors[showDomEdit]||{bg:"#3D3D3D"}).bg,border:"1px solid "+((domColors[showDomEdit]||{ac:"#9E9E9E"}).ac)+"40",marginBottom:16}}>
@@ -4424,9 +4430,9 @@ if(view==="dashboard") return <AppCtx.Provider value={ctxValue}><div style={{hei
         </div>
         <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
           <span style={{fontSize:11,color:T.fgMuted}}>Personnalisée :</span>
-          <input type="color" value={catColors[showCatColorEdit]||CAT_COLORS[0]}
+          <MapColorPicker label="Couleur personnalisée de la catégorie" value={catColors[showCatColorEdit]||CAT_COLORS[0]}
             onChange={e=>{setCatColors(p=>({...p,[showCatColorEdit]:e.target.value}));}}
-            style={{width:48,height:32,border:"1px solid #555",borderRadius:4,background:T.bg,cursor:"pointer",padding:2}}/>
+          />
         </div>
         <div style={{display:"flex",justifyContent:"flex-end"}}>
           <button onMouseDown={e=>{e.stopPropagation();setShowCatColorEdit(null);}} style={{...B,background:"#548CA8"}}>Fermer</button>

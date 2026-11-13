@@ -183,7 +183,8 @@ Dans **Flux**, les couleurs des flux entrants et sortants sont personnalisables
 indépendamment. Elles s'appliquent aux flux de l'application survolée ou
 sélectionnée et à sa fiche ; sans application de référence, la couleur générale
 reste utilisée. Ces couleurs sont enregistrées localement par projet ainsi que
-dans les vues nommées et les exports JSON.
+dans les vues nommées et les exports JSON. Les sélecteurs de couleur de la
+cartographie affichent un aperçu de la couleur active avant ouverture.
 
 Après optimisation, « Recentrer » cadre toute la carte sans déplacer les
 applications ; l'annulation restaure également le zoom et la position précédents.
