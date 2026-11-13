@@ -179,6 +179,12 @@ réinitialisation de chaque mode rétablit le fond associé au thème. Les grand
 tailles peuvent nécessiter une nouvelle optimisation pour limiter les
 chevauchements.
 
+Dans **Flux**, les couleurs des flux entrants et sortants sont personnalisables
+indépendamment. Elles s'appliquent aux flux de l'application survolée ou
+sélectionnée et à sa fiche ; sans application de référence, la couleur générale
+reste utilisée. Ces couleurs sont enregistrées localement par projet ainsi que
+dans les vues nommées et les exports JSON.
+
 Après optimisation, « Recentrer » cadre toute la carte sans déplacer les
 applications ; l'annulation restaure également le zoom et la position précédents.
 Le pourcentage de zoom peut être saisi dans la barre de zoom, entre 1 et 250 %.
